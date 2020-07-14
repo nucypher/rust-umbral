@@ -1,7 +1,10 @@
 use blake2::{Blake2b, Digest};
-use k256::arithmetic::ProjectivePoint as CurvePoint;
-use k256::PublicKey;
+
+// TODO: find a way to create a point directly to avoid importing PublicKey or even AffinePoint too
 use k256::arithmetic::AffinePoint;
+use k256::PublicKey;
+
+use crate::curve::CurvePoint;
 
 
 fn to_fixed_be_bytes(x: usize) -> [u8; 4] {
@@ -26,7 +29,7 @@ WARNING: Do not use when the input data is secret, as this implementation is not
 in constant time, and hence, it is not safe with respect to timing attacks.
 */
 
-fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
+pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
 
     // FIXME: make it return a constant amount of bytes
     let len_data = to_fixed_be_bytes(data.len());
@@ -45,6 +48,8 @@ fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
         let ibytes = to_fixed_be_bytes(i as usize);
         let to_hash: Vec<u8> = label_data.iter().chain(&ibytes).cloned().collect();
 
+        // TODO: use a Blake2b implementation that supports personalization (see #155)
+        // TODO: use VarBlake2b?
         let mut hash_function = Blake2b::new();
         hash_function.update(to_hash);
         let hash_digest_full = hash_function.finalize();
