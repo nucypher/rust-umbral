@@ -1,0 +1,9 @@
+[package]
+name = "umbral"
+version = "0.1.0"
+authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
+edition = "2018"
+
+[dependencies]
+blake2 = "0.9"
+k256 = { version = "0.3", features = ["arithmetic"] }
