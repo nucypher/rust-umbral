@@ -6,4 +6,12 @@ edition = "2018"
 
 [dependencies]
 blake2 = "0.9"
-k256 = { version = "0.3", features = ["arithmetic"] }
+
+[dependencies.rand_core]
+version = "0.5"
+features = ["getrandom"]
+
+[dependencies.k256]
+features = ["arithmetic", "rand"]
+path = "/Users/bogdan/wb/github/elliptic-curves/k256"
+

@@ -1,4 +1,5 @@
 mod curve;
-mod params;
 mod random_oracles;
-//mod pre;
+mod params;
+mod keys;
+mod pre;

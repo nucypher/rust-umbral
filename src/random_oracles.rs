@@ -1,7 +1,7 @@
 use blake2::{Blake2b, Digest};
 
 // TODO: find a way to create a point directly to avoid importing PublicKey or even AffinePoint too
-use k256::arithmetic::AffinePoint;
+use k256::AffinePoint;
 use k256::PublicKey;
 
 use crate::curve::CurvePoint;
