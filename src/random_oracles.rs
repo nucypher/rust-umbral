@@ -1,10 +1,11 @@
 use blake2::{Blake2b, Digest};
+use sha3::Sha3_256;
 
 // TODO: find a way to create a point directly to avoid importing PublicKey or even AffinePoint too
 use k256::AffinePoint;
 use k256::PublicKey;
 
-use crate::curve::CurvePoint;
+use crate::curve::{CurvePoint, CurveScalar, point_to_bytes, bytes_to_point};
 
 
 fn to_fixed_be_bytes(x: usize) -> [u8; 4] {
@@ -59,11 +60,9 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
         let sign = if hash_digest[0] & 1 == 0 { b"\x02" } else { b"\x03" };
         let compressed_point: Vec<u8> = sign.iter().chain(hash_digest[1..hash_digest.len()].iter()).cloned().collect();
 
-        let pubkey = PublicKey::from_bytes(compressed_point).unwrap();
-        let maybe_point = AffinePoint::from_pubkey(&pubkey);
-
-        if maybe_point.is_some().into() {
-            return Some(CurvePoint::from(maybe_point.unwrap()))
+        let maybe_point = bytes_to_point(&compressed_point);
+        if maybe_point.is_some() {
+            return maybe_point
         }
 
         i += 1
@@ -74,16 +73,43 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
 }
 
 
+pub fn hash_to_scalar(crypto_items: &[CurvePoint]) -> CurveScalar {
+    // TODO: in the original (hashe_to_curvebn()), there is a customization string parameter,
+    // but it is never used.
+    let customization_string = b"hash_to_curvebn";
+    // TODO: make generic in hash algorithm (use Digest trait)
+    // TODO: the original uses Blake here, but it has
+    // the output size not supported by `from_digest()`
+    let mut hasher = Sha3_256::new();
+    hasher.update(&customization_string);
+
+    for item in crypto_items {
+        hasher.update(point_to_bytes(item));
+    }
+
+    CurveScalar::from_digest(hasher)
+}
+
+
 #[cfg(test)]
 mod tests {
 
-    use super::unsafe_hash_to_point;
+    use super::{unsafe_hash_to_point, hash_to_scalar};
+    use crate::curve::CurvePoint;
 
     #[test]
     fn test_unsafe_hash_to_point() {
         let data = b"abcdefg";
         let label = b"sdasdasd";
         let p = unsafe_hash_to_point(&data[..], &label[..]);
-        println!("{:?}", p);
+        println!("unsafe_hash_to_point: {:?}", p);
+    }
+
+    #[test]
+    fn test_hash_to_scalar() {
+        let p1 = CurvePoint::generator();
+        let p2 = &p1 + &p1;
+        let p = hash_to_scalar(&[p1, p2]);
+        println!("hash_to_scalar: {:?}", p);
     }
 }

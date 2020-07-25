@@ -1,4 +1,4 @@
-use crate::curve::{CompressedPoint, CurvePoint};
+use crate::curve::{point_to_bytes, CurvePoint};
 use crate::random_oracles::unsafe_hash_to_point;
 
 
@@ -16,8 +16,7 @@ impl UmbralParameters {
         let curve_key_size_bytes = 32; // TODO: get from the curve
 
         let g = CurvePoint::generator();
-        let g_affine = (&g).to_affine().unwrap();
-        let g_bytes = CompressedPoint::from(g_affine).into_bytes();
+        let g_bytes = point_to_bytes(&g);
 
         let parameters_seed = b"NuCypher/UmbralParameters/u";
         let u = unsafe_hash_to_point(&g_bytes, parameters_seed).unwrap();
