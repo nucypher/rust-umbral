@@ -1,10 +1,10 @@
-use k256::Secp256k1;
+//use k256::Secp256k1;
 pub use k256::ProjectivePoint as CurvePoint;
 pub use k256::Scalar as CurveScalar;
 use k256::AffinePoint;
 use k256::PublicKey;
 use k256::CompressedPoint;
-use generic_array::{GenericArray, ArrayLength};
+//use generic_array::{GenericArray, ArrayLength};
 
 use rand_core::OsRng;
 

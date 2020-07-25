@@ -1,9 +1,7 @@
 use blake2::{Blake2b, Digest};
+use sha2::Sha256;
 use sha3::Sha3_256;
-
-// TODO: find a way to create a point directly to avoid importing PublicKey or even AffinePoint too
-use k256::AffinePoint;
-use k256::PublicKey;
+use hkdf::Hkdf;
 
 use crate::curve::{CurvePoint, CurveScalar, point_to_bytes, bytes_to_point};
 
@@ -91,10 +89,28 @@ pub fn hash_to_scalar(crypto_items: &[CurvePoint]) -> CurveScalar {
 }
 
 
+
+fn kdf(ecpoint: &CurvePoint, key_length: usize, salt: Option<&[u8]>, info: Option<&[u8]>) -> Vec<u8> {
+
+    let data = point_to_bytes(ecpoint);
+    let hk = Hkdf::<Sha256>::new(salt, &data);
+
+    let mut okm = vec![0u8; key_length];
+
+    let def_info = match info {
+        Some(x) => x,
+        None => &[]
+    };
+
+    hk.expand(&def_info, &mut okm);
+    okm
+}
+
+
 #[cfg(test)]
 mod tests {
 
-    use super::{unsafe_hash_to_point, hash_to_scalar};
+    use super::{unsafe_hash_to_point, hash_to_scalar, kdf};
     use crate::curve::CurvePoint;
 
     #[test]
@@ -111,5 +127,14 @@ mod tests {
         let p2 = &p1 + &p1;
         let p = hash_to_scalar(&[p1, p2]);
         println!("hash_to_scalar: {:?}", p);
+    }
+
+    #[test]
+    fn test_kdf() {
+        let p1 = CurvePoint::generator();
+        let salt = b"abcdefg";
+        let info = b"sdasdasd";
+        let key = kdf(&p1, 128, Some(&salt[..]), Some(&info[..]));
+        println!("kdf: {:?}", key);
     }
 }

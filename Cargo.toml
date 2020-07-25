@@ -8,6 +8,8 @@ edition = "2018"
 blake2 = "0.9"
 generic-array = "0.14"
 sha3 = "0.9"
+hkdf = "0.7"
+sha2 = "0.9"
 
 [dependencies.rand_core]
 version = "0.5"
