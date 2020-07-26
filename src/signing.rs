@@ -7,6 +7,7 @@ Wrapper for ECDSA signatures.
 We store signatures as r and s; this class allows interoperation
 between (r, s) and DER formatting.
 */
+#[derive(Clone, Copy, Debug)]
 pub struct Signature {
     r: CurveScalar,
     s: CurveScalar,
@@ -46,7 +47,7 @@ impl Signer {
         Signature::new()
     }
 
-    fn sign(&self, message: &[u8]) -> Signature {
+    pub fn sign(&self, message: &[u8]) -> Signature {
         // TODO: `private_key` should implement `Signer` trait.
         //let signature = self.private_key.sign(message);
         //Signature::from_bytes(signature.to_bytes());

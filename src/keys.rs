@@ -1,5 +1,5 @@
 use crate::params::UmbralParameters;
-use crate::curve::{CurvePoint, CurveScalar, random_scalar};
+use crate::curve::{CurvePoint, CurveScalar, random_scalar, point_to_bytes, scalar_to_bytes};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPrivateKey {
@@ -35,6 +35,10 @@ impl UmbralPrivateKey {
         // TODO: wait until ECDSA is implemented in k256
         EllipticCurvePrivateKey()
     }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        scalar_to_bytes(&self.bn_key)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -47,5 +51,9 @@ pub struct UmbralPublicKey {
 impl UmbralPublicKey {
     pub fn new(point_key: &CurvePoint, params: &UmbralParameters) -> Self {
         Self { params: *params, point_key: *point_key }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        point_to_bytes(&self.point_key)
     }
 }

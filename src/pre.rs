@@ -1,9 +1,12 @@
-use crate::curve::{random_scalar, CurvePoint, CurveScalar, point_to_bytes};
+use crate::curve::{random_scalar, CurvePoint, CurveScalar, point_to_bytes, scalar_to_bytes};
 use crate::random_oracles::{hash_to_scalar, kdf};
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::dem::{UmbralDEM, DEM_KEYSIZE, Ciphertext};
 use crate::params::UmbralParameters;
-
+use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
+use crate::kfrags::{KFrag, KeyType, serialize_key_type};
+use crate::signing::Signer;
+use crate::utils::poly_eval;
 
 #[derive(Clone, Copy, Debug)]
 struct Capsule {
@@ -25,9 +28,10 @@ impl Capsule {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let result: Vec<u8> =
-            point_to_bytes(&(self.point_e)).iter().chain(
-            point_to_bytes(&(self.point_v)).iter().chain(
-            self.bn_sig.to_bytes().iter())).copied().collect();
+            point_to_bytes(&(self.point_e)).iter()
+            .chain(point_to_bytes(&self.point_v).iter())
+            .chain(scalar_to_bytes(&self.bn_sig).iter())
+            .copied().collect();
         result
     }
 }
@@ -45,7 +49,7 @@ fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
     let priv_u = random_scalar();
     let pub_u = &g * &priv_u;
 
-    let h = hash_to_scalar(&[pub_r, pub_u]);
+    let h = hash_to_scalar(&[pub_r, pub_u], None);
     let s = &priv_u + (&priv_r * &h);
 
     let shared_key = &(alice_pubkey.point_key) * &(&priv_r + &priv_u);
@@ -121,13 +125,130 @@ fn decrypt_reencrypted(ciphertext: [u8],
 }
 */
 
+/*
+Creates a re-encryption key from Alice's delegating public key to Bob's
+receiving public key, and splits it in KFrags, using Shamir's Secret Sharing.
+Requires a threshold number of KFrags out of N.
+
+Returns a list of N KFrags
+*/
+fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
+                   receiving_pubkey: &UmbralPublicKey,
+                   threshold: usize,
+                   N: usize,
+                   signer: &Signer,
+                   sign_delegating_key: bool,
+                   sign_receiving_key: bool,
+                   ) -> Vec<KFrag> {
+
+    // TODO: debug_assert!, or panic in release too?
+    //if threshold <= 0 or threshold > N:
+    //    raise ValueError('Arguments threshold and N must satisfy 0 < threshold <= N')
+    //if delegating_privkey.params != receiving_pubkey.params:
+    //    raise ValueError("Keys must have the same parameter set.")
+
+    let params = delegating_privkey.params;
+    let g = params.g;
+
+    let delegating_pubkey = delegating_privkey.get_pubkey();
+
+    let bob_pubkey_point = receiving_pubkey.point_key;
+
+    // The precursor point is used as an ephemeral public key in a DH key exchange,
+    // and the resulting shared secret 'dh_point' is used to derive other secret values
+    let private_precursor = random_scalar();
+    let precursor = &g * &private_precursor;
+
+    let dh_point = &bob_pubkey_point * &private_precursor;
+
+    // Secret value 'd' allows to make Umbral non-interactive
+    let d = hash_to_scalar(&[precursor, bob_pubkey_point, dh_point], Some(&NON_INTERACTIVE));
+
+    // Coefficients of the generating polynomial
+    let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
+    coefficients.push(&delegating_privkey.bn_key * &(-d));
+    for i in 1..threshold {
+        coefficients.push(random_scalar());
+    }
+
+    let mut kfrags = Vec::<KFrag>::with_capacity(N);
+    for i in 0..N {
+        // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
+        let kfrag_id = random_scalar();
+
+        // The index of the re-encryption key share (which in Shamir's Secret
+        // Sharing corresponds to x in the tuple (x, f(x)), with f being the
+        // generating polynomial), is used to prevent reconstruction of the
+        // re-encryption key without Bob's intervention
+        let customization_string: Vec<u8> =
+            X_COORDINATE.iter()
+            .chain(scalar_to_bytes(&kfrag_id).iter())
+            .copied().collect();
+        let share_index = hash_to_scalar(
+            &[precursor, bob_pubkey_point, dh_point],
+            Some(&customization_string));
+
+        // The re-encryption key share is the result of evaluating the generating
+        // polynomial for the index value
+        let rk = poly_eval(&coefficients, &share_index);
+
+        let commitment = &params.u * &rk;
+
+        let validity_message_for_bob: Vec<u8> =
+            scalar_to_bytes(&kfrag_id).iter()
+            .chain(delegating_pubkey.to_bytes().iter())
+            .chain(receiving_pubkey.to_bytes().iter())
+            .chain(point_to_bytes(&commitment).iter())
+            .chain(point_to_bytes(&precursor).iter())
+            .copied().collect();
+        let signature_for_bob = signer.sign(&validity_message_for_bob);
+
+        let mode = match (sign_delegating_key, sign_receiving_key) {
+            (true, true) => KeyType::DelegatingAndReceiving,
+            (true, false) => KeyType::DelegatingOnly,
+            (false, true) => KeyType::ReceivingOnly,
+            (false, false) => KeyType::NoKey,
+        };
+
+        let mut validity_message_for_proxy: Vec<u8> =
+            scalar_to_bytes(&kfrag_id).iter()
+            .chain(point_to_bytes(&commitment).iter())
+            .chain(point_to_bytes(&precursor).iter())
+            .chain([serialize_key_type(&mode)].iter())
+            .copied().collect();
+
+        if sign_delegating_key {
+            validity_message_for_proxy.extend_from_slice(&delegating_pubkey.to_bytes());
+        }
+        if sign_receiving_key {
+            validity_message_for_proxy.extend_from_slice(&receiving_pubkey.to_bytes());
+        }
+
+        let signature_for_proxy = signer.sign(&validity_message_for_proxy);
+
+        let kfrag = KFrag::new(
+            &kfrag_id,
+            &rk,
+            &commitment,
+            &precursor,
+            &signature_for_proxy,
+            &signature_for_bob,
+            Some(mode));
+
+        kfrags.push(kfrag);
+    }
+
+    kfrags
+}
+
+
 #[cfg(test)]
 mod tests {
 
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
     use crate::signing::Signer;
-    use super::{encrypt, decrypt_original};
+    use super::{encrypt, decrypt_original, generate_kfrags};
 
     #[test]
     fn test_simple_api() {
@@ -170,10 +291,10 @@ mod tests {
         let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_privkey).unwrap();
         assert_eq!(cleartext, plain_data);
 
-        /*
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrags = generate_kfrags(&delegating_privkey, &receiving_pubkey, M, N, &signer);
+        let kfrags = generate_kfrags(&delegating_privkey, &receiving_pubkey, M, N, &signer, false, false);
 
+        /*
 
         // Capsule preparation (necessary before re-encryotion and activation)
         let prepared_capsule = capsule.with_correctness_keys(&delegating_pubkey,

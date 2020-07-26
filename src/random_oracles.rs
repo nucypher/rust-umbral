@@ -71,15 +71,20 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
 }
 
 
-pub fn hash_to_scalar(crypto_items: &[CurvePoint]) -> CurveScalar {
-    // TODO: in the original (hashe_to_curvebn()), there is a customization string parameter,
-    // but it is never used.
-    let customization_string = b"hash_to_curvebn";
+// TODO: would be more convenient to take anything implementing `to_bytes()` in some form,
+// since `customization_string` is used in the same way as `crypto_items`.
+pub fn hash_to_scalar(crypto_items: &[CurvePoint], customization_string: Option<&[u8]>) -> CurveScalar {
+
     // TODO: make generic in hash algorithm (use Digest trait)
     // TODO: the original uses Blake here, but it has
     // the output size not supported by `from_digest()`
     let mut hasher = Sha3_256::new();
-    hasher.update(&customization_string);
+
+    hasher.update(&"hash_to_curvebn");
+    match customization_string {
+        Some(s) => hasher.update(s),
+        None => {}
+    };
 
     for item in crypto_items {
         hasher.update(point_to_bytes(item));
@@ -130,7 +135,7 @@ mod tests {
     fn test_hash_to_scalar() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let p = hash_to_scalar(&[p1, p2]);
+        let p = hash_to_scalar(&[p1, p2], None);
         println!("hash_to_scalar: {:?}", p);
     }
 
