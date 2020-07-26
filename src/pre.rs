@@ -1,6 +1,6 @@
 use crate::curve::{random_scalar, CurvePoint, CurveScalar, point_to_bytes};
 use crate::random_oracles::{hash_to_scalar, kdf};
-use crate::keys::UmbralPublicKey;
+use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::dem::{UmbralDEM, DEM_KEYSIZE, Ciphertext};
 use crate::params::UmbralParameters;
 
@@ -69,29 +69,35 @@ fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Cap
 }
 
 
+/// Derive the same symmetric key
+fn _decapsulate_original(private_key: &UmbralPrivateKey, capsule: &Capsule) -> Vec<u8> {
 
-/*
-struct VerificationFail ();
+    // TODO: capsule should be verified on creation
+    //if not capsule.verify():
+    //    # Check correctness of original ciphertext
+    //    raise capsule.NotValid("Capsule verification failed.")
 
-
-fn decrypt_original(ciphertext: [u8], capsule: &PreparedCapsule,
-        decrypting_key: &UmbralPrivateKey) -> Result<[u8], > {
-
-    // TODO: we shouldn't be able to create a wrong len ciphertext in the first place
-    //if ciphertext.len() < DEM_NONCE_SIZE {
-    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
-    //}
-    if !capsule.verify() {
-        return Err(Capsule.NotValid)
-    }
-
-    let encapsulated_key = _decapsulate_original(decrypting_key, capsule);
-
-    let dem = UmbralDEM(encapsulated_key);
-    dem.decrypt(ciphertext, authenticated_data=bytes(capsule))
+    let shared_key = (&capsule.point_e + &capsule.point_v) * &private_key.bn_key;
+    let key = kdf(&shared_key, DEM_KEYSIZE, None, None);
+    key
 }
 
+fn decrypt_original(ciphertext: &Ciphertext, capsule: &Capsule, decrypting_key: &UmbralPrivateKey) -> Option<Vec<u8>> {
 
+    // TODO: this should be checked in Ciphertext::from_bytes()
+    //if not isinstance(ciphertext, bytes) or len(ciphertext) < DEM_NONCE_SIZE:
+    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
+
+    // TODO: capsule should perhaps be verified on creation?
+    //elif not isinstance(capsule, Capsule) or not capsule.verify():
+    //    raise Capsule.NotValid
+
+    let encapsulated_key = _decapsulate_original(decrypting_key, capsule);
+    let dem = UmbralDEM::new(&encapsulated_key);
+    dem.decrypt(&ciphertext, &capsule.to_bytes())
+}
+
+/*
 fn decrypt_reencrypted(ciphertext: [u8],
                         capsule: &PreparedCapsule,
                         cfrags: [CapsuleFrag],
@@ -121,8 +127,7 @@ mod tests {
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
     use crate::signing::Signer;
-    use super::{encrypt};
-    //use super::{encrypt, decrypt_original, decrypt_reencrypted, generate_kfrags};
+    use super::{encrypt, decrypt_original};
 
     #[test]
     fn test_simple_api() {
@@ -161,11 +166,11 @@ mod tests {
         let plain_data = b"peace at dawn";
         let (ciphertext, capsule) = encrypt(&delegating_pubkey, plain_data);
 
-        /*
         // Decryption by Alice
-        let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_privkey);
+        let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_privkey).unwrap();
         assert_eq!(cleartext, plain_data);
 
+        /*
         // Split Re-Encryption Key Generation (aka Delegation)
         let kfrags = generate_kfrags(&delegating_privkey, &receiving_pubkey, M, N, &signer);
 

@@ -34,9 +34,8 @@ impl UmbralDEM {
         Ciphertext { nonce: *nonce, data: enc_data.unwrap() }
     }
 
-    pub fn decrypt(&self, ciphertext: &Ciphertext, authenticated_data: &[u8]) -> Vec<u8> {
+    pub fn decrypt(&self, ciphertext: &Ciphertext, authenticated_data: &[u8]) -> Option<Vec<u8>> {
         let payload = Payload { msg: &ciphertext.data, aad: authenticated_data };
-        let plaintext = self.cipher.decrypt(&ciphertext.nonce, payload);
-        plaintext.unwrap()
+        self.cipher.decrypt(&ciphertext.nonce, payload).ok()
     }
 }
