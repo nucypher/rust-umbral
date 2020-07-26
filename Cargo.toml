@@ -10,6 +10,8 @@ generic-array = "0.14"
 sha3 = "0.9"
 hkdf = "0.7"
 sha2 = "0.9"
+chacha20poly1305 = "0.5"
+aead = "0.3"
 
 [dependencies.rand_core]
 version = "0.5"

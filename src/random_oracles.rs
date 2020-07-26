@@ -90,8 +90,12 @@ pub fn hash_to_scalar(crypto_items: &[CurvePoint]) -> CurveScalar {
 
 
 
-fn kdf(ecpoint: &CurvePoint, key_length: usize, salt: Option<&[u8]>, info: Option<&[u8]>) -> Vec<u8> {
+pub fn kdf(ecpoint: &CurvePoint, key_length: usize, salt: Option<&[u8]>, info: Option<&[u8]>) -> Vec<u8> {
 
+    // FIXME: a placeholder for now, because Hkdf doesn't quite work
+    vec![1u8; key_length]
+
+    /*
     let data = point_to_bytes(ecpoint);
     let hk = Hkdf::<Sha256>::new(salt, &data);
 
@@ -104,6 +108,7 @@ fn kdf(ecpoint: &CurvePoint, key_length: usize, salt: Option<&[u8]>, info: Optio
 
     hk.expand(&def_info, &mut okm);
     okm
+    */
 }
 
 
