@@ -6,4 +6,6 @@ mod params;
 mod keys;
 mod dem;
 mod kfrags;
+mod capsule;
+mod cfrags;
 mod pre;

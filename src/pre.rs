@@ -6,54 +6,8 @@ use crate::params::UmbralParameters;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::kfrags::{KFrag, KeyType, serialize_key_type};
 use crate::utils::poly_eval;
-
-#[derive(Clone, Copy, Debug)]
-struct Capsule {
-    params: UmbralParameters,
-    point_e: CurvePoint,
-    point_v: CurvePoint,
-    bn_sig: CurveScalar
-}
-
-impl Capsule {
-    fn new(params: &UmbralParameters, point_e: &CurvePoint, point_v: &CurvePoint, bn_sig: &CurveScalar) -> Self {
-        Self {
-            params: *params,
-            point_e: *point_e,
-            point_v: *point_v,
-            bn_sig: *bn_sig
-        }
-    }
-
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let result: Vec<u8> =
-            point_to_bytes(&(self.point_e)).iter()
-            .chain(point_to_bytes(&self.point_v).iter())
-            .chain(scalar_to_bytes(&self.bn_sig).iter())
-            .copied().collect();
-        result
-    }
-
-    pub fn with_correctness_keys(&self,
-            delegating_pubkey: &UmbralPublicKey,
-            receiving_pubkey: &UmbralPublicKey,
-            signing_pubkey: &UmbralPublicKey) -> PreparedCapsule {
-        PreparedCapsule {
-            capsule: *self,
-            delegating_pubkey: *delegating_pubkey,
-            receiving_pubkey: *receiving_pubkey,
-            signing_pubkey: *signing_pubkey,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct PreparedCapsule {
-    capsule: Capsule,
-    delegating_pubkey: UmbralPublicKey,
-    receiving_pubkey: UmbralPublicKey,
-    signing_pubkey: UmbralPublicKey,
-}
+use crate::cfrags::CapsuleFrag;
+use crate::capsule::{Capsule, PreparedCapsule};
 
 
 /// Generates a symmetric key and its associated KEM ciphertext
@@ -265,12 +219,32 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
 }
 
 
+fn reencrypt(kfrag: &KFrag,
+             prepared_capsule: &PreparedCapsule,
+             metadata: Option<&[u8]>,
+             verify_kfrag: bool) -> Option<CapsuleFrag> {
+
+    // TODO: verify on creation?
+    //if not prepared_capsule.verify():
+    //    raise Capsule.NotValid
+
+    if verify_kfrag {
+        if !prepared_capsule.verify_kfrag(&kfrag) {
+            return None;
+        }
+    }
+
+    Some(CapsuleFrag::from_kfrag(&prepared_capsule.capsule, &kfrag, metadata))
+}
+
+
 #[cfg(test)]
 mod tests {
 
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
-    use super::{encrypt, decrypt_original, generate_kfrags};
+    use crate::cfrags::CapsuleFrag;
+    use super::{encrypt, decrypt_original, generate_kfrags, reencrypt};
 
     #[test]
     fn test_simple_api() {
@@ -320,7 +294,7 @@ mod tests {
                                                          &signing_pubkey);
 
         // Bob requests re-encryption to some set of M ursulas
-        //let cfrags = Vec::<CapsuleFrag>::new();
+        let mut cfrags = Vec::<CapsuleFrag>::new();
         for frag_num in 0..M {
 
             let kfrag = &kfrags[frag_num];
@@ -329,10 +303,10 @@ mod tests {
             assert!(kfrag.verify(&signing_pubkey, Some(&delegating_pubkey), Some(&receiving_pubkey)));
 
             // Re-encryption by an Ursula
-            //let cfrag = pre.reencrypt(kfrag, prepared_capsule);
+            let cfrag = reencrypt(&kfrag, &prepared_capsule, None, true).unwrap();
 
             // Bob collects the result
-            //cfrags.push(cfrag);
+            cfrags.push(cfrag);
         }
 
         /*

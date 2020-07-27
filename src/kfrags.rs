@@ -39,12 +39,12 @@ fn receiving_key_in_signature(kt: &KeyType) -> bool {
 #[derive(Clone, Debug)]
 pub struct KFrag {
     params: UmbralParameters,
-    id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
-    bn_key: CurveScalar,
-    point_commitment: CurvePoint,
-    point_precursor: CurvePoint,
+    pub id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
+    pub bn_key: CurveScalar,
+    pub point_commitment: CurvePoint,
+    pub point_precursor: CurvePoint,
     signature_for_proxy: UmbralSignature,
-    signature_for_bob: UmbralSignature,
+    pub signature_for_bob: UmbralSignature,
     keys_in_signature: KeyType,
 }
 
