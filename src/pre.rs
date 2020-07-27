@@ -1,11 +1,10 @@
 use crate::curve::{random_scalar, CurvePoint, CurveScalar, point_to_bytes, scalar_to_bytes};
 use crate::random_oracles::{hash_to_scalar, kdf};
-use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
+use crate::keys::{UmbralPrivateKey, UmbralPublicKey, UmbralSignature};
 use crate::dem::{UmbralDEM, DEM_KEYSIZE, Ciphertext};
 use crate::params::UmbralParameters;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::kfrags::{KFrag, KeyType, serialize_key_type};
-use crate::signing::Signer;
 use crate::utils::poly_eval;
 
 #[derive(Clone, Copy, Debug)]
@@ -34,6 +33,26 @@ impl Capsule {
             .copied().collect();
         result
     }
+
+    pub fn with_correctness_keys(&self,
+            delegating_pubkey: &UmbralPublicKey,
+            receiving_pubkey: &UmbralPublicKey,
+            signing_pubkey: &UmbralPublicKey) -> PreparedCapsule {
+        PreparedCapsule {
+            capsule: *self,
+            delegating_pubkey: *delegating_pubkey,
+            receiving_pubkey: *receiving_pubkey,
+            signing_pubkey: *signing_pubkey,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct PreparedCapsule {
+    capsule: Capsule,
+    delegating_pubkey: UmbralPublicKey,
+    receiving_pubkey: UmbralPublicKey,
+    signing_pubkey: UmbralPublicKey,
 }
 
 
@@ -136,7 +155,7 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
                    receiving_pubkey: &UmbralPublicKey,
                    threshold: usize,
                    N: usize,
-                   signer: &Signer,
+                   signer: &UmbralPrivateKey,
                    sign_delegating_key: bool,
                    sign_receiving_key: bool,
                    ) -> Vec<KFrag> {
@@ -194,6 +213,7 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
 
         let commitment = &params.u * &rk;
 
+        // TODO: hide this in a special mutable object associated with Signer?
         let validity_message_for_bob: Vec<u8> =
             scalar_to_bytes(&kfrag_id).iter()
             .chain(delegating_pubkey.to_bytes().iter())
@@ -203,6 +223,7 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
             .copied().collect();
         let signature_for_bob = signer.sign(&validity_message_for_bob);
 
+        // TODO: can be a function where KeyType is defined
         let mode = match (sign_delegating_key, sign_receiving_key) {
             (true, true) => KeyType::DelegatingAndReceiving,
             (true, false) => KeyType::DelegatingOnly,
@@ -210,6 +231,7 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
             (false, false) => KeyType::NoKey,
         };
 
+        // TODO: hide this in a special mutable object associated with Signer?
         let mut validity_message_for_proxy: Vec<u8> =
             scalar_to_bytes(&kfrag_id).iter()
             .chain(point_to_bytes(&commitment).iter())
@@ -227,6 +249,7 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
         let signature_for_proxy = signer.sign(&validity_message_for_proxy);
 
         let kfrag = KFrag::new(
+            &params,
             &kfrag_id,
             &rk,
             &commitment,
@@ -247,7 +270,6 @@ mod tests {
 
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
-    use crate::signing::Signer;
     use super::{encrypt, decrypt_original, generate_kfrags};
 
     #[test]
@@ -277,8 +299,6 @@ mod tests {
         let signing_privkey = UmbralPrivateKey::gen_key(&params);
         let signing_pubkey = signing_privkey.get_pubkey();
 
-        let signer = Signer::new(&signing_privkey);
-
         // Key Generation (Bob)
         let receiving_privkey = UmbralPrivateKey::gen_key(&params);
         let receiving_pubkey = receiving_privkey.get_pubkey();
@@ -292,9 +312,7 @@ mod tests {
         assert_eq!(cleartext, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrags = generate_kfrags(&delegating_privkey, &receiving_pubkey, M, N, &signer, false, false);
-
-        /*
+        let kfrags = generate_kfrags(&delegating_privkey, &receiving_pubkey, M, N, &signing_privkey, false, false);
 
         // Capsule preparation (necessary before re-encryotion and activation)
         let prepared_capsule = capsule.with_correctness_keys(&delegating_pubkey,
@@ -302,18 +320,22 @@ mod tests {
                                                          &signing_pubkey);
 
         // Bob requests re-encryption to some set of M ursulas
-        let cfrags = Vec::new();
-        for kfrag in kfrags[:M] {
+        //let cfrags = Vec::<CapsuleFrag>::new();
+        for frag_num in 0..M {
+
+            let kfrag = &kfrags[frag_num];
+
             // Ursula checks that the received kfrag is valid
-            assert!(kfrag.verify(&signing_pubkey, &delegating_pubkey, &receiving_pubkey, &params));
+            assert!(kfrag.verify(&signing_pubkey, Some(&delegating_pubkey), Some(&receiving_pubkey)));
 
             // Re-encryption by an Ursula
-            let cfrag = pre.reencrypt(kfrag, prepared_capsule);
+            //let cfrag = pre.reencrypt(kfrag, prepared_capsule);
 
             // Bob collects the result
-            cfrags.push(cfrag);
+            //cfrags.push(cfrag);
         }
 
+        /*
         // Decryption by Bob
         let reenc_cleartext = decrypt_reencrypted(&ciphertext, &prepared_capsule, &cfrags, &receiving_privkey);
         assert_eq!(reenc_cleartext, plain_data);

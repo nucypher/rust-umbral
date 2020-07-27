@@ -1,3 +1,13 @@
+use sha3::Sha3_256;
+use digest::Digest;
+use elliptic_curve::weierstrass::GenerateSecretKey;
+use ecdsa::hazmat::{SignPrimitive, VerifyPrimitive};
+use generic_array::GenericArray;
+
+use k256::Secp256k1;
+use ecdsa::Signature;
+pub type UmbralSignature = Signature<Secp256k1>;
+
 use crate::params::UmbralParameters;
 use crate::curve::{CurvePoint, CurveScalar, random_scalar, point_to_bytes, scalar_to_bytes};
 
@@ -7,10 +17,6 @@ pub struct UmbralPrivateKey {
     pub bn_key: CurveScalar,
     pub pubkey: UmbralPublicKey,
 }
-
-#[derive(Clone, Copy, Debug)]
-pub struct EllipticCurvePrivateKey();
-
 
 impl UmbralPrivateKey {
 
@@ -30,10 +36,24 @@ impl UmbralPrivateKey {
         self.pubkey.clone()
     }
 
-    /// Returns a cryptography.io EllipticCurvePrivateKey from the Umbral key.
-    pub fn to_cryptography_privkey(&self) -> EllipticCurvePrivateKey {
-        // TODO: wait until ECDSA is implemented in k256
-        EllipticCurvePrivateKey()
+    // TODO: should be moved to impl Signer
+    // TODO: should be implemented with high-level Signer trait of SecretKey or Scalar,
+    // when it's available in RustCrypto.
+    pub fn sign(&self, message: &[u8]) -> UmbralSignature {
+        let mut hasher = Sha3_256::new();
+        hasher.update(message);
+        let hashed = hasher.finalize();
+        let l = hashed.len();
+
+        // FIXME: k should be > 0
+        loop {
+            let k = random_scalar();
+            let res = self.bn_key.try_sign_prehashed(&k, None, GenericArray::from_slice(&hashed[l-32..l]));
+            match res {
+                Ok(sig) => { return sig; },
+                Err(err) => { continue; }
+            }
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -55,5 +75,23 @@ impl UmbralPublicKey {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         point_to_bytes(&self.point_key)
+    }
+
+    // TODO: should be moved to impl Verifier
+    // TODO: should be implemented with high-level Verifier trait of PublicKey or AffinePoint,
+    // when it's available in RustCrypto.
+    pub fn verify(&self, message: &[u8], signature: &UmbralSignature) -> bool {
+        let mut hasher = Sha3_256::new();
+        hasher.update(message);
+        let hashed = hasher.finalize();
+        let l = hashed.len();
+
+        let ap = self.point_key.to_affine().unwrap();
+        let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l-32..l]), &signature);
+
+        match res {
+            Ok(_) => true,
+            Err(_) => false
+        }
     }
 }
