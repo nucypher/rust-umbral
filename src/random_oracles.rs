@@ -1,10 +1,9 @@
 use blake2::{Blake2b, Digest};
+use hkdf::Hkdf;
 use sha2::Sha256;
 use sha3::Sha3_256;
-use hkdf::Hkdf;
 
-use crate::curve::{CurvePoint, CurveScalar, point_to_bytes, bytes_to_point};
-
+use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurveScalar};
 
 fn to_fixed_be_bytes(x: usize) -> [u8; 4] {
     let data = x.to_be_bytes();
@@ -29,15 +28,17 @@ in constant time, and hence, it is not safe with respect to timing attacks.
 */
 
 pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
-
     // FIXME: make it return a constant amount of bytes
     let len_data = to_fixed_be_bytes(data.len());
     let len_label = to_fixed_be_bytes(label.len());
 
-    let label_data: Vec<u8> = len_label.iter()
+    let label_data: Vec<u8> = len_label
+        .iter()
         .chain(label.iter())
         .chain(len_data.iter())
-        .chain(data.iter()).cloned().collect();
+        .chain(data.iter())
+        .cloned()
+        .collect();
 
     let curve_key_size_bytes = 32; // FIXME: should be taken from the curve
 
@@ -53,14 +54,22 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
         hash_function.update(to_hash);
         let hash_digest_full = hash_function.finalize();
         // TODO: check that the digest is long enough?
-        let hash_digest = &hash_digest_full[0..1+curve_key_size_bytes];
+        let hash_digest = &hash_digest_full[0..1 + curve_key_size_bytes];
 
-        let sign = if hash_digest[0] & 1 == 0 { b"\x02" } else { b"\x03" };
-        let compressed_point: Vec<u8> = sign.iter().chain(hash_digest[1..hash_digest.len()].iter()).cloned().collect();
+        let sign = if hash_digest[0] & 1 == 0 {
+            b"\x02"
+        } else {
+            b"\x03"
+        };
+        let compressed_point: Vec<u8> = sign
+            .iter()
+            .chain(hash_digest[1..hash_digest.len()].iter())
+            .cloned()
+            .collect();
 
         let maybe_point = bytes_to_point(&compressed_point);
         if maybe_point.is_some() {
-            return maybe_point
+            return maybe_point;
         }
 
         i += 1
@@ -70,11 +79,12 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     None
 }
 
-
 // TODO: would be more convenient to take anything implementing `to_bytes()` in some form,
 // since `customization_string` is used in the same way as `crypto_items`.
-pub fn hash_to_scalar(crypto_items: &[CurvePoint], customization_string: Option<&[u8]>) -> CurveScalar {
-
+pub fn hash_to_scalar(
+    crypto_items: &[CurvePoint],
+    customization_string: Option<&[u8]>,
+) -> CurveScalar {
     // TODO: make generic in hash algorithm (use Digest trait)
     // TODO: the original uses Blake here, but it has
     // the output size not supported by `from_digest()`
@@ -93,10 +103,12 @@ pub fn hash_to_scalar(crypto_items: &[CurvePoint], customization_string: Option<
     CurveScalar::from_digest(hasher)
 }
 
-
-
-pub fn kdf(ecpoint: &CurvePoint, key_length: usize, salt: Option<&[u8]>, info: Option<&[u8]>) -> Vec<u8> {
-
+pub fn kdf(
+    ecpoint: &CurvePoint,
+    key_length: usize,
+    salt: Option<&[u8]>,
+    info: Option<&[u8]>,
+) -> Vec<u8> {
     let data = point_to_bytes(ecpoint);
     let hk = Hkdf::<Sha256>::new(salt, &data);
 
@@ -104,18 +116,17 @@ pub fn kdf(ecpoint: &CurvePoint, key_length: usize, salt: Option<&[u8]>, info: O
 
     let def_info = match info {
         Some(x) => x,
-        None => &[]
+        None => &[],
     };
 
     hk.expand(&def_info, &mut okm);
     okm
 }
 
-
 #[cfg(test)]
 mod tests {
 
-    use super::{unsafe_hash_to_point, hash_to_scalar, kdf};
+    use super::{hash_to_scalar, kdf, unsafe_hash_to_point};
     use crate::curve::CurvePoint;
 
     #[test]

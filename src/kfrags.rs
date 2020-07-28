@@ -1,4 +1,4 @@
-use crate::curve::{CurveScalar, CurvePoint, scalar_to_bytes, point_to_bytes};
+use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar};
 use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::params::UmbralParameters;
 
@@ -23,7 +23,7 @@ fn delegating_key_in_signature(kt: &KeyType) -> bool {
     match kt {
         KeyType::DelegatingOnly => true,
         KeyType::DelegatingAndReceiving => true,
-        _ => false
+        _ => false,
     }
 }
 
@@ -31,10 +31,9 @@ fn receiving_key_in_signature(kt: &KeyType) -> bool {
     match kt {
         KeyType::ReceivingOnly => true,
         KeyType::DelegatingAndReceiving => true,
-        _ => false
+        _ => false,
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct KFrag {
@@ -49,13 +48,16 @@ pub struct KFrag {
 }
 
 impl KFrag {
-
     pub fn new(
-            params: &UmbralParameters,
-            id: &CurveScalar, bn_key: &CurveScalar, point_commitment: &CurvePoint,
-            point_precursor: &CurvePoint, signature_for_proxy: &UmbralSignature,
-            signature_for_bob: &UmbralSignature, keys_in_signature: Option<KeyType>) -> Self {
-
+        params: &UmbralParameters,
+        id: &CurveScalar,
+        bn_key: &CurveScalar,
+        point_commitment: &CurvePoint,
+        point_precursor: &CurvePoint,
+        signature_for_proxy: &UmbralSignature,
+        signature_for_bob: &UmbralSignature,
+        keys_in_signature: Option<KeyType>,
+    ) -> Self {
         let kt = match keys_in_signature {
             Some(k) => k,
             None => KeyType::DelegatingAndReceiving,
@@ -74,12 +76,12 @@ impl KFrag {
     }
 
     // FIXME: should it be constant-time?
-    pub fn verify(&self,
-               signing_pubkey: &UmbralPublicKey,
-               delegating_pubkey: Option<&UmbralPublicKey>,
-               receiving_pubkey: Option<&UmbralPublicKey>,
-               ) -> bool {
-
+    pub fn verify(
+        &self,
+        signing_pubkey: &UmbralPublicKey,
+        delegating_pubkey: Option<&UmbralPublicKey>,
+        receiving_pubkey: Option<&UmbralPublicKey>,
+    ) -> bool {
         if delegating_key_in_signature(&self.keys_in_signature) {
             // TODO: how to handle it better?
             assert!(delegating_pubkey.is_some());
@@ -101,12 +103,13 @@ impl KFrag {
         let correct_commitment = commitment == &u * &key;
 
         // TODO: hide this in a special mutable object associated with Signer?
-        let mut kfrag_validity_message: Vec<u8> =
-            scalar_to_bytes(&kfrag_id).iter()
+        let mut kfrag_validity_message: Vec<u8> = scalar_to_bytes(&kfrag_id)
+            .iter()
             .chain(point_to_bytes(&commitment).iter())
             .chain(point_to_bytes(&precursor).iter())
             .chain([serialize_key_type(&self.keys_in_signature)].iter())
-            .copied().collect();
+            .copied()
+            .collect();
 
         if delegating_key_in_signature(&self.keys_in_signature) {
             kfrag_validity_message.extend_from_slice(&delegating_pubkey.unwrap().to_bytes());
@@ -115,7 +118,8 @@ impl KFrag {
             kfrag_validity_message.extend_from_slice(&receiving_pubkey.unwrap().to_bytes());
         }
 
-        let valid_kfrag_signature = signing_pubkey.verify(&kfrag_validity_message, &self.signature_for_proxy);
+        let valid_kfrag_signature =
+            signing_pubkey.verify(&kfrag_validity_message, &self.signature_for_proxy);
 
         return correct_commitment & valid_kfrag_signature;
     }

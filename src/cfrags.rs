@@ -1,7 +1,7 @@
-use crate::curve::{CurveScalar, CurvePoint, random_scalar, point_to_bytes, scalar_to_bytes};
-use crate::kfrags::KFrag;
 use crate::capsule::Capsule;
+use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar};
 use crate::keys::{UmbralPublicKey, UmbralSignature};
+use crate::kfrags::KFrag;
 use crate::random_oracles::hash_to_scalar;
 
 pub struct CorrectnessProof {
@@ -11,18 +11,17 @@ pub struct CorrectnessProof {
     point_kfrag_pok: CurvePoint,
     bn_sig: CurveScalar,
     kfrag_signature: UmbralSignature,
-    metadata: Vec<u8>
+    metadata: Vec<u8>,
 }
 
 impl CorrectnessProof {
-
     pub fn from_kfrag_and_cfrag(
-                   capsule: &Capsule,
-                   kfrag: &KFrag,
-                   cfrag_e1: &CurvePoint,
-                   cfrag_v1: &CurvePoint,
-                   metadata: Option<&[u8]>) -> Self {
-
+        capsule: &Capsule,
+        kfrag: &KFrag,
+        cfrag_e1: &CurvePoint,
+        cfrag_v1: &CurvePoint,
+        metadata: Option<&[u8]>,
+    ) -> Self {
         let params = capsule.params;
 
         // Check correctness of original ciphertext
@@ -57,7 +56,7 @@ impl CorrectnessProof {
 
         let vec_metadata: Vec<u8> = match metadata {
             Some(s) => s.iter().copied().collect(),
-            None => vec![]
+            None => vec![],
         };
 
         let z3 = &t + &rk * &h;
@@ -74,7 +73,6 @@ impl CorrectnessProof {
     }
 }
 
-
 pub struct CapsuleFrag {
     pub point_e1: CurvePoint,
     pub point_v1: CurvePoint,
@@ -84,7 +82,6 @@ pub struct CapsuleFrag {
 }
 
 impl CapsuleFrag {
-
     pub fn from_kfrag(capsule: &Capsule, kfrag: &KFrag, metadata: Option<&[u8]>) -> Self {
         let rk = kfrag.bn_key;
         let e1 = &capsule.point_e * &rk;
@@ -96,13 +93,17 @@ impl CapsuleFrag {
             point_v1: v1,
             kfrag_id: kfrag.id,
             point_precursor: kfrag.point_precursor,
-            proof: proof
+            proof: proof,
         }
     }
 
-    pub fn verify_correctness(&self, capsule: &Capsule, delegating_pubkey: &UmbralPublicKey,
-            receiving_pubkey: &UmbralPublicKey, signing_pubkey: &UmbralPublicKey) -> bool {
-
+    pub fn verify_correctness(
+        &self,
+        capsule: &Capsule,
+        delegating_pubkey: &UmbralPublicKey,
+        receiving_pubkey: &UmbralPublicKey,
+        signing_pubkey: &UmbralPublicKey,
+    ) -> bool {
         let params = capsule.params;
 
         // TODO: Here are the formulaic constituents shared with `prove_correctness`.
@@ -131,15 +132,17 @@ impl CapsuleFrag {
         let kfrag_id = self.kfrag_id;
 
         // TODO: hide this in a special mutable object associated with Signer?
-        let kfrag_validity_message: Vec<u8> =
-            scalar_to_bytes(&kfrag_id).iter()
+        let kfrag_validity_message: Vec<u8> = scalar_to_bytes(&kfrag_id)
+            .iter()
             .chain(delegating_pubkey.to_bytes().iter())
             .chain(receiving_pubkey.to_bytes().iter())
             .chain(point_to_bytes(&u1).iter())
             .chain(point_to_bytes(&precursor).iter())
-            .copied().collect();
+            .copied()
+            .collect();
 
-        let valid_kfrag_signature = signing_pubkey.verify(&kfrag_validity_message, &self.proof.kfrag_signature);
+        let valid_kfrag_signature =
+            signing_pubkey.verify(&kfrag_validity_message, &self.proof.kfrag_signature);
 
         let z3 = self.proof.bn_sig;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);
@@ -147,8 +150,8 @@ impl CapsuleFrag {
         let correct_rk_commitment = &u * &z3 == &u2 + &(&u1 * &h);
 
         valid_kfrag_signature
-           & correct_reencryption_of_e
-           & correct_reencryption_of_v
-           & correct_rk_commitment
+            & correct_reencryption_of_e
+            & correct_reencryption_of_v
+            & correct_rk_commitment
     }
 }

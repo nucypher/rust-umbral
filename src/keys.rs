@@ -1,15 +1,14 @@
-use sha3::Sha3_256;
 use digest::Digest;
-use elliptic_curve::weierstrass::GenerateSecretKey;
 use ecdsa::hazmat::{SignPrimitive, VerifyPrimitive};
 use generic_array::GenericArray;
+use sha3::Sha3_256;
 
-use k256::Secp256k1;
 use ecdsa::Signature;
+use k256::Secp256k1;
 pub type UmbralSignature = Signature<Secp256k1>;
 
+use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar};
 use crate::params::UmbralParameters;
-use crate::curve::{CurvePoint, CurveScalar, random_scalar, point_to_bytes, scalar_to_bytes};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPrivateKey {
@@ -19,11 +18,14 @@ pub struct UmbralPrivateKey {
 }
 
 impl UmbralPrivateKey {
-
     pub fn new(bn_key: &CurveScalar, params: &UmbralParameters) -> Self {
         let point_key = &(params.g) * &bn_key;
         let pubkey = UmbralPublicKey::new(&point_key, params);
-        Self { params: *params, bn_key: *bn_key, pubkey }
+        Self {
+            params: *params,
+            bn_key: *bn_key,
+            pubkey,
+        }
     }
 
     /// Generates a private key and returns it.
@@ -48,10 +50,18 @@ impl UmbralPrivateKey {
         // FIXME: k should be > 0
         loop {
             let k = random_scalar();
-            let res = self.bn_key.try_sign_prehashed(&k, None, GenericArray::from_slice(&hashed[l-32..l]));
+            let res = self.bn_key.try_sign_prehashed(
+                &k,
+                None,
+                GenericArray::from_slice(&hashed[l - 32..l]),
+            );
             match res {
-                Ok(sig) => { return sig; },
-                Err(err) => { continue; }
+                Ok(sig) => {
+                    return sig;
+                }
+                Err(_err) => {
+                    continue;
+                }
             }
         }
     }
@@ -67,10 +77,12 @@ pub struct UmbralPublicKey {
     pub point_key: CurvePoint,
 }
 
-
 impl UmbralPublicKey {
     pub fn new(point_key: &CurvePoint, params: &UmbralParameters) -> Self {
-        Self { params: *params, point_key: *point_key }
+        Self {
+            params: *params,
+            point_key: *point_key,
+        }
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -87,11 +99,11 @@ impl UmbralPublicKey {
         let l = hashed.len();
 
         let ap = self.point_key.to_affine().unwrap();
-        let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l-32..l]), &signature);
+        let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l - 32..l]), &signature);
 
         match res {
             Ok(_) => true,
-            Err(_) => false
+            Err(_) => false,
         }
     }
 }

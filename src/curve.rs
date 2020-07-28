@@ -1,13 +1,12 @@
 //use k256::Secp256k1;
-pub use k256::ProjectivePoint as CurvePoint;
-pub use k256::Scalar as CurveScalar;
 use k256::AffinePoint;
-use k256::PublicKey;
 use k256::CompressedPoint;
+pub use k256::ProjectivePoint as CurvePoint;
+use k256::PublicKey;
+pub use k256::Scalar as CurveScalar;
 //use generic_array::{GenericArray, ArrayLength};
 
 use rand_core::OsRng;
-
 
 pub fn random_scalar() -> CurveScalar {
     CurveScalar::generate_vartime(&mut OsRng)
