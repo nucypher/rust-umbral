@@ -1,14 +1,15 @@
 use crate::capsule::{Capsule, PreparedCapsule};
 use crate::cfrags::CapsuleFrag;
-use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
-use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar};
+use crate::constants::{const_non_interactive, const_x_coordinate};
+use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
 use crate::dem::{Ciphertext, UmbralDEM, DEM_KEYSIZE};
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
-use crate::kfrags::{serialize_key_type, KFrag, KeyType};
+use crate::kfrags::{key_type_to_bytes, KFrag, KeyType};
 use crate::random_oracles::{hash_to_scalar, kdf, KdfSize};
 use crate::utils::{lambda_coeff, poly_eval};
 
 use generic_array::GenericArray;
+use generic_array::sequence::Concat;
 
 /// Generates a symmetric key and its associated KEM ciphertext
 fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
@@ -84,6 +85,7 @@ Requires a threshold number of KFrags out of N.
 Returns a list of N KFrags
 */
 fn generate_kfrags(
+    kfrags: &mut [KFrag],
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
     threshold: usize,
@@ -91,12 +93,14 @@ fn generate_kfrags(
     signer: &UmbralPrivateKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> Vec<KFrag> {
+) -> bool {
     // TODO: debug_assert!, or panic in release too?
     //if threshold <= 0 or threshold > N:
     //    raise ValueError('Arguments threshold and N must satisfy 0 < threshold <= N')
     //if delegating_privkey.params != receiving_pubkey.params:
     //    raise ValueError("Keys must have the same parameter set.")
+
+    assert!(kfrags.len() >= N);
 
     let params = delegating_privkey.params;
     let g = params.g;
@@ -115,7 +119,7 @@ fn generate_kfrags(
     // Secret value 'd' allows to make Umbral non-interactive
     let d = hash_to_scalar(
         &[precursor, bob_pubkey_point, dh_point],
-        Some(&NON_INTERACTIVE),
+        Some(&const_non_interactive()),
     );
 
     // Coefficients of the generating polynomial
@@ -125,8 +129,7 @@ fn generate_kfrags(
         coefficients.push(random_scalar());
     }
 
-    let mut kfrags = Vec::<KFrag>::with_capacity(N);
-    for _i in 0..N {
+    for i in 0..N {
         // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
         let kfrag_id = random_scalar();
 
@@ -134,11 +137,7 @@ fn generate_kfrags(
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
         // generating polynomial), is used to prevent reconstruction of the
         // re-encryption key without Bob's intervention
-        let customization_string: Vec<u8> = X_COORDINATE
-            .iter()
-            .chain(scalar_to_bytes(&kfrag_id).iter())
-            .copied()
-            .collect();
+        let customization_string = const_x_coordinate().concat(scalar_to_bytes(&kfrag_id));
         let share_index = hash_to_scalar(
             &[precursor, bob_pubkey_point, dh_point],
             Some(&customization_string),
@@ -151,14 +150,11 @@ fn generate_kfrags(
         let commitment = &params.u * &rk;
 
         // TODO: hide this in a special mutable object associated with Signer?
-        let validity_message_for_bob: Vec<u8> = scalar_to_bytes(&kfrag_id)
-            .iter()
-            .chain(delegating_pubkey.to_bytes().iter())
-            .chain(receiving_pubkey.to_bytes().iter())
-            .chain(point_to_bytes(&commitment).iter())
-            .chain(point_to_bytes(&precursor).iter())
-            .copied()
-            .collect();
+        let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
+            .concat(delegating_pubkey.to_bytes())
+            .concat(receiving_pubkey.to_bytes())
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&precursor));
         let signature_for_bob = signer.sign(&validity_message_for_bob);
 
         // TODO: can be a function where KeyType is defined
@@ -170,20 +166,29 @@ fn generate_kfrags(
         };
 
         // TODO: hide this in a special mutable object associated with Signer?
-        let mut validity_message_for_proxy: Vec<u8> = scalar_to_bytes(&kfrag_id)
-            .iter()
-            .chain(point_to_bytes(&commitment).iter())
-            .chain(point_to_bytes(&precursor).iter())
-            .chain([serialize_key_type(&mode)].iter())
-            .copied()
-            .collect();
+        let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&precursor))
+            .concat(key_type_to_bytes(&mode));
 
-        if sign_delegating_key {
-            validity_message_for_proxy.extend_from_slice(&delegating_pubkey.to_bytes());
-        }
-        if sign_receiving_key {
-            validity_message_for_proxy.extend_from_slice(&receiving_pubkey.to_bytes());
-        }
+        // `validity_message_for_proxy` needs to have a static type and
+        // (since it's a GenericArray) a static size.
+        // So we have to concat the same number of bytes regardless of any runtime state.
+        // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
+
+        let validity_message_for_proxy = validity_message_for_proxy
+            .concat(if sign_delegating_key {
+                delegating_pubkey.to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
+
+        let validity_message_for_proxy = validity_message_for_proxy
+            .concat(if sign_receiving_key {
+                receiving_pubkey.to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
 
         let signature_for_proxy = signer.sign(&validity_message_for_proxy);
 
@@ -198,10 +203,10 @@ fn generate_kfrags(
             Some(mode),
         );
 
-        kfrags.push(kfrag);
+        kfrags[i] = kfrag;
     }
 
-    kfrags
+    true
 }
 
 fn reencrypt(
@@ -246,11 +251,7 @@ fn _decapsulate_reencrypted(
     // Combination of CFrags via Shamir's Secret Sharing reconstruction
     let mut xs = Vec::<CurveScalar>::new();
     for cfrag in cfrags {
-        let customization_string: Vec<u8> = X_COORDINATE
-            .iter()
-            .chain(scalar_to_bytes(&cfrag.kfrag_id).iter())
-            .copied()
-            .collect();
+        let customization_string = const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
         let x = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
         xs.push(x);
     }
@@ -265,7 +266,7 @@ fn _decapsulate_reencrypted(
     }
 
     // Secret value 'd' allows to make Umbral non-interactive
-    let d = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&NON_INTERACTIVE));
+    let d = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&const_non_interactive()));
 
     let e = capsule.point_e;
     let v = capsule.point_v;
@@ -329,6 +330,7 @@ mod tests {
 
     use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
     use crate::cfrags::CapsuleFrag;
+    use crate::kfrags::KFrag;
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
 
@@ -346,8 +348,8 @@ mod tests {
         Manually injects umbralparameters for multi-curve testing.
         */
 
-        let M = 2;
-        let N = 3;
+        const M: usize = 2;
+        const N: usize = 3;
 
         // Generation of global parameters
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
@@ -372,7 +374,10 @@ mod tests {
         assert_eq!(cleartext, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrags = generate_kfrags(
+        // FIXME: would be easier if KFrag implemented Copy, but for that Signature must implement Copy
+        let mut kfrags = [KFrag::default(), KFrag::default(), KFrag::default()];
+        let result = generate_kfrags(
+            &mut kfrags,
             &delegating_privkey,
             &receiving_pubkey,
             M,

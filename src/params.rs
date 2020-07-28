@@ -1,6 +1,8 @@
 use crate::curve::{point_to_bytes, CurvePoint};
 use crate::random_oracles::unsafe_hash_to_point;
 
+use core::default::Default;
+
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralParameters {
     pub g: CurvePoint,
@@ -24,6 +26,10 @@ impl UmbralParameters {
             curve_key_size_bytes,
         }
     }
+}
+
+impl Default for UmbralParameters {
+    fn default() -> Self { Self::new() }
 }
 
 impl PartialEq for UmbralParameters {

@@ -1,6 +1,12 @@
-use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar};
+use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
 use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::params::UmbralParameters;
+
+use generic_array::GenericArray;
+use generic_array::typenum::U1;
+use generic_array::sequence::Concat;
+
+use core::default::Default;
 
 #[derive(Clone, Copy, Debug)]
 pub enum KeyType {
@@ -10,13 +16,18 @@ pub enum KeyType {
     DelegatingAndReceiving,
 }
 
-pub fn serialize_key_type(kt: &KeyType) -> u8 {
-    match kt {
-        KeyType::NoKey => 0,
-        KeyType::DelegatingOnly => 1,
-        KeyType::ReceivingOnly => 2,
-        KeyType::DelegatingAndReceiving => 3,
-    }
+impl Default for KeyType {
+    fn default() -> Self { KeyType::NoKey }
+}
+
+pub fn key_type_to_bytes(kt: &KeyType) -> GenericArray<u8, U1> {
+    let slice = match kt {
+        KeyType::NoKey => [0],
+        KeyType::DelegatingOnly => [1],
+        KeyType::ReceivingOnly => [2],
+        KeyType::DelegatingAndReceiving => [3],
+    };
+    GenericArray::<u8, U1>::clone_from_slice(&slice)
 }
 
 fn delegating_key_in_signature(kt: &KeyType) -> bool {
@@ -45,6 +56,21 @@ pub struct KFrag {
     signature_for_proxy: UmbralSignature,
     pub signature_for_bob: UmbralSignature,
     keys_in_signature: KeyType,
+}
+
+impl Default for KFrag {
+    fn default() -> Self {
+        Self {
+            params: UmbralParameters::default(),
+            id: CurveScalar::default(),
+            bn_key: CurveScalar::default(),
+            point_commitment: CurvePoint::identity(),
+            point_precursor: CurvePoint::identity(),
+            signature_for_proxy: UmbralSignature::default(),
+            signature_for_bob: UmbralSignature::default(),
+            keys_in_signature: KeyType::default(),
+        }
+    }
 }
 
 impl KFrag {
@@ -103,20 +129,28 @@ impl KFrag {
         let correct_commitment = commitment == &u * &key;
 
         // TODO: hide this in a special mutable object associated with Signer?
-        let mut kfrag_validity_message: Vec<u8> = scalar_to_bytes(&kfrag_id)
-            .iter()
-            .chain(point_to_bytes(&commitment).iter())
-            .chain(point_to_bytes(&precursor).iter())
-            .chain([serialize_key_type(&self.keys_in_signature)].iter())
-            .copied()
-            .collect();
+        let kfrag_validity_message = scalar_to_bytes(&kfrag_id)
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&precursor))
+            .concat(key_type_to_bytes(&self.keys_in_signature));
 
-        if delegating_key_in_signature(&self.keys_in_signature) {
-            kfrag_validity_message.extend_from_slice(&delegating_pubkey.unwrap().to_bytes());
-        }
-        if receiving_key_in_signature(&self.keys_in_signature) {
-            kfrag_validity_message.extend_from_slice(&receiving_pubkey.unwrap().to_bytes());
-        }
+        // `validity_message_for_proxy` needs to have a static type and
+        // (since it's a GenericArray) a static size.
+        // So we have to concat the same number of bytes regardless of any runtime state.
+
+        let kfrag_validity_message = kfrag_validity_message
+            .concat(if delegating_key_in_signature(&self.keys_in_signature) {
+                delegating_pubkey.unwrap().to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
+
+        let kfrag_validity_message = kfrag_validity_message
+            .concat(if receiving_key_in_signature(&self.keys_in_signature) {
+                receiving_pubkey.unwrap().to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
 
         let valid_kfrag_signature =
             signing_pubkey.verify(&kfrag_validity_message, &self.signature_for_proxy);

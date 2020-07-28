@@ -10,6 +10,7 @@ use elliptic_curve::weierstrass::point::CompressedPointSize;
 use elliptic_curve::Curve;
 
 use rand_core::OsRng;
+use core::default::Default;
 
 pub type CurvePointSize = CompressedPointSize<Secp256k1>;
 pub type CurveScalarSize = <Secp256k1 as Curve>::ElementSize;
