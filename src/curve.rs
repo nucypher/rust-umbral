@@ -1,24 +1,29 @@
 //use k256::Secp256k1;
 use k256::AffinePoint;
+use k256::Secp256k1;
 use k256::CompressedPoint;
 pub use k256::ProjectivePoint as CurvePoint;
 use k256::PublicKey;
 pub use k256::Scalar as CurveScalar;
-//use generic_array::{GenericArray, ArrayLength};
+use generic_array::GenericArray;
+use elliptic_curve::weierstrass::point::CompressedPointSize;
+use elliptic_curve::Curve;
 
 use rand_core::OsRng;
+
+pub type CurvePointSize = CompressedPointSize<Secp256k1>;
+pub type CurveScalarSize = <Secp256k1 as Curve>::ElementSize;
 
 pub fn random_scalar() -> CurveScalar {
     CurveScalar::generate_vartime(&mut OsRng)
 }
 
-pub fn point_to_bytes(p: &CurvePoint) -> Vec<u8> {
+pub fn point_to_bytes(p: &CurvePoint) -> GenericArray<u8, CurvePointSize> {
     let cp = CompressedPoint::from(p.to_affine().unwrap());
-    let res: Vec<u8> = cp.into_bytes().iter().cloned().collect();
-    res
+    cp.into_bytes()
 }
 
-pub fn scalar_to_bytes(s: &CurveScalar) -> Vec<u8> {
+pub fn scalar_to_bytes(s: &CurveScalar) -> GenericArray<u8, CurveScalarSize> {
     s.to_bytes().into()
 }
 

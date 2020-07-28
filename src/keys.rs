@@ -7,7 +7,7 @@ use ecdsa::Signature;
 use k256::Secp256k1;
 pub type UmbralSignature = Signature<Secp256k1>;
 
-use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar};
+use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize, CurveScalarSize};
 use crate::params::UmbralParameters;
 
 #[derive(Clone, Copy, Debug)]
@@ -66,7 +66,7 @@ impl UmbralPrivateKey {
         }
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> GenericArray<u8, CurveScalarSize> {
         scalar_to_bytes(&self.bn_key)
     }
 }
@@ -85,7 +85,7 @@ impl UmbralPublicKey {
         }
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> GenericArray<u8, CurvePointSize> {
         point_to_bytes(&self.point_key)
     }
 
