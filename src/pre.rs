@@ -251,7 +251,6 @@ fn _decapsulate_reencrypted(
             .copied()
             .collect();
         let x = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
-        println!("x in decapsulate_reencrypted(): {:?}", x);
         xs.push(x);
     }
 
