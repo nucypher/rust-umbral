@@ -110,7 +110,7 @@ pub fn kdf(
     info: Option<&[u8]>,
 ) -> Vec<u8> {
     let data = point_to_bytes(ecpoint);
-    let hk = Hkdf::<Sha256>::new(salt, &data);
+    let hk = Hkdf::<Blake2b>::new(salt, &data);
 
     let mut okm = vec![0u8; key_length];
 
