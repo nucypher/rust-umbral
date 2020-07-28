@@ -2,6 +2,8 @@ use crate::params::UmbralParameters;
 use crate::curve::{CurvePoint, CurveScalar, point_to_bytes, scalar_to_bytes};
 use crate::keys::{UmbralPublicKey};
 use crate::kfrags::KFrag;
+use crate::cfrags::CapsuleFrag;
+use crate::random_oracles::hash_to_scalar;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
@@ -13,12 +15,14 @@ pub struct Capsule {
 
 impl Capsule {
     pub fn new(params: &UmbralParameters, point_e: &CurvePoint, point_v: &CurvePoint, bn_sig: &CurveScalar) -> Self {
-        Self {
+        let res = Self {
             params: *params,
             point_e: *point_e,
             point_v: *point_v,
             bn_sig: *bn_sig
-        }
+        };
+        assert!(res.verify());
+        res
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -41,30 +45,31 @@ impl Capsule {
             verifying_key: *verifying,
         }
     }
+
+    pub fn verify(&self) -> bool {
+        let g = self.params.g;
+        let h = hash_to_scalar(&[self.point_e, self.point_v], None);
+        &g * &self.bn_sig == &self.point_v + &(&self.point_e * &h)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct PreparedCapsule {
     pub capsule: Capsule,
-    delegating_key: UmbralPublicKey,
-    receiving_key: UmbralPublicKey,
-    verifying_key: UmbralPublicKey,
+    pub delegating_key: UmbralPublicKey,
+    pub receiving_key: UmbralPublicKey,
+    pub verifying_key: UmbralPublicKey,
 }
 
 impl PreparedCapsule {
-    /*
-    pub fn verify(&self) -> bool {
-        self.capsule.verify()
-    }
 
-    pub fn verify_cfrag(&self, cfrag: CapsuleFrag) -> bool {
+    pub fn verify_cfrag(&self, cfrag: &CapsuleFrag) -> bool {
         cfrag.verify_correctness(
             &self.capsule,
             &self.delegating_key,
             &self.receiving_key,
             &self.verifying_key)
     }
-    */
 
     pub fn verify_kfrag(&self, kfrag: &KFrag) -> bool {
         kfrag.verify(&self.verifying_key, Some(&self.delegating_key), Some(&self.receiving_key))

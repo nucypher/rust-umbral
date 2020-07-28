@@ -5,7 +5,7 @@ use crate::dem::{UmbralDEM, DEM_KEYSIZE, Ciphertext};
 use crate::params::UmbralParameters;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::kfrags::{KFrag, KeyType, serialize_key_type};
-use crate::utils::poly_eval;
+use crate::utils::{poly_eval, lambda_coeff};
 use crate::cfrags::CapsuleFrag;
 use crate::capsule::{Capsule, PreparedCapsule};
 
@@ -23,6 +23,7 @@ fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
     let pub_u = &g * &priv_u;
 
     let h = hash_to_scalar(&[pub_r, pub_u], None);
+
     let s = &priv_u + (&priv_r * &h);
 
     let shared_key = &(alice_pubkey.point_key) * &(&priv_r + &priv_u);
@@ -75,30 +76,6 @@ fn decrypt_original(ciphertext: &Ciphertext, capsule: &Capsule, decrypting_key: 
 }
 
 /*
-fn decrypt_reencrypted(ciphertext: [u8],
-                        capsule: &PreparedCapsule,
-                        cfrags: [CapsuleFrag],
-                        decrypting_key: &UmbralPrivateKey,
-                        check_proof: bool) -> Result<[u8], > {
-
-    // TODO: should be checked in a ciphertext object?
-    //if len(ciphertext) < DEM_NONCE_SIZE:
-    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
-    // TODO: verify capsule on creation?
-    //if !capsule.verify() {
-    //    return Err(Capsule.NotValid)
-    //}
-    //elif not isinstance(decrypting_key, UmbralPrivateKey):
-    //    raise TypeError("The decrypting key is not an UmbralPrivateKey")
-
-    encapsulated_key = _open_capsule(capsule, cfrags, decrypting_key, check_proof);
-
-    let dem = UmbralDEM(encapsulated_key);
-    dem.decrypt(ciphertext, authenticated_data=bytes(capsule.capsule))
-}
-*/
-
-/*
 Creates a re-encryption key from Alice's delegating public key to Bob's
 receiving public key, and splits it in KFrags, using Shamir's Secret Sharing.
 Requires a threshold number of KFrags out of N.
@@ -139,7 +116,7 @@ fn generate_kfrags(delegating_privkey: &UmbralPrivateKey,
 
     // Coefficients of the generating polynomial
     let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
-    coefficients.push(&delegating_privkey.bn_key * &(-d));
+    coefficients.push(&delegating_privkey.bn_key * &(d.invert().unwrap()));
     for i in 1..threshold {
         coefficients.push(random_scalar());
     }
@@ -237,6 +214,98 @@ fn reencrypt(kfrag: &KFrag,
     Some(CapsuleFrag::from_kfrag(&prepared_capsule.capsule, &kfrag, metadata))
 }
 
+/// Derive the same symmetric encapsulated_key
+fn _decapsulate_reencrypted(receiving_privkey: &UmbralPrivateKey,
+                             prepared_capsule: &PreparedCapsule,
+                             cfrags: &[CapsuleFrag],
+                             key_length: usize) -> Vec<u8> {
+
+    let capsule = prepared_capsule.capsule;
+    let params = capsule.params;
+
+    let pub_key = receiving_privkey.get_pubkey().point_key;
+    let priv_key = receiving_privkey.bn_key;
+
+    let precursor = cfrags[0].point_precursor;
+    let dh_point = &precursor * &priv_key;
+
+    // Combination of CFrags via Shamir's Secret Sharing reconstruction
+    let mut xs = Vec::<CurveScalar>::new();
+    for cfrag in cfrags {
+        let customization_string: Vec<u8> =
+            X_COORDINATE.iter()
+            .chain(scalar_to_bytes(&cfrag.kfrag_id).iter())
+            .copied().collect();
+        let x = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
+        println!("x in decapsulate_reencrypted(): {:?}", x);
+        xs.push(x);
+    }
+
+    let mut e_prime = CurvePoint::identity();
+    let mut v_prime = CurvePoint::identity();
+    for (cfrag, x) in (&cfrags).iter().zip((&xs).iter()) {
+        assert!(precursor == cfrag.point_precursor);
+        let lambda_i = lambda_coeff(&x, &xs);
+        e_prime += &cfrag.point_e1 * &lambda_i;
+        v_prime += &cfrag.point_v1 * &lambda_i;
+    }
+
+    // Secret value 'd' allows to make Umbral non-interactive
+    let d = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&NON_INTERACTIVE));
+
+    let e = capsule.point_e;
+    let v = capsule.point_v;
+    let s = capsule.bn_sig;
+    let h = hash_to_scalar(&[e, v], None);
+
+    let orig_pub_key = prepared_capsule.delegating_key.point_key;
+
+    assert!(&orig_pub_key * &(&s * &d.invert().unwrap()) == &(&e_prime * &h) + &v_prime);
+    //    raise GenericUmbralError()
+
+    let shared_key = (&e_prime + &v_prime) * &d;
+
+    kdf(&shared_key, key_length, None, None)
+}
+
+/*
+Activates the Capsule from the attached CFrags,
+opens the Capsule and returns what is inside.
+
+This will often be a symmetric key.
+*/
+fn _open_capsule(prepared_capsule: &PreparedCapsule,
+                  cfrags: &[CapsuleFrag],
+                  receiving_privkey: &UmbralPrivateKey,
+                  check_proof: bool) -> Vec<u8> {
+    if check_proof {
+        // TODO: return Result with Error set to offending cfrag indices or something
+        for cfrag in cfrags {
+            assert!(prepared_capsule.verify_cfrag(cfrag));
+        }
+    }
+
+    _decapsulate_reencrypted(receiving_privkey, prepared_capsule, cfrags, DEM_KEYSIZE)
+}
+
+fn decrypt_reencrypted(ciphertext: &Ciphertext,
+                        capsule: &PreparedCapsule,
+                        cfrags: &[CapsuleFrag],
+                        decrypting_key: &UmbralPrivateKey,
+                        check_proof: bool) -> Option<Vec<u8>> {
+
+    // TODO: should be checked when creating a ciphertext object?
+    //if len(ciphertext) < DEM_NONCE_SIZE:
+    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
+    // TODO: verify capsule on creation?
+    //if !capsule.verify() {
+    //    return Err(Capsule.NotValid)
+    //}
+
+    let encapsulated_key = _open_capsule(capsule, cfrags, decrypting_key, check_proof);
+    let dem = UmbralDEM::new(&encapsulated_key);
+    dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
+}
 
 #[cfg(test)]
 mod tests {
@@ -244,7 +313,7 @@ mod tests {
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
     use crate::cfrags::CapsuleFrag;
-    use super::{encrypt, decrypt_original, generate_kfrags, reencrypt};
+    use super::{encrypt, decrypt_original, generate_kfrags, reencrypt, decrypt_reencrypted};
 
     #[test]
     fn test_simple_api() {
@@ -309,11 +378,8 @@ mod tests {
             cfrags.push(cfrag);
         }
 
-        /*
         // Decryption by Bob
-        let reenc_cleartext = decrypt_reencrypted(&ciphertext, &prepared_capsule, &cfrags, &receiving_privkey);
-        assert_eq!(reenc_cleartext, plain_data);
-        */
-
+        let reenc_cleartext = decrypt_reencrypted(&ciphertext, &prepared_capsule, &cfrags, &receiving_privkey, true);
+        assert_eq!(reenc_cleartext.unwrap(), plain_data);
     }
 }
