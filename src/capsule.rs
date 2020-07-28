@@ -1,9 +1,12 @@
 use crate::cfrags::CapsuleFrag;
-use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar};
+use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize, CurveScalarSize};
 use crate::keys::UmbralPublicKey;
 use crate::kfrags::KFrag;
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
+use generic_array::GenericArray;
+use generic_array::sequence::Concat;
+use core::ops::Add;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
@@ -12,6 +15,8 @@ pub struct Capsule {
     pub point_v: CurvePoint,
     pub bn_sig: CurveScalar,
 }
+
+type CapsuleSize = <<CurvePointSize as Add<CurvePointSize>>::Output as Add<CurveScalarSize>>::Output;
 
 impl Capsule {
     pub fn new(
@@ -30,14 +35,10 @@ impl Capsule {
         res
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let result: Vec<u8> = point_to_bytes(&(self.point_e))
-            .iter()
-            .chain(point_to_bytes(&self.point_v).iter())
-            .chain(scalar_to_bytes(&self.bn_sig).iter())
-            .copied()
-            .collect();
-        result
+    pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
+        point_to_bytes(&self.point_e)
+            .concat(point_to_bytes(&self.point_v))
+            .concat(scalar_to_bytes(&self.bn_sig))
     }
 
     pub fn with_correctness_keys(
