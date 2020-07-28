@@ -2,6 +2,8 @@ use blake2::{Blake2b, Digest};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use sha3::Sha3_256;
+use generic_array::GenericArray;
+use generic_array::typenum::U32;
 
 use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurveScalar};
 
@@ -103,16 +105,19 @@ pub fn hash_to_scalar(
     CurveScalar::from_digest(hasher)
 }
 
+// TODO: what's even the point of passing `key_length` then?
+pub type KdfSize = U32;
+
 pub fn kdf(
     ecpoint: &CurvePoint,
     key_length: usize,
     salt: Option<&[u8]>,
     info: Option<&[u8]>,
-) -> Vec<u8> {
+) -> GenericArray<u8, KdfSize> {
     let data = point_to_bytes(ecpoint);
     let hk = Hkdf::<Blake2b>::new(salt, &data);
 
-    let mut okm = vec![0u8; key_length];
+    let mut okm = GenericArray::<u8, KdfSize>::default();
 
     let def_info = match info {
         Some(x) => x,

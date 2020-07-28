@@ -5,8 +5,10 @@ use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, C
 use crate::dem::{Ciphertext, UmbralDEM, DEM_KEYSIZE};
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kfrags::{serialize_key_type, KFrag, KeyType};
-use crate::random_oracles::{hash_to_scalar, kdf};
+use crate::random_oracles::{hash_to_scalar, kdf, KdfSize};
 use crate::utils::{lambda_coeff, poly_eval};
+
+use generic_array::GenericArray;
 
 /// Generates a symmetric key and its associated KEM ciphertext
 fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
@@ -46,15 +48,14 @@ fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Cap
 }
 
 /// Derive the same symmetric key
-fn _decapsulate_original(private_key: &UmbralPrivateKey, capsule: &Capsule) -> Vec<u8> {
+fn _decapsulate_original(private_key: &UmbralPrivateKey, capsule: &Capsule) -> GenericArray<u8, KdfSize> {
     // TODO: capsule should be verified on creation
     //if not capsule.verify():
     //    # Check correctness of original ciphertext
     //    raise capsule.NotValid("Capsule verification failed.")
 
     let shared_key = (&capsule.point_e + &capsule.point_v) * &private_key.bn_key;
-    let key = kdf(&shared_key, DEM_KEYSIZE, None, None);
-    key
+    kdf(&shared_key, DEM_KEYSIZE, None, None)
 }
 
 fn decrypt_original(
@@ -232,7 +233,7 @@ fn _decapsulate_reencrypted(
     prepared_capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
     key_length: usize,
-) -> Vec<u8> {
+) -> GenericArray<u8, KdfSize> {
     let capsule = prepared_capsule.capsule;
     let params = capsule.params;
 
@@ -292,7 +293,7 @@ fn _open_capsule(
     cfrags: &[CapsuleFrag],
     receiving_privkey: &UmbralPrivateKey,
     check_proof: bool,
-) -> Vec<u8> {
+) -> GenericArray<u8, KdfSize> {
     if check_proof {
         // TODO: return Result with Error set to offending cfrag indices or something
         for cfrag in cfrags {
