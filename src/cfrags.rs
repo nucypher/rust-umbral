@@ -4,6 +4,8 @@ use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::kfrags::KFrag;
 use crate::random_oracles::hash_to_scalar;
 
+use generic_array::sequence::Concat;
+
 pub struct CorrectnessProof {
     point_e2: CurvePoint,
     point_v2: CurvePoint,
@@ -11,7 +13,12 @@ pub struct CorrectnessProof {
     point_kfrag_pok: CurvePoint,
     bn_sig: CurveScalar,
     kfrag_signature: UmbralSignature,
-    metadata: Vec<u8>,
+
+    // TODO: (for @tux and @dnunez): originally it was a bytestring.
+    // In heapless mode I'd have to make this struct, and all that depends on it
+    // generic on the metadata size, and that's just too cumbersome.
+    // Instead I'm hashing it to a scalar. Hope it's ok.
+    metadata: CurveScalar,
 }
 
 impl CorrectnessProof {
@@ -20,7 +27,7 @@ impl CorrectnessProof {
         kfrag: &KFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
-        metadata: Option<&[u8]>,
+        metadata: &CurveScalar,
     ) -> Self {
         let params = capsule.params;
 
@@ -50,14 +57,9 @@ impl CorrectnessProof {
         let hash_input = [e, *e1, e2, v, *v1, v2, u, u1, u2];
 
         // TODO: original uses ExtendedKeccak here
-        let h = hash_to_scalar(&hash_input, metadata);
+        let h = hash_to_scalar(&hash_input, Some(&scalar_to_bytes(metadata)));
 
         ////////
-
-        let vec_metadata: Vec<u8> = match metadata {
-            Some(s) => s.iter().copied().collect(),
-            None => vec![],
-        };
 
         let z3 = &t + &rk * &h;
 
@@ -68,7 +70,7 @@ impl CorrectnessProof {
             point_kfrag_pok: u2,
             bn_sig: z3,
             kfrag_signature: kfrag.signature_for_bob.clone(),
-            metadata: vec_metadata,
+            metadata: *metadata,
         }
     }
 }
@@ -86,7 +88,11 @@ impl CapsuleFrag {
         let rk = kfrag.bn_key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
-        let proof = CorrectnessProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, metadata);
+        let metadata_scalar = match metadata {
+            Some(s) => hash_to_scalar(&[], Some(s)),
+            None => CurveScalar::default()
+        };
+        let proof = CorrectnessProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata_scalar);
 
         Self {
             point_e1: e1,
@@ -124,7 +130,7 @@ impl CapsuleFrag {
         let hash_input = [e, e1, e2, v, v1, v2, u, u1, u2];
 
         // TODO: original uses ExtendedKeccak here
-        let h = hash_to_scalar(&hash_input, Some(&self.proof.metadata));
+        let h = hash_to_scalar(&hash_input, Some(&self.proof.metadata.to_bytes()));
 
         ///////
 
@@ -132,14 +138,11 @@ impl CapsuleFrag {
         let kfrag_id = self.kfrag_id;
 
         // TODO: hide this in a special mutable object associated with Signer?
-        let kfrag_validity_message: Vec<u8> = scalar_to_bytes(&kfrag_id)
-            .iter()
-            .chain(delegating_pubkey.to_bytes().iter())
-            .chain(receiving_pubkey.to_bytes().iter())
-            .chain(point_to_bytes(&u1).iter())
-            .chain(point_to_bytes(&precursor).iter())
-            .copied()
-            .collect();
+        let kfrag_validity_message = scalar_to_bytes(&kfrag_id)
+            .concat(delegating_pubkey.to_bytes())
+            .concat(receiving_pubkey.to_bytes())
+            .concat(point_to_bytes(&u1))
+            .concat(point_to_bytes(&precursor));
 
         let valid_kfrag_signature =
             signing_pubkey.verify(&kfrag_validity_message, &self.proof.kfrag_signature);
