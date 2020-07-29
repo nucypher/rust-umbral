@@ -90,9 +90,10 @@ impl CapsuleFrag {
         let v1 = &capsule.point_v * &rk;
         let metadata_scalar = match metadata {
             Some(s) => hash_to_scalar(&[], Some(s)),
-            None => CurveScalar::default()
+            None => CurveScalar::default(),
         };
-        let proof = CorrectnessProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata_scalar);
+        let proof =
+            CorrectnessProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata_scalar);
 
         Self {
             point_e1: e1,

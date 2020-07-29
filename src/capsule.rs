@@ -1,12 +1,14 @@
 use crate::cfrags::CapsuleFrag;
-use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize, CurveScalarSize};
+use crate::curve::{
+    point_to_bytes, scalar_to_bytes, CurvePoint, CurvePointSize, CurveScalar, CurveScalarSize,
+};
 use crate::keys::UmbralPublicKey;
 use crate::kfrags::KFrag;
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
-use generic_array::GenericArray;
-use generic_array::sequence::Concat;
 use core::ops::Add;
+use generic_array::sequence::Concat;
+use generic_array::GenericArray;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
@@ -16,7 +18,8 @@ pub struct Capsule {
     pub bn_sig: CurveScalar,
 }
 
-type CapsuleSize = <<CurvePointSize as Add<CurvePointSize>>::Output as Add<CurveScalarSize>>::Output;
+type CapsuleSize =
+    <<CurvePointSize as Add<CurvePointSize>>::Output as Add<CurveScalarSize>>::Output;
 
 impl Capsule {
     pub fn new(

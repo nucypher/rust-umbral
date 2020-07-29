@@ -29,7 +29,9 @@ impl UmbralParameters {
 }
 
 impl Default for UmbralParameters {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PartialEq for UmbralParameters {

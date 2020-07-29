@@ -1,7 +1,7 @@
 // TODO: in the original these were constants from ConstantSorrow.
 
-use generic_array::{GenericArray, arr};
 use generic_array::typenum::{U12, U15};
+use generic_array::{arr, GenericArray};
 
 pub fn const_non_interactive() -> GenericArray<u8, U15> {
     GenericArray::<u8, U15>::clone_from_slice(b"NON_INTERACTIVE")

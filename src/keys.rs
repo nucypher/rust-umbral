@@ -1,27 +1,33 @@
+use core::default::Default;
 use digest::Digest;
 use ecdsa::hazmat::{SignPrimitive, VerifyPrimitive};
-use generic_array::GenericArray;
-use sha3::Sha3_256;
-use core::default::Default;
 use ecdsa::Signature;
+use generic_array::GenericArray;
 use k256::Secp256k1;
+use sha3::Sha3_256;
 
-use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize, CurveScalarSize};
+use crate::curve::{
+    point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurvePointSize, CurveScalar,
+    CurveScalarSize,
+};
 use crate::params::UmbralParameters;
 
 // FIXME: temporary measure to implement Default for UmbralSignature
 // (since Signature does not support it at the moment)
 #[derive(Clone, Debug)]
-pub struct UmbralSignature ( Option<Signature<Secp256k1>> );
+pub struct UmbralSignature(Option<Signature<Secp256k1>>);
 
 impl UmbralSignature {
-    fn new(sig: &Signature<Secp256k1>) -> Self { Self(Some(sig.clone())) }
+    fn new(sig: &Signature<Secp256k1>) -> Self {
+        Self(Some(sig.clone()))
+    }
 }
 
 impl Default for UmbralSignature {
-    fn default() -> Self { Self(None) }
+    fn default() -> Self {
+        Self(None)
+    }
 }
-
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPrivateKey {
@@ -112,7 +118,10 @@ impl UmbralPublicKey {
         let l = hashed.len();
 
         let ap = self.point_key.to_affine().unwrap();
-        let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l - 32..l]), &(signature.0).as_ref().unwrap());
+        let res = ap.verify_prehashed(
+            GenericArray::from_slice(&hashed[l - 32..l]),
+            &(signature.0).as_ref().unwrap(),
+        );
 
         match res {
             Ok(_) => true,

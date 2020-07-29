@@ -1,10 +1,12 @@
 use crate::capsule::{Capsule, PreparedCapsule};
 use crate::cfrags::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
-use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
+use crate::curve::{
+    point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurvePointSize, CurveScalar,
+};
 
 #[cfg(feature = "std")]
-use crate::dem::{Ciphertext};
+use crate::dem::Ciphertext;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -12,14 +14,14 @@ use std::vec::Vec;
 use crate::dem::{UmbralDEM, DEM_KEYSIZE};
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kfrags::{key_type_to_bytes, KFrag, KeyType};
+use crate::params::UmbralParameters;
 use crate::random_oracles::{hash_to_scalar, kdf, KdfSize};
 use crate::utils::{lambda_coeff, poly_eval};
-use crate::params::UmbralParameters;
 
-use aead::{Buffer};
-use generic_array::{GenericArray, ArrayLength};
-use generic_array::typenum::{UInt, Unsigned};
+use aead::Buffer;
 use generic_array::sequence::Concat;
+use generic_array::typenum::{UInt, Unsigned};
+use generic_array::{ArrayLength, GenericArray};
 
 /// Generates a symmetric key and its associated KEM ciphertext
 fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
@@ -65,12 +67,15 @@ fn encrypt_in_place(buffer: &mut dyn Buffer, alice_pubkey: &UmbralPublicKey) -> 
     let result = dem.encrypt_in_place(buffer, &capsule_bytes);
     match result {
         Ok(_) => Some(capsule),
-        Err(_) => None
+        Err(_) => None,
     }
 }
 
 /// Derive the same symmetric key
-fn _decapsulate_original(private_key: &UmbralPrivateKey, capsule: &Capsule) -> GenericArray<u8, KdfSize> {
+fn _decapsulate_original(
+    private_key: &UmbralPrivateKey,
+    capsule: &Capsule,
+) -> GenericArray<u8, KdfSize> {
     // TODO: capsule should be verified on creation
     //if not capsule.verify():
     //    # Check correctness of original ciphertext
@@ -117,7 +122,7 @@ fn decrypt_original_in_place(
     let res = dem.decrypt_in_place(buffer, &capsule.to_bytes());
     match res {
         Ok(_) => Some(()),
-        Err(_) => None
+        Err(_) => None,
     }
 }
 
@@ -131,17 +136,17 @@ struct KFragFactory<M: ArrayLength<CurveScalar> + Unsigned> {
     receiving_pubkey: UmbralPublicKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-    coefficients: GenericArray<CurveScalar, M>
+    coefficients: GenericArray<CurveScalar, M>,
 }
 
 impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
-
-    pub fn new(delegating_privkey: &UmbralPrivateKey,
-            receiving_pubkey: &UmbralPublicKey,
-            signer: &UmbralPrivateKey,
-            sign_delegating_key: bool,
-            sign_receiving_key: bool,) -> Self {
-
+    pub fn new(
+        delegating_privkey: &UmbralPrivateKey,
+        receiving_pubkey: &UmbralPublicKey,
+        signer: &UmbralPrivateKey,
+        sign_delegating_key: bool,
+        sign_receiving_key: bool,
+    ) -> Self {
         let params = delegating_privkey.params;
         let g = params.g;
 
@@ -179,7 +184,7 @@ impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
             receiving_pubkey: *receiving_pubkey,
             sign_delegating_key,
             sign_receiving_key,
-            coefficients
+            coefficients,
         }
     }
 
@@ -230,15 +235,15 @@ impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
         // So we have to concat the same number of bytes regardless of any runtime state.
         // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
 
-        let validity_message_for_proxy = validity_message_for_proxy
-            .concat(if self.sign_delegating_key {
+        let validity_message_for_proxy =
+            validity_message_for_proxy.concat(if self.sign_delegating_key {
                 self.delegating_pubkey.to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()
             });
 
-        let validity_message_for_proxy = validity_message_for_proxy
-            .concat(if self.sign_receiving_key {
+        let validity_message_for_proxy =
+            validity_message_for_proxy.concat(if self.sign_receiving_key {
                 self.receiving_pubkey.to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()
@@ -258,7 +263,6 @@ impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
         )
     }
 }
-
 
 /*
 Creates a re-encryption key from Alice's delegating public key to Bob's
@@ -287,7 +291,8 @@ fn generate_kfrags<M: ArrayLength<CurveScalar> + Unsigned>(
         receiving_pubkey,
         signer,
         sign_delegating_key,
-        sign_receiving_key);
+        sign_receiving_key,
+    );
 
     let mut result = Vec::<KFrag>::new();
     for i in 0..N {
@@ -353,7 +358,10 @@ fn _decapsulate_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
     }
 
     // Secret value 'd' allows to make Umbral non-interactive
-    let d = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&const_non_interactive()));
+    let d = hash_to_scalar(
+        &[precursor, pub_key, dh_point],
+        Some(&const_non_interactive()),
+    );
 
     let e = capsule.point_e;
     let v = capsule.point_v;
@@ -433,10 +441,9 @@ fn decrypt_reencrypted_in_place<M: ArrayLength<CurveScalar> + Unsigned>(
     let res = dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes());
     match res {
         Ok(_) => Some(()),
-        Err(_) => None
+        Err(_) => None,
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -449,14 +456,13 @@ mod tests {
 
     use super::reencrypt;
     use crate::cfrags::CapsuleFrag;
-    use crate::kfrags::KFrag;
     use crate::keys::UmbralPrivateKey;
+    use crate::kfrags::KFrag;
     use crate::params::UmbralParameters;
 
     #[cfg(feature = "std")]
     #[test]
     fn test_simple_api() {
-
         use generic_array::typenum::U2;
 
         /*
@@ -474,7 +480,7 @@ mod tests {
         const M: usize = 2;
         const N: usize = 3;
 
-        // Generation of global parameters
+        // Generation of global parameters
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
 
         // Key Generation (Alice)
@@ -484,19 +490,19 @@ mod tests {
         let signing_privkey = UmbralPrivateKey::gen_key(&params);
         let signing_pubkey = signing_privkey.get_pubkey();
 
-        // Key Generation (Bob)
+        // Key Generation (Bob)
         let receiving_privkey = UmbralPrivateKey::gen_key(&params);
         let receiving_pubkey = receiving_privkey.get_pubkey();
 
-        // Encryption by an unnamed data source
+        // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
         let (ciphertext, capsule) = encrypt(&delegating_pubkey, plain_data);
 
-        // Decryption by Alice
+        // Decryption by Alice
         let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_privkey).unwrap();
         assert_eq!(cleartext, plain_data);
 
-        // Split Re-Encryption Key Generation (aka Delegation)
+        // Split Re-Encryption Key Generation (aka Delegation)
         // FIXME: would be easier if KFrag implemented Copy, but for that Signature must implement Copy
         let kfrags = generate_kfrags::<U2>(
             &delegating_privkey,
@@ -507,16 +513,16 @@ mod tests {
             false,
         );
 
-        // Capsule preparation (necessary before re-encryotion and activation)
+        // Capsule preparation (necessary before re-encryotion and activation)
         let prepared_capsule =
             capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
 
-        // Bob requests re-encryption to some set of M ursulas
+        // Bob requests re-encryption to some set of M ursulas
         let mut cfrags = Vec::<CapsuleFrag>::new();
         for frag_num in 0..M {
             let kfrag = &kfrags[frag_num];
 
-            // Ursula checks that the received kfrag is valid
+            // Ursula checks that the received kfrag is valid
             assert!(kfrag.verify(
                 &signing_pubkey,
                 Some(&delegating_pubkey),
@@ -530,7 +536,7 @@ mod tests {
             cfrags.push(cfrag);
         }
 
-        // Decryption by Bob
+        // Decryption by Bob
         let reenc_cleartext = decrypt_reencrypted::<U2>(
             &ciphertext,
             &prepared_capsule,
@@ -541,19 +547,20 @@ mod tests {
         assert_eq!(reenc_cleartext.unwrap(), plain_data);
     }
 
-    use super::{encrypt_in_place, decrypt_original_in_place, decrypt_reencrypted_in_place, KFragFactory};
+    use super::{
+        decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place, KFragFactory,
+    };
 
     #[test]
     fn test_simple_api_heapless() {
-
-        use heapless::Vec as HeaplessVec;
-        use heapless::consts::U128;
         use generic_array::typenum::U2;
+        use heapless::consts::U128;
+        use heapless::Vec as HeaplessVec;
 
         const M: usize = 2;
         const N: usize = 3;
 
-        // Generation of global parameters
+        // Generation of global parameters
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
 
         // Key Generation (Alice)
@@ -563,23 +570,24 @@ mod tests {
         let signing_privkey = UmbralPrivateKey::gen_key(&params);
         let signing_pubkey = signing_privkey.get_pubkey();
 
-        // Key Generation (Bob)
+        // Key Generation (Bob)
         let receiving_privkey = UmbralPrivateKey::gen_key(&params);
         let receiving_pubkey = receiving_privkey.get_pubkey();
 
-        // Encryption by an unnamed data source
+        // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
         let mut buffer: HeaplessVec<u8, U128> = HeaplessVec::new();
         buffer.extend_from_slice(plain_data);
         let capsule = encrypt_in_place(&mut buffer, &delegating_pubkey).unwrap();
 
-        // Decryption by Alice
+        // Decryption by Alice
         let mut buffer2: HeaplessVec<u8, U128> = HeaplessVec::new();
         buffer2.extend_from_slice(buffer.as_ref());
-        let result = decrypt_original_in_place(&mut buffer2, &capsule, &delegating_privkey).unwrap();
+        let result =
+            decrypt_original_in_place(&mut buffer2, &capsule, &delegating_privkey).unwrap();
         assert_eq!(buffer2, plain_data);
 
-        // Split Re-Encryption Key Generation (aka Delegation)
+        // Split Re-Encryption Key Generation (aka Delegation)
         let kfrag_factory = KFragFactory::<U2>::new(
             &delegating_privkey,
             &receiving_pubkey,
@@ -591,16 +599,16 @@ mod tests {
         let kfrags = [
             kfrag_factory.make(),
             kfrag_factory.make(),
-            kfrag_factory.make()];
+            kfrag_factory.make(),
+        ];
 
-        // Capsule preparation (necessary before re-encryotion and activation)
+        // Capsule preparation (necessary before re-encryotion and activation)
         let prepared_capsule =
             capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
 
-        // Bob requests re-encryption to some set of M ursulas
+        // Bob requests re-encryption to some set of M ursulas
         for frag_num in 0..M {
-
-            // Ursula checks that the received kfrag is valid
+            // Ursula checks that the received kfrag is valid
             assert!(kfrags[frag_num].verify(
                 &signing_pubkey,
                 Some(&delegating_pubkey),
@@ -612,14 +620,15 @@ mod tests {
         let cfrag0 = reencrypt(&kfrags[0], &prepared_capsule, None, true).unwrap();
         let cfrag1 = reencrypt(&kfrags[1], &prepared_capsule, None, true).unwrap();
 
-        // Decryption by Bob
+        // Decryption by Bob
         let result = decrypt_reencrypted_in_place::<U2>(
             &mut buffer,
             &prepared_capsule,
             &[cfrag0, cfrag1],
             &receiving_privkey,
             true,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(buffer, plain_data);
     }
 }

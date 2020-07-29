@@ -1,12 +1,12 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use aead::{Aead, AeadInPlace, Payload, Buffer};
+use aead::{Aead, AeadInPlace, Buffer, Payload};
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use generic_array::typenum::Unsigned;
 use rand_core::OsRng;
 use rand_core::RngCore;
-use generic_array::typenum::Unsigned;
 
 // TODO: get from Key and Nonce
 pub const DEM_KEYSIZE: usize = 32;
@@ -32,39 +32,52 @@ impl UmbralDEM {
     }
 
     pub fn ciphertext_size_for(plaintext_size: usize) -> usize {
-        let overhead = <<ChaCha20Poly1305 as AeadInPlace>::CiphertextOverhead as Unsigned>::to_usize();
+        let overhead =
+            <<ChaCha20Poly1305 as AeadInPlace>::CiphertextOverhead as Unsigned>::to_usize();
         let tag_size = <<ChaCha20Poly1305 as AeadInPlace>::TagSize as Unsigned>::to_usize();
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         plaintext_size + tag_size + overhead + nonce_size
     }
 
-    pub fn encrypt_in_place(&self, buffer: &mut dyn Buffer, authenticated_data: &[u8]) -> Result<(), DemError> {
+    pub fn encrypt_in_place(
+        &self,
+        buffer: &mut dyn Buffer,
+        authenticated_data: &[u8],
+    ) -> Result<(), DemError> {
         let mut nonce = [0u8; DEM_NONCE_SIZE];
         OsRng.fill_bytes(&mut nonce);
         let nonce = Nonce::from_slice(&nonce);
-        let result = self.cipher.encrypt_in_place(&nonce, authenticated_data, buffer);
+        let result = self
+            .cipher
+            .encrypt_in_place(&nonce, authenticated_data, buffer);
         match result {
             Ok(_) => {
                 let res2 = buffer.extend_from_slice(&nonce);
                 match res2 {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(DemError())
+                    Err(_) => Err(DemError()),
                 }
-            },
-            Err(_) => Err(DemError())
+            }
+            Err(_) => Err(DemError()),
         }
     }
 
-    pub fn decrypt_in_place(&self, buffer: &mut dyn Buffer, authenticated_data: &[u8]) -> Result<(), DemError> {
+    pub fn decrypt_in_place(
+        &self,
+        buffer: &mut dyn Buffer,
+        authenticated_data: &[u8],
+    ) -> Result<(), DemError> {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         let buf_size = buffer.len();
 
         let nonce = Nonce::clone_from_slice(&buffer.as_ref()[buf_size - nonce_size..buf_size]);
         buffer.truncate(buf_size - nonce_size);
-        let result = self.cipher.decrypt_in_place(&nonce, authenticated_data, buffer);
+        let result = self
+            .cipher
+            .decrypt_in_place(&nonce, authenticated_data, buffer);
         match result {
             Ok(_) => Ok(()),
-            Err(_) => Err(DemError())
+            Err(_) => Err(DemError()),
         }
     }
 

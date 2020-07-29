@@ -1,10 +1,10 @@
-use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
+use crate::curve::{point_to_bytes, scalar_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
 use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::params::UmbralParameters;
 
-use generic_array::GenericArray;
-use generic_array::typenum::U1;
 use generic_array::sequence::Concat;
+use generic_array::typenum::U1;
+use generic_array::GenericArray;
 
 use core::default::Default;
 
@@ -17,7 +17,9 @@ pub enum KeyType {
 }
 
 impl Default for KeyType {
-    fn default() -> Self { KeyType::NoKey }
+    fn default() -> Self {
+        KeyType::NoKey
+    }
 }
 
 pub fn key_type_to_bytes(kt: &KeyType) -> GenericArray<u8, U1> {
@@ -125,7 +127,7 @@ impl KFrag {
         let commitment = self.point_commitment;
         let precursor = self.point_precursor;
 
-        //  We check that the commitment is well-formed
+        // We check that the commitment is well-formed
         let correct_commitment = commitment == &u * &key;
 
         // TODO: hide this in a special mutable object associated with Signer?
@@ -138,15 +140,16 @@ impl KFrag {
         // (since it's a GenericArray) a static size.
         // So we have to concat the same number of bytes regardless of any runtime state.
 
-        let kfrag_validity_message = kfrag_validity_message
-            .concat(if delegating_key_in_signature(&self.keys_in_signature) {
+        let kfrag_validity_message = kfrag_validity_message.concat(
+            if delegating_key_in_signature(&self.keys_in_signature) {
                 delegating_pubkey.unwrap().to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()
-            });
+            },
+        );
 
-        let kfrag_validity_message = kfrag_validity_message
-            .concat(if receiving_key_in_signature(&self.keys_in_signature) {
+        let kfrag_validity_message =
+            kfrag_validity_message.concat(if receiving_key_in_signature(&self.keys_in_signature) {
                 receiving_pubkey.unwrap().to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()

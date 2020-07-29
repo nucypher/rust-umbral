@@ -1,11 +1,11 @@
 use blake2::{Blake2b, Digest};
+use generic_array::typenum::{Unsigned, U32};
+use generic_array::GenericArray;
 use hkdf::Hkdf;
 use sha2::Sha256;
 use sha3::Sha3_256;
-use generic_array::GenericArray;
-use generic_array::typenum::{Unsigned, U32};
 
-use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
+use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
 
 /*
 Hashes arbitrary data into a valid EC point of the specified curve,
