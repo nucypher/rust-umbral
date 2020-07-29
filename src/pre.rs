@@ -129,7 +129,6 @@ impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
 
     pub fn new(delegating_privkey: &UmbralPrivateKey,
             receiving_pubkey: &UmbralPublicKey,
-            threshold: usize,
             signer: &UmbralPrivateKey,
             sign_delegating_key: bool,
             sign_receiving_key: bool,) -> Self {
@@ -259,129 +258,33 @@ Requires a threshold number of KFrags out of N.
 
 Returns a list of N KFrags
 */
-fn generate_kfrags(
-    kfrags: &mut [KFrag],
+fn generate_kfrags<M: ArrayLength<CurveScalar> + Unsigned>(
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
-    threshold: usize,
     N: usize,
     signer: &UmbralPrivateKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> bool {
+) -> Vec<KFrag> {
     // TODO: debug_assert!, or panic in release too?
     //if threshold <= 0 or threshold > N:
     //    raise ValueError('Arguments threshold and N must satisfy 0 < threshold <= N')
     //if delegating_privkey.params != receiving_pubkey.params:
     //    raise ValueError("Keys must have the same parameter set.")
 
-    assert!(kfrags.len() >= N);
+    let factory = KFragFactory::<M>::new(
+        delegating_privkey,
+        receiving_pubkey,
+        signer,
+        sign_delegating_key,
+        sign_receiving_key);
 
-    let params = delegating_privkey.params;
-    let g = params.g;
-
-    let delegating_pubkey = delegating_privkey.get_pubkey();
-
-    let bob_pubkey_point = receiving_pubkey.point_key;
-
-    // The precursor point is used as an ephemeral public key in a DH key exchange,
-    // and the resulting shared secret 'dh_point' is used to derive other secret values
-    let private_precursor = random_scalar();
-    let precursor = &g * &private_precursor;
-
-    let dh_point = &bob_pubkey_point * &private_precursor;
-
-    // Secret value 'd' allows to make Umbral non-interactive
-    let d = hash_to_scalar(
-        &[precursor, bob_pubkey_point, dh_point],
-        Some(&const_non_interactive()),
-    );
-
-    // Coefficients of the generating polynomial
-    let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
-    coefficients.push(&delegating_privkey.bn_key * &(d.invert().unwrap()));
-    for i in 1..threshold {
-        coefficients.push(random_scalar());
-    }
-
+    let mut result = Vec::<KFrag>::new();
     for i in 0..N {
-        // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
-        let kfrag_id = random_scalar();
-
-        // The index of the re-encryption key share (which in Shamir's Secret
-        // Sharing corresponds to x in the tuple (x, f(x)), with f being the
-        // generating polynomial), is used to prevent reconstruction of the
-        // re-encryption key without Bob's intervention
-        let customization_string = const_x_coordinate().concat(scalar_to_bytes(&kfrag_id));
-        let share_index = hash_to_scalar(
-            &[precursor, bob_pubkey_point, dh_point],
-            Some(&customization_string),
-        );
-
-        // The re-encryption key share is the result of evaluating the generating
-        // polynomial for the index value
-        let rk = poly_eval(&coefficients, &share_index);
-
-        let commitment = &params.u * &rk;
-
-        // TODO: hide this in a special mutable object associated with Signer?
-        let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
-            .concat(delegating_pubkey.to_bytes())
-            .concat(receiving_pubkey.to_bytes())
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&precursor));
-        let signature_for_bob = signer.sign(&validity_message_for_bob);
-
-        // TODO: can be a function where KeyType is defined
-        let mode = match (sign_delegating_key, sign_receiving_key) {
-            (true, true) => KeyType::DelegatingAndReceiving,
-            (true, false) => KeyType::DelegatingOnly,
-            (false, true) => KeyType::ReceivingOnly,
-            (false, false) => KeyType::NoKey,
-        };
-
-        // TODO: hide this in a special mutable object associated with Signer?
-        let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&precursor))
-            .concat(key_type_to_bytes(&mode));
-
-        // `validity_message_for_proxy` needs to have a static type and
-        // (since it's a GenericArray) a static size.
-        // So we have to concat the same number of bytes regardless of any runtime state.
-        // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
-
-        let validity_message_for_proxy = validity_message_for_proxy
-            .concat(if sign_delegating_key {
-                delegating_pubkey.to_bytes()
-            } else {
-                GenericArray::<u8, CurvePointSize>::default()
-            });
-
-        let validity_message_for_proxy = validity_message_for_proxy
-            .concat(if sign_receiving_key {
-                receiving_pubkey.to_bytes()
-            } else {
-                GenericArray::<u8, CurvePointSize>::default()
-            });
-
-        let signature_for_proxy = signer.sign(&validity_message_for_proxy);
-
-        let kfrag = KFrag::new(
-            &params,
-            &kfrag_id,
-            &rk,
-            &commitment,
-            &precursor,
-            &signature_for_proxy,
-            &signature_for_bob,
-            Some(mode),
-        );
-
-        kfrags[i] = kfrag;
+        result.push(factory.make());
     }
 
-    true
+    result
 }
 
 fn reencrypt(
@@ -536,6 +439,9 @@ mod tests {
 
     #[test]
     fn test_simple_api() {
+
+        use generic_array::typenum::U2;
+
         /*
         This test models the main interactions between NuCypher actors (i.e., Alice,
         Bob, Data Source, and Ursulas) and artifacts (i.e., public and private keys,
@@ -575,12 +481,9 @@ mod tests {
 
         // Split Re-Encryption Key Generation (aka Delegation)
         // FIXME: would be easier if KFrag implemented Copy, but for that Signature must implement Copy
-        let mut kfrags = [KFrag::default(), KFrag::default(), KFrag::default()];
-        let result = generate_kfrags(
-            &mut kfrags,
+        let kfrags = generate_kfrags::<U2>(
             &delegating_privkey,
             &receiving_pubkey,
-            M,
             N,
             &signing_privkey,
             false,
@@ -663,7 +566,6 @@ mod tests {
         let kfrag_factory = KFragFactory::<U2>::new(
             &delegating_privkey,
             &receiving_pubkey,
-            M,
             &signing_privkey,
             false,
             false,
