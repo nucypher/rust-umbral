@@ -28,7 +28,7 @@ pub fn scalar_to_bytes(s: &CurveScalar) -> GenericArray<u8, CurveScalarSize> {
     s.to_bytes().into()
 }
 
-pub fn bytes_to_point(bytes: &Vec<u8>) -> Option<CurvePoint> {
+pub fn bytes_to_point(bytes: &[u8]) -> Option<CurvePoint> {
     // FIXME: Can we transform Option into CtOption directly?
     let pk = PublicKey::from_bytes(bytes).unwrap();
     let ap = AffinePoint::from_pubkey(&pk);

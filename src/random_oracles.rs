@@ -3,21 +3,9 @@ use hkdf::Hkdf;
 use sha2::Sha256;
 use sha3::Sha3_256;
 use generic_array::GenericArray;
-use generic_array::typenum::U32;
+use generic_array::typenum::{Unsigned, U32};
 
-use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurveScalar};
-
-fn to_fixed_be_bytes(x: usize) -> [u8; 4] {
-    let data = x.to_be_bytes();
-    let l = data.len();
-    let s = if l > 4 { 4 } else { l };
-
-    let mut res = [0u8; 4];
-    for i in 0..s {
-        res[i] = data[i + l - s];
-    }
-    res
-}
+use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
 
 /*
 Hashes arbitrary data into a valid EC point of the specified curve,
@@ -31,45 +19,32 @@ in constant time, and hence, it is not safe with respect to timing attacks.
 
 pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     // FIXME: make it return a constant amount of bytes
-    let len_data = to_fixed_be_bytes(data.len());
-    let len_label = to_fixed_be_bytes(label.len());
+    let len_data = (data.len() as u32).to_be_bytes();
+    let len_label = (label.len() as u32).to_be_bytes();
 
-    let label_data: Vec<u8> = len_label
-        .iter()
-        .chain(label.iter())
-        .chain(len_data.iter())
-        .chain(data.iter())
-        .cloned()
-        .collect();
-
-    let curve_key_size_bytes = 32; // FIXME: should be taken from the curve
+    let curve_key_size_bytes = CurvePointSize::to_usize();
 
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
     while i < <u32>::MAX {
-        let ibytes = to_fixed_be_bytes(i as usize);
-        let to_hash: Vec<u8> = label_data.iter().chain(&ibytes).cloned().collect();
+        let ibytes = (i as u32).to_be_bytes();
 
         // TODO: use a Blake2b implementation that supports personalization (see #155)
         // TODO: use VarBlake2b?
         let mut hash_function = Blake2b::new();
-        hash_function.update(to_hash);
-        let hash_digest_full = hash_function.finalize();
+        hash_function.update(&len_label);
+        hash_function.update(label);
+        hash_function.update(&len_data);
+        hash_function.update(data);
+        hash_function.update(&ibytes);
+        let mut hash_digest_full = hash_function.finalize();
         // TODO: check that the digest is long enough?
-        let hash_digest = &hash_digest_full[0..1 + curve_key_size_bytes];
+        let compressed_point = &mut hash_digest_full[0..curve_key_size_bytes];
 
-        let sign = if hash_digest[0] & 1 == 0 {
-            b"\x02"
-        } else {
-            b"\x03"
-        };
-        let compressed_point: Vec<u8> = sign
-            .iter()
-            .chain(hash_digest[1..hash_digest.len()].iter())
-            .cloned()
-            .collect();
+        // Set the sign byte
+        compressed_point[0] = if compressed_point[0] & 1 == 0 { 2 } else { 3 };
 
-        let maybe_point = bytes_to_point(&compressed_point);
+        let maybe_point = bytes_to_point(compressed_point);
         if maybe_point.is_some() {
             return maybe_point;
         }
