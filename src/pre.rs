@@ -7,9 +7,11 @@ use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kfrags::{key_type_to_bytes, KFrag, KeyType};
 use crate::random_oracles::{hash_to_scalar, kdf, KdfSize};
 use crate::utils::{lambda_coeff, poly_eval};
+use crate::params::UmbralParameters;
 
 use aead::{Buffer};
-use generic_array::GenericArray;
+use generic_array::{GenericArray, ArrayLength};
+use generic_array::typenum::{UInt, Unsigned};
 use generic_array::sequence::Concat;
 
 /// Generates a symmetric key and its associated KEM ciphertext
@@ -107,6 +109,145 @@ fn decrypt_original_in_place(
     match res {
         Ok(_) => Some(()),
         Err(_) => None
+    }
+}
+
+struct KFragFactory<M: ArrayLength<CurveScalar> + Unsigned> {
+    signer: UmbralPrivateKey,
+    precursor: CurvePoint,
+    bob_pubkey_point: CurvePoint,
+    dh_point: CurvePoint,
+    params: UmbralParameters,
+    delegating_pubkey: UmbralPublicKey,
+    receiving_pubkey: UmbralPublicKey,
+    sign_delegating_key: bool,
+    sign_receiving_key: bool,
+    coefficients: GenericArray<CurveScalar, M>
+}
+
+impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
+
+    pub fn new(delegating_privkey: &UmbralPrivateKey,
+            receiving_pubkey: &UmbralPublicKey,
+            threshold: usize,
+            signer: &UmbralPrivateKey,
+            sign_delegating_key: bool,
+            sign_receiving_key: bool,) -> Self {
+
+        let params = delegating_privkey.params;
+        let g = params.g;
+
+        let delegating_pubkey = delegating_privkey.get_pubkey();
+
+        let bob_pubkey_point = receiving_pubkey.point_key;
+
+        // The precursor point is used as an ephemeral public key in a DH key exchange,
+        // and the resulting shared secret 'dh_point' is used to derive other secret values
+        let private_precursor = random_scalar();
+        let precursor = &g * &private_precursor;
+
+        let dh_point = &bob_pubkey_point * &private_precursor;
+
+        // Secret value 'd' allows to make Umbral non-interactive
+        let d = hash_to_scalar(
+            &[precursor, bob_pubkey_point, dh_point],
+            Some(&const_non_interactive()),
+        );
+
+        // Coefficients of the generating polynomial
+        let mut coefficients = GenericArray::<CurveScalar, M>::default();
+        coefficients[0] = &delegating_privkey.bn_key * &(d.invert().unwrap());
+        for i in 1..<M as Unsigned>::to_usize() {
+            coefficients[i] = random_scalar();
+        }
+
+        Self {
+            signer: *signer,
+            precursor,
+            bob_pubkey_point,
+            dh_point,
+            params,
+            delegating_pubkey: delegating_pubkey,
+            receiving_pubkey: *receiving_pubkey,
+            sign_delegating_key,
+            sign_receiving_key,
+            coefficients
+        }
+    }
+
+    pub fn make(&self) -> KFrag {
+        // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
+        let kfrag_id = random_scalar();
+
+        // The index of the re-encryption key share (which in Shamir's Secret
+        // Sharing corresponds to x in the tuple (x, f(x)), with f being the
+        // generating polynomial), is used to prevent reconstruction of the
+        // re-encryption key without Bob's intervention
+        let customization_string = const_x_coordinate().concat(scalar_to_bytes(&kfrag_id));
+        let share_index = hash_to_scalar(
+            &[self.precursor, self.bob_pubkey_point, self.dh_point],
+            Some(&customization_string),
+        );
+
+        // The re-encryption key share is the result of evaluating the generating
+        // polynomial for the index value
+        let rk = poly_eval(&self.coefficients, &share_index);
+
+        let commitment = &self.params.u * &rk;
+
+        // TODO: hide this in a special mutable object associated with Signer?
+        let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
+            .concat(self.delegating_pubkey.to_bytes())
+            .concat(self.receiving_pubkey.to_bytes())
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&self.precursor));
+        let signature_for_bob = self.signer.sign(&validity_message_for_bob);
+
+        // TODO: can be a function where KeyType is defined
+        let mode = match (self.sign_delegating_key, self.sign_receiving_key) {
+            (true, true) => KeyType::DelegatingAndReceiving,
+            (true, false) => KeyType::DelegatingOnly,
+            (false, true) => KeyType::ReceivingOnly,
+            (false, false) => KeyType::NoKey,
+        };
+
+        // TODO: hide this in a special mutable object associated with Signer?
+        let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&self.precursor))
+            .concat(key_type_to_bytes(&mode));
+
+        // `validity_message_for_proxy` needs to have a static type and
+        // (since it's a GenericArray) a static size.
+        // So we have to concat the same number of bytes regardless of any runtime state.
+        // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
+
+        let validity_message_for_proxy = validity_message_for_proxy
+            .concat(if self.sign_delegating_key {
+                self.delegating_pubkey.to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
+
+        let validity_message_for_proxy = validity_message_for_proxy
+            .concat(if self.sign_receiving_key {
+                self.receiving_pubkey.to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
+
+        let signature_for_proxy = self.signer.sign(&validity_message_for_proxy);
+
+        KFrag::new(
+            &self.params,
+            &kfrag_id,
+            &rk,
+            &commitment,
+            &self.precursor,
+            &signature_for_proxy,
+            &signature_for_bob,
+            Some(mode),
+        )
     }
 }
 
@@ -359,6 +500,31 @@ fn decrypt_reencrypted(
     dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
 }
 
+fn decrypt_reencrypted_in_place(
+    buffer: &mut dyn Buffer,
+    capsule: &PreparedCapsule,
+    cfrags: &[CapsuleFrag],
+    decrypting_key: &UmbralPrivateKey,
+    check_proof: bool,
+) -> Option<()> {
+    // TODO: should be checked when creating a ciphertext object?
+    //if len(ciphertext) < DEM_NONCE_SIZE:
+    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
+    // TODO: verify capsule on creation?
+    //if !capsule.verify() {
+    //    return Err(Capsule.NotValid)
+    //}
+
+    let encapsulated_key = _open_capsule(capsule, cfrags, decrypting_key, check_proof);
+    let dem = UmbralDEM::new(&encapsulated_key);
+    let res = dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes());
+    match res {
+        Ok(_) => Some(()),
+        Err(_) => None
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
 
@@ -455,13 +621,14 @@ mod tests {
         assert_eq!(reenc_cleartext.unwrap(), plain_data);
     }
 
-    use super::{encrypt_in_place, decrypt_original_in_place};
+    use super::{encrypt_in_place, decrypt_original_in_place, decrypt_reencrypted_in_place, KFragFactory};
 
     #[test]
     fn test_simple_api_heapless() {
 
         use heapless::Vec as HeaplessVec;
         use heapless::consts::U128;
+        use generic_array::typenum::U2;
 
         const M: usize = 2;
         const N: usize = 3;
@@ -487,7 +654,53 @@ mod tests {
         let capsule = encrypt_in_place(&mut buffer, &delegating_pubkey).unwrap();
 
         // Decryption by Alice
-        decrypt_original_in_place(&mut buffer, &capsule, &delegating_privkey).unwrap();
+        let mut buffer2: HeaplessVec<u8, U128> = HeaplessVec::new();
+        buffer2.extend_from_slice(buffer.as_ref());
+        let result = decrypt_original_in_place(&mut buffer2, &capsule, &delegating_privkey).unwrap();
+        assert_eq!(buffer2, plain_data);
+
+        // Split Re-Encryption Key Generation (aka Delegation)
+        let kfrag_factory = KFragFactory::<U2>::new(
+            &delegating_privkey,
+            &receiving_pubkey,
+            M,
+            &signing_privkey,
+            false,
+            false,
+        );
+
+        let kfrags = [
+            kfrag_factory.make(),
+            kfrag_factory.make(),
+            kfrag_factory.make()];
+
+        // Capsule preparation (necessary before re-encryotion and activation)
+        let prepared_capsule =
+            capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
+
+        // Bob requests re-encryption to some set of M ursulas
+        for frag_num in 0..M {
+
+            // Ursula checks that the received kfrag is valid
+            assert!(kfrags[frag_num].verify(
+                &signing_pubkey,
+                Some(&delegating_pubkey),
+                Some(&receiving_pubkey)
+            ));
+        }
+
+        // Re-encryption by an Ursula
+        let cfrag0 = reencrypt(&kfrags[0], &prepared_capsule, None, true).unwrap();
+        let cfrag1 = reencrypt(&kfrags[1], &prepared_capsule, None, true).unwrap();
+
+        // Decryption by Bob
+        let result = decrypt_reencrypted_in_place(
+            &mut buffer,
+            &prepared_capsule,
+            &[cfrag0, cfrag1],
+            &receiving_privkey,
+            true,
+        ).unwrap();
         assert_eq!(buffer, plain_data);
     }
 }
