@@ -114,7 +114,7 @@ mod tests {
         let data = b"abcdefg";
         let label = b"sdasdasd";
         let p = unsafe_hash_to_point(&data[..], &label[..]);
-        println!("unsafe_hash_to_point: {:?}", p);
+        //println!("unsafe_hash_to_point: {:?}", p);
     }
 
     #[test]
@@ -122,7 +122,7 @@ mod tests {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
         let p = hash_to_scalar(&[p1, p2], None);
-        println!("hash_to_scalar: {:?}", p);
+        //println!("hash_to_scalar: {:?}", p);
     }
 
     #[test]
@@ -131,6 +131,6 @@ mod tests {
         let salt = b"abcdefg";
         let info = b"sdasdasd";
         let key = kdf(&p1, 128, Some(&salt[..]), Some(&info[..]));
-        println!("kdf: {:?}", key);
+        //println!("kdf: {:?}", key);
     }
 }

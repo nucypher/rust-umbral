@@ -2,7 +2,14 @@ use crate::capsule::{Capsule, PreparedCapsule};
 use crate::cfrags::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar, CurvePointSize};
-use crate::dem::{Ciphertext, UmbralDEM, DEM_KEYSIZE};
+
+#[cfg(feature = "std")]
+use crate::dem::{Ciphertext};
+
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
+use crate::dem::{UmbralDEM, DEM_KEYSIZE};
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kfrags::{key_type_to_bytes, KFrag, KeyType};
 use crate::random_oracles::{hash_to_scalar, kdf, KdfSize};
@@ -44,6 +51,7 @@ fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
 /// for the sender using the public key provided.
 ///
 /// Returns the ciphertext and the KEM Capsule.
+#[cfg(feature = "std")]
 fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Capsule) {
     let (dem, capsule) = _encapsulate(alice_pubkey);
     let capsule_bytes = capsule.to_bytes();
@@ -72,6 +80,7 @@ fn _decapsulate_original(private_key: &UmbralPrivateKey, capsule: &Capsule) -> G
     kdf(&shared_key, DEM_KEYSIZE, None, None)
 }
 
+#[cfg(feature = "std")]
 fn decrypt_original(
     ciphertext: &Ciphertext,
     capsule: &Capsule,
@@ -258,6 +267,7 @@ Requires a threshold number of KFrags out of N.
 
 Returns a list of N KFrags
 */
+#[cfg(feature = "std")]
 fn generate_kfrags<M: ArrayLength<CurveScalar> + Unsigned>(
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
@@ -311,7 +321,7 @@ fn reencrypt(
 }
 
 /// Derive the same symmetric encapsulated_key
-fn _decapsulate_reencrypted(
+fn _decapsulate_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
     receiving_privkey: &UmbralPrivateKey,
     prepared_capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
@@ -327,11 +337,10 @@ fn _decapsulate_reencrypted(
     let dh_point = &precursor * &priv_key;
 
     // Combination of CFrags via Shamir's Secret Sharing reconstruction
-    let mut xs = Vec::<CurveScalar>::new();
-    for cfrag in cfrags {
+    let mut xs = GenericArray::<CurveScalar, M>::default();
+    for (i, cfrag) in cfrags.iter().enumerate() {
         let customization_string = const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
-        let x = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
-        xs.push(x);
+        xs[i] = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
     }
 
     let mut e_prime = CurvePoint::identity();
@@ -367,7 +376,7 @@ opens the Capsule and returns what is inside.
 
 This will often be a symmetric key.
 */
-fn _open_capsule(
+fn _open_capsule<M: ArrayLength<CurveScalar> + Unsigned>(
     prepared_capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
     receiving_privkey: &UmbralPrivateKey,
@@ -380,10 +389,11 @@ fn _open_capsule(
         }
     }
 
-    _decapsulate_reencrypted(receiving_privkey, prepared_capsule, cfrags, DEM_KEYSIZE)
+    _decapsulate_reencrypted::<M>(receiving_privkey, prepared_capsule, cfrags, DEM_KEYSIZE)
 }
 
-fn decrypt_reencrypted(
+#[cfg(feature = "std")]
+fn decrypt_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
     ciphertext: &Ciphertext,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
@@ -398,12 +408,12 @@ fn decrypt_reencrypted(
     //    return Err(Capsule.NotValid)
     //}
 
-    let encapsulated_key = _open_capsule(capsule, cfrags, decrypting_key, check_proof);
+    let encapsulated_key = _open_capsule::<M>(capsule, cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&encapsulated_key);
     dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
 }
 
-fn decrypt_reencrypted_in_place(
+fn decrypt_reencrypted_in_place<M: ArrayLength<CurveScalar> + Unsigned>(
     buffer: &mut dyn Buffer,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
@@ -418,7 +428,7 @@ fn decrypt_reencrypted_in_place(
     //    return Err(Capsule.NotValid)
     //}
 
-    let encapsulated_key = _open_capsule(capsule, cfrags, decrypting_key, check_proof);
+    let encapsulated_key = _open_capsule::<M>(capsule, cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&encapsulated_key);
     let res = dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes());
     match res {
@@ -431,12 +441,19 @@ fn decrypt_reencrypted_in_place(
 #[cfg(test)]
 mod tests {
 
-    use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
+    #[cfg(feature = "std")]
+    use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags};
+
+    #[cfg(feature = "std")]
+    use std::vec::Vec;
+
+    use super::reencrypt;
     use crate::cfrags::CapsuleFrag;
     use crate::kfrags::KFrag;
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
 
+    #[cfg(feature = "std")]
     #[test]
     fn test_simple_api() {
 
@@ -514,7 +531,7 @@ mod tests {
         }
 
         // Decryption by Bob
-        let reenc_cleartext = decrypt_reencrypted(
+        let reenc_cleartext = decrypt_reencrypted::<U2>(
             &ciphertext,
             &prepared_capsule,
             &cfrags,
@@ -596,7 +613,7 @@ mod tests {
         let cfrag1 = reencrypt(&kfrags[1], &prepared_capsule, None, true).unwrap();
 
         // Decryption by Bob
-        let result = decrypt_reencrypted_in_place(
+        let result = decrypt_reencrypted_in_place::<U2>(
             &mut buffer,
             &prepared_capsule,
             &[cfrag0, cfrag1],

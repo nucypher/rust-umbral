@@ -1,3 +1,6 @@
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
 use aead::{Aead, AeadInPlace, Payload, Buffer};
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
@@ -9,6 +12,7 @@ use generic_array::typenum::Unsigned;
 pub const DEM_KEYSIZE: usize = 32;
 const DEM_NONCE_SIZE: usize = 12;
 
+#[cfg(feature = "std")]
 pub struct Ciphertext {
     nonce: Nonce,
     data: Vec<u8>,
@@ -64,6 +68,7 @@ impl UmbralDEM {
         }
     }
 
+    #[cfg(feature = "std")]
     pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Ciphertext {
         let mut nonce = [0u8; DEM_NONCE_SIZE];
         OsRng.fill_bytes(&mut nonce);
@@ -81,6 +86,7 @@ impl UmbralDEM {
         }
     }
 
+    #[cfg(feature = "std")]
     pub fn decrypt(&self, ciphertext: &Ciphertext, authenticated_data: &[u8]) -> Option<Vec<u8>> {
         let payload = Payload {
             msg: &ciphertext.data,

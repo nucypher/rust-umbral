@@ -1,3 +1,8 @@
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
 mod capsule;
 mod cfrags;
 mod constants;

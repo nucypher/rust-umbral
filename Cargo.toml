@@ -26,3 +26,6 @@ path = "/Users/bogdan/wb/github/elliptic-curves/k256"
 
 [dev-dependencies]
 heapless = "0.5"
+
+[features]
+std = []
