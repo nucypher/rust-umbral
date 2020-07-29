@@ -8,6 +8,7 @@ use crate::kfrags::{key_type_to_bytes, KFrag, KeyType};
 use crate::random_oracles::{hash_to_scalar, kdf, KdfSize};
 use crate::utils::{lambda_coeff, poly_eval};
 
+use aead::{Buffer};
 use generic_array::GenericArray;
 use generic_array::sequence::Concat;
 
@@ -48,6 +49,16 @@ fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Cap
     (ciphertext, capsule)
 }
 
+fn encrypt_in_place(buffer: &mut dyn Buffer, alice_pubkey: &UmbralPublicKey) -> Option<Capsule> {
+    let (dem, capsule) = _encapsulate(alice_pubkey);
+    let capsule_bytes = capsule.to_bytes();
+    let result = dem.encrypt_in_place(buffer, &capsule_bytes);
+    match result {
+        Ok(_) => Some(capsule),
+        Err(_) => None
+    }
+}
+
 /// Derive the same symmetric key
 fn _decapsulate_original(private_key: &UmbralPrivateKey, capsule: &Capsule) -> GenericArray<u8, KdfSize> {
     // TODO: capsule should be verified on creation
@@ -76,6 +87,29 @@ fn decrypt_original(
     let dem = UmbralDEM::new(&encapsulated_key);
     dem.decrypt(&ciphertext, &capsule.to_bytes())
 }
+
+fn decrypt_original_in_place(
+    buffer: &mut dyn Buffer,
+    capsule: &Capsule,
+    decrypting_key: &UmbralPrivateKey,
+) -> Option<()> {
+    // TODO: this should be checked in Ciphertext::from_bytes()
+    //if not isinstance(ciphertext, bytes) or len(ciphertext) < DEM_NONCE_SIZE:
+    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
+
+    // TODO: capsule should perhaps be verified on creation?
+    //elif not isinstance(capsule, Capsule) or not capsule.verify():
+    //    raise Capsule.NotValid
+
+    let encapsulated_key = _decapsulate_original(decrypting_key, capsule);
+    let dem = UmbralDEM::new(&encapsulated_key);
+    let res = dem.decrypt_in_place(buffer, &capsule.to_bytes());
+    match res {
+        Ok(_) => Some(()),
+        Err(_) => None
+    }
+}
+
 
 /*
 Creates a re-encryption key from Alice's delegating public key to Bob's
@@ -419,5 +453,41 @@ mod tests {
             true,
         );
         assert_eq!(reenc_cleartext.unwrap(), plain_data);
+    }
+
+    use super::{encrypt_in_place, decrypt_original_in_place};
+
+    #[test]
+    fn test_simple_api_heapless() {
+
+        use heapless::Vec as HeaplessVec;
+        use heapless::consts::U128;
+
+        const M: usize = 2;
+        const N: usize = 3;
+
+        // Generation of global parameters
+        let params = UmbralParameters::new(); // TODO: parametrize by curve type
+
+        // Key Generation (Alice)
+        let delegating_privkey = UmbralPrivateKey::gen_key(&params);
+        let delegating_pubkey = delegating_privkey.get_pubkey();
+
+        let signing_privkey = UmbralPrivateKey::gen_key(&params);
+        let signing_pubkey = signing_privkey.get_pubkey();
+
+        // Key Generation (Bob)
+        let receiving_privkey = UmbralPrivateKey::gen_key(&params);
+        let receiving_pubkey = receiving_privkey.get_pubkey();
+
+        // Encryption by an unnamed data source
+        let plain_data = b"peace at dawn";
+        let mut buffer: HeaplessVec<u8, U128> = HeaplessVec::new();
+        buffer.extend_from_slice(plain_data);
+        let capsule = encrypt_in_place(&mut buffer, &delegating_pubkey).unwrap();
+
+        // Decryption by Alice
+        decrypt_original_in_place(&mut buffer, &capsule, &delegating_privkey).unwrap();
+        assert_eq!(buffer, plain_data);
     }
 }
