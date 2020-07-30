@@ -2,7 +2,6 @@ use blake2::{Blake2b, Digest};
 use generic_array::typenum::{Unsigned, U32};
 use generic_array::GenericArray;
 use hkdf::Hkdf;
-use sha2::Sha256;
 use sha3::Sha3_256;
 
 use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
@@ -85,7 +84,6 @@ pub type KdfSize = U32;
 
 pub fn kdf(
     ecpoint: &CurvePoint,
-    key_length: usize,
     salt: Option<&[u8]>,
     info: Option<&[u8]>,
 ) -> GenericArray<u8, KdfSize> {
@@ -99,7 +97,9 @@ pub fn kdf(
         None => &[],
     };
 
-    hk.expand(&def_info, &mut okm);
+    // We can only get an error here if `KdfSize` is too large, and it's known at compile-time.
+    hk.expand(&def_info, &mut okm).unwrap();
+
     okm
 }
 
@@ -114,15 +114,28 @@ mod tests {
         let data = b"abcdefg";
         let label = b"sdasdasd";
         let p = unsafe_hash_to_point(&data[..], &label[..]);
-        //println!("unsafe_hash_to_point: {:?}", p);
+        let p_same = unsafe_hash_to_point(&data[..], &label[..]);
+        assert_eq!(p, p_same);
+
+        let data2 = b"abcdefgh";
+        let p_data2 = unsafe_hash_to_point(&data2[..], &label[..]);
+        assert_ne!(p, p_data2);
+
+        let label2 = b"sdasdasds";
+        let p_label2 = unsafe_hash_to_point(&data[..], &label2[..]);
+        assert_ne!(p, p_label2);
     }
 
     #[test]
     fn test_hash_to_scalar() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let p = hash_to_scalar(&[p1, p2], None);
-        //println!("hash_to_scalar: {:?}", p);
+        let s = hash_to_scalar(&[p1, p2], None);
+        let s_same = hash_to_scalar(&[p1, p2], None);
+        assert_eq!(s, s_same);
+
+        let s_diff = hash_to_scalar(&[p2, p1], None);
+        assert_ne!(s, s_diff);
     }
 
     #[test]
@@ -130,7 +143,11 @@ mod tests {
         let p1 = CurvePoint::generator();
         let salt = b"abcdefg";
         let info = b"sdasdasd";
-        let key = kdf(&p1, 128, Some(&salt[..]), Some(&info[..]));
-        //println!("kdf: {:?}", key);
+        let key = kdf(&p1, Some(&salt[..]), Some(&info[..]));
+        let key_same = kdf(&p1, Some(&salt[..]), Some(&info[..]));
+        assert_eq!(key, key_same);
+
+        let key_diff = kdf(&p1, None, Some(&info[..]));
+        assert_ne!(key, key_diff);
     }
 }

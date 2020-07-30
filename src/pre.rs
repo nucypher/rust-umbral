@@ -11,7 +11,7 @@ use crate::dem::Ciphertext;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use crate::dem::{UmbralDEM, DEM_KEYSIZE};
+use crate::dem::UmbralDEM;
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kfrags::{key_type_to_bytes, KFrag, KeyType};
 use crate::params::UmbralParameters;
@@ -20,7 +20,7 @@ use crate::utils::{lambda_coeff, poly_eval};
 
 use aead::Buffer;
 use generic_array::sequence::Concat;
-use generic_array::typenum::{UInt, Unsigned};
+use generic_array::typenum::Unsigned;
 use generic_array::{ArrayLength, GenericArray};
 
 /// Generates a symmetric key and its associated KEM ciphertext
@@ -41,7 +41,7 @@ fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
     let shared_key = &(alice_pubkey.point_key) * &(&priv_r + &priv_u);
 
     // Key to be used for symmetric encryption
-    let key = kdf(&shared_key, DEM_KEYSIZE, None, None);
+    let key = kdf(&shared_key, None, None);
 
     (
         UmbralDEM::new(&key),
@@ -54,14 +54,17 @@ fn _encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
 ///
 /// Returns the ciphertext and the KEM Capsule.
 #[cfg(feature = "std")]
-fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Capsule) {
+pub fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Capsule) {
     let (dem, capsule) = _encapsulate(alice_pubkey);
     let capsule_bytes = capsule.to_bytes();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
     (ciphertext, capsule)
 }
 
-fn encrypt_in_place(buffer: &mut dyn Buffer, alice_pubkey: &UmbralPublicKey) -> Option<Capsule> {
+pub fn encrypt_in_place(
+    buffer: &mut dyn Buffer,
+    alice_pubkey: &UmbralPublicKey,
+) -> Option<Capsule> {
     let (dem, capsule) = _encapsulate(alice_pubkey);
     let capsule_bytes = capsule.to_bytes();
     let result = dem.encrypt_in_place(buffer, &capsule_bytes);
@@ -82,11 +85,11 @@ fn _decapsulate_original(
     //    raise capsule.NotValid("Capsule verification failed.")
 
     let shared_key = (&capsule.point_e + &capsule.point_v) * &private_key.bn_key;
-    kdf(&shared_key, DEM_KEYSIZE, None, None)
+    kdf(&shared_key, None, None)
 }
 
 #[cfg(feature = "std")]
-fn decrypt_original(
+pub fn decrypt_original(
     ciphertext: &Ciphertext,
     capsule: &Capsule,
     decrypting_key: &UmbralPrivateKey,
@@ -104,7 +107,7 @@ fn decrypt_original(
     dem.decrypt(&ciphertext, &capsule.to_bytes())
 }
 
-fn decrypt_original_in_place(
+pub fn decrypt_original_in_place(
     buffer: &mut dyn Buffer,
     capsule: &Capsule,
     decrypting_key: &UmbralPrivateKey,
@@ -126,7 +129,7 @@ fn decrypt_original_in_place(
     }
 }
 
-struct KFragFactory<M: ArrayLength<CurveScalar> + Unsigned> {
+pub struct KFragFactory<Threshold: ArrayLength<CurveScalar> + Unsigned> {
     signer: UmbralPrivateKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
@@ -136,10 +139,10 @@ struct KFragFactory<M: ArrayLength<CurveScalar> + Unsigned> {
     receiving_pubkey: UmbralPublicKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-    coefficients: GenericArray<CurveScalar, M>,
+    coefficients: GenericArray<CurveScalar, Threshold>,
 }
 
-impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactory<Threshold> {
     pub fn new(
         delegating_privkey: &UmbralPrivateKey,
         receiving_pubkey: &UmbralPublicKey,
@@ -168,9 +171,9 @@ impl<M: ArrayLength<CurveScalar> + Unsigned> KFragFactory<M> {
         );
 
         // Coefficients of the generating polynomial
-        let mut coefficients = GenericArray::<CurveScalar, M>::default();
+        let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
         coefficients[0] = &delegating_privkey.bn_key * &(d.invert().unwrap());
-        for i in 1..<M as Unsigned>::to_usize() {
+        for i in 1..<Threshold as Unsigned>::to_usize() {
             coefficients[i] = random_scalar();
         }
 
@@ -272,10 +275,10 @@ Requires a threshold number of KFrags out of N.
 Returns a list of N KFrags
 */
 #[cfg(feature = "std")]
-fn generate_kfrags<M: ArrayLength<CurveScalar> + Unsigned>(
+pub fn generate_kfrags<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
-    N: usize,
+    num_kfrags: usize,
     signer: &UmbralPrivateKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
@@ -286,7 +289,7 @@ fn generate_kfrags<M: ArrayLength<CurveScalar> + Unsigned>(
     //if delegating_privkey.params != receiving_pubkey.params:
     //    raise ValueError("Keys must have the same parameter set.")
 
-    let factory = KFragFactory::<M>::new(
+    let factory = KFragFactory::<Threshold>::new(
         delegating_privkey,
         receiving_pubkey,
         signer,
@@ -295,14 +298,14 @@ fn generate_kfrags<M: ArrayLength<CurveScalar> + Unsigned>(
     );
 
     let mut result = Vec::<KFrag>::new();
-    for i in 0..N {
+    for _ in 0..num_kfrags {
         result.push(factory.make());
     }
 
     result
 }
 
-fn reencrypt(
+pub fn reencrypt(
     kfrag: &KFrag,
     prepared_capsule: &PreparedCapsule,
     metadata: Option<&[u8]>,
@@ -326,14 +329,12 @@ fn reencrypt(
 }
 
 /// Derive the same symmetric encapsulated_key
-fn _decapsulate_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
+fn _decapsulate_reencrypted<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     receiving_privkey: &UmbralPrivateKey,
     prepared_capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
-    key_length: usize,
 ) -> GenericArray<u8, KdfSize> {
     let capsule = prepared_capsule.capsule;
-    let params = capsule.params;
 
     let pub_key = receiving_privkey.get_pubkey().point_key;
     let priv_key = receiving_privkey.bn_key;
@@ -342,7 +343,7 @@ fn _decapsulate_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
     let dh_point = &precursor * &priv_key;
 
     // Combination of CFrags via Shamir's Secret Sharing reconstruction
-    let mut xs = GenericArray::<CurveScalar, M>::default();
+    let mut xs = GenericArray::<CurveScalar, Threshold>::default();
     for (i, cfrag) in cfrags.iter().enumerate() {
         let customization_string = const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
         xs[i] = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
@@ -375,7 +376,7 @@ fn _decapsulate_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
 
     let shared_key = (&e_prime + &v_prime) * &d;
 
-    kdf(&shared_key, key_length, None, None)
+    kdf(&shared_key, None, None)
 }
 
 /*
@@ -384,7 +385,7 @@ opens the Capsule and returns what is inside.
 
 This will often be a symmetric key.
 */
-fn _open_capsule<M: ArrayLength<CurveScalar> + Unsigned>(
+fn _open_capsule<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     prepared_capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
     receiving_privkey: &UmbralPrivateKey,
@@ -397,11 +398,11 @@ fn _open_capsule<M: ArrayLength<CurveScalar> + Unsigned>(
         }
     }
 
-    _decapsulate_reencrypted::<M>(receiving_privkey, prepared_capsule, cfrags, DEM_KEYSIZE)
+    _decapsulate_reencrypted::<Threshold>(receiving_privkey, prepared_capsule, cfrags)
 }
 
 #[cfg(feature = "std")]
-fn decrypt_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
+pub fn decrypt_reencrypted<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     ciphertext: &Ciphertext,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
@@ -416,12 +417,12 @@ fn decrypt_reencrypted<M: ArrayLength<CurveScalar> + Unsigned>(
     //    return Err(Capsule.NotValid)
     //}
 
-    let encapsulated_key = _open_capsule::<M>(capsule, cfrags, decrypting_key, check_proof);
+    let encapsulated_key = _open_capsule::<Threshold>(capsule, cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&encapsulated_key);
     dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
 }
 
-fn decrypt_reencrypted_in_place<M: ArrayLength<CurveScalar> + Unsigned>(
+pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     buffer: &mut dyn Buffer,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
@@ -436,7 +437,7 @@ fn decrypt_reencrypted_in_place<M: ArrayLength<CurveScalar> + Unsigned>(
     //    return Err(Capsule.NotValid)
     //}
 
-    let encapsulated_key = _open_capsule::<M>(capsule, cfrags, decrypting_key, check_proof);
+    let encapsulated_key = _open_capsule::<Threshold>(capsule, cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&encapsulated_key);
     let res = dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes());
     match res {
@@ -455,15 +456,13 @@ mod tests {
     use std::vec::Vec;
 
     use super::reencrypt;
-    use crate::cfrags::CapsuleFrag;
     use crate::keys::UmbralPrivateKey;
-    use crate::kfrags::KFrag;
     use crate::params::UmbralParameters;
 
     #[cfg(feature = "std")]
     #[test]
     fn test_simple_api() {
-        use generic_array::typenum::U2;
+        use generic_array::typenum::{Unsigned, U2};
 
         /*
         This test models the main interactions between NuCypher actors (i.e., Alice,
@@ -477,8 +476,9 @@ mod tests {
         Manually injects umbralparameters for multi-curve testing.
         */
 
-        const M: usize = 2;
-        const N: usize = 3;
+        type Threshold = U2;
+        let threshold: usize = <Threshold as Unsigned>::to_usize();
+        let num_frags: usize = threshold + 1;
 
         // Generation of global parameters
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
@@ -504,10 +504,10 @@ mod tests {
 
         // Split Re-Encryption Key Generation (aka Delegation)
         // FIXME: would be easier if KFrag implemented Copy, but for that Signature must implement Copy
-        let kfrags = generate_kfrags::<U2>(
+        let kfrags = generate_kfrags::<Threshold>(
             &delegating_privkey,
             &receiving_pubkey,
-            N,
+            num_frags,
             &signing_privkey,
             false,
             false,
@@ -517,9 +517,9 @@ mod tests {
         let prepared_capsule =
             capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
 
-        // Bob requests re-encryption to some set of M ursulas
+        // Bob requests re-encryption to some set of `threshold` ursulas
         let mut cfrags = Vec::<CapsuleFrag>::new();
-        for frag_num in 0..M {
+        for frag_num in 0..threshold {
             let kfrag = &kfrags[frag_num];
 
             // Ursula checks that the received kfrag is valid
@@ -537,7 +537,7 @@ mod tests {
         }
 
         // Decryption by Bob
-        let reenc_cleartext = decrypt_reencrypted::<U2>(
+        let reenc_cleartext = decrypt_reencrypted::<Threshold>(
             &ciphertext,
             &prepared_capsule,
             &cfrags,
@@ -553,12 +553,12 @@ mod tests {
 
     #[test]
     fn test_simple_api_heapless() {
-        use generic_array::typenum::U2;
+        use generic_array::typenum::{Unsigned, U2};
         use heapless::consts::U128;
         use heapless::Vec as HeaplessVec;
 
-        const M: usize = 2;
-        const N: usize = 3;
+        type Threshold = U2;
+        let threshold: usize = <Threshold as Unsigned>::to_usize();
 
         // Generation of global parameters
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
@@ -577,18 +577,17 @@ mod tests {
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
         let mut buffer: HeaplessVec<u8, U128> = HeaplessVec::new();
-        buffer.extend_from_slice(plain_data);
+        buffer.extend_from_slice(plain_data).unwrap();
         let capsule = encrypt_in_place(&mut buffer, &delegating_pubkey).unwrap();
 
         // Decryption by Alice
         let mut buffer2: HeaplessVec<u8, U128> = HeaplessVec::new();
-        buffer2.extend_from_slice(buffer.as_ref());
-        let result =
-            decrypt_original_in_place(&mut buffer2, &capsule, &delegating_privkey).unwrap();
+        buffer2.extend_from_slice(buffer.as_ref()).unwrap();
+        decrypt_original_in_place(&mut buffer2, &capsule, &delegating_privkey).unwrap();
         assert_eq!(buffer2, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrag_factory = KFragFactory::<U2>::new(
+        let kfrag_factory = KFragFactory::<Threshold>::new(
             &delegating_privkey,
             &receiving_pubkey,
             &signing_privkey,
@@ -606,8 +605,8 @@ mod tests {
         let prepared_capsule =
             capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
 
-        // Bob requests re-encryption to some set of M ursulas
-        for frag_num in 0..M {
+        // Bob requests re-encryption to some set of `threshold` ursulas
+        for frag_num in 0..threshold {
             // Ursula checks that the received kfrag is valid
             assert!(kfrags[frag_num].verify(
                 &signing_pubkey,
@@ -621,7 +620,7 @@ mod tests {
         let cfrag1 = reencrypt(&kfrags[1], &prepared_capsule, None, true).unwrap();
 
         // Decryption by Bob
-        let result = decrypt_reencrypted_in_place::<U2>(
+        decrypt_reencrypted_in_place::<Threshold>(
             &mut buffer,
             &prepared_capsule,
             &[cfrag0, cfrag1],

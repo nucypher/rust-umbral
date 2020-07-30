@@ -1,17 +1,17 @@
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use aead::{Aead, AeadInPlace, Buffer, Payload};
+#[cfg(feature = "std")]
+use aead::{Aead, Payload};
+
+use aead::{AeadInPlace, Buffer};
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use generic_array::typenum::Unsigned;
+use generic_array::{typenum::Unsigned, GenericArray};
 use rand_core::OsRng;
 use rand_core::RngCore;
 
-// TODO: get from Key and Nonce
-pub const DEM_KEYSIZE: usize = 32;
-const DEM_NONCE_SIZE: usize = 12;
-
+// TODO: put everything in a single vector, same as the heapless version?
 #[cfg(feature = "std")]
 pub struct Ciphertext {
     nonce: Nonce,
@@ -31,6 +31,8 @@ impl UmbralDEM {
         Self { cipher }
     }
 
+    // TODO: use in a test somewhere
+    /*
     pub fn ciphertext_size_for(plaintext_size: usize) -> usize {
         let overhead =
             <<ChaCha20Poly1305 as AeadInPlace>::CiphertextOverhead as Unsigned>::to_usize();
@@ -38,13 +40,15 @@ impl UmbralDEM {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         plaintext_size + tag_size + overhead + nonce_size
     }
+    */
 
     pub fn encrypt_in_place(
         &self,
         buffer: &mut dyn Buffer,
         authenticated_data: &[u8],
     ) -> Result<(), DemError> {
-        let mut nonce = [0u8; DEM_NONCE_SIZE];
+        type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
+        let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
         let nonce = Nonce::from_slice(&nonce);
         let result = self
@@ -83,7 +87,8 @@ impl UmbralDEM {
 
     #[cfg(feature = "std")]
     pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Ciphertext {
-        let mut nonce = [0u8; DEM_NONCE_SIZE];
+        type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
+        let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
         let nonce = Nonce::from_slice(&nonce);
         let payload = Payload {

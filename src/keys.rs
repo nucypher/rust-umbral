@@ -5,10 +5,7 @@ use generic_array::GenericArray;
 use k256::Secp256k1;
 use sha3::Sha3_256;
 
-use crate::curve::{
-    point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurvePointSize, CurveScalar,
-    CurveScalarSize,
-};
+use crate::curve::{point_to_bytes, random_scalar, CurvePoint, CurvePointSize, CurveScalar};
 use crate::params::UmbralParameters;
 
 #[derive(Clone, Debug)]
@@ -67,10 +64,6 @@ impl UmbralPrivateKey {
             }
         }
     }
-
-    pub fn to_bytes(&self) -> GenericArray<u8, CurveScalarSize> {
-        scalar_to_bytes(&self.bn_key)
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -101,10 +94,7 @@ impl UmbralPublicKey {
         let l = hashed.len();
 
         let ap = self.point_key.to_affine().unwrap();
-        let res = ap.verify_prehashed(
-            GenericArray::from_slice(&hashed[l - 32..l]),
-            &(signature.0),
-        );
+        let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l - 32..l]), &(signature.0));
 
         match res {
             Ok(_) => true,

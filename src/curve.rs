@@ -1,4 +1,3 @@
-//use k256::Secp256k1;
 use elliptic_curve::weierstrass::point::CompressedPointSize;
 use elliptic_curve::weierstrass::FromPublicKey;
 use elliptic_curve::Curve;
@@ -10,7 +9,6 @@ use k256::PublicKey;
 pub use k256::Scalar as CurveScalar;
 use k256::Secp256k1;
 
-use core::default::Default;
 use rand_core::OsRng;
 
 pub type CurvePointSize = CompressedPointSize<Secp256k1>;
