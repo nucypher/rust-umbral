@@ -69,14 +69,12 @@ impl UmbralPrivateKey {
         // FIXME: k should be > 0
         loop {
             let k = random_scalar();
-            let res = self.bn_key.try_sign_prehashed(
-                &k,
-                None,
-                GenericArray::from_slice(&hashed[l - 32..l]),
-            );
+            let res = self
+                .bn_key
+                .try_sign_prehashed(&k, GenericArray::from_slice(&hashed[l - 32..l]));
             match res {
                 Ok(sig) => {
-                    return UmbralSignature::new(&sig);
+                    return UmbralSignature(sig);
                 }
                 Err(_err) => {
                     continue;

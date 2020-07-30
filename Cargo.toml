@@ -13,8 +13,8 @@ sha2 = "0.9"
 chacha20poly1305 = "0.5"
 aead = { version = "0.3", features = ["heapless"] }
 digest = "0.9"
-elliptic-curve = { path = "/Users/bogdan/wb/repos/traits/elliptic-curve" }
-ecdsa = { path = "/Users/bogdan/wb/repos/signatures/ecdsa" }
+elliptic-curve = { version = "= 0.5.0-pre", path = "/Users/bogdan/wb/repos/traits/elliptic-curve" }
+ecdsa = { version = "= 0.7.0-pre", path = "/Users/bogdan/wb/repos/signatures/ecdsa" }
 
 [dependencies.rand_core]
 version = "0.5"
@@ -22,6 +22,7 @@ features = ["getrandom"]
 
 [dependencies.k256]
 features = ["arithmetic", "rand", "digest"]
+version = "0.3.0"
 path = "/Users/bogdan/wb/github/elliptic-curves/k256"
 
 [dev-dependencies]

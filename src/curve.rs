@@ -1,5 +1,6 @@
 //use k256::Secp256k1;
 use elliptic_curve::weierstrass::point::CompressedPointSize;
+use elliptic_curve::weierstrass::FromPublicKey;
 use elliptic_curve::Curve;
 use generic_array::GenericArray;
 use k256::AffinePoint;
@@ -31,7 +32,7 @@ pub fn scalar_to_bytes(s: &CurveScalar) -> GenericArray<u8, CurveScalarSize> {
 pub fn bytes_to_point(bytes: &[u8]) -> Option<CurvePoint> {
     // FIXME: Can we transform Option into CtOption directly?
     let pk = PublicKey::from_bytes(bytes).unwrap();
-    let ap = AffinePoint::from_pubkey(&pk);
+    let ap = AffinePoint::from_public_key(&pk);
     // TODO: Can we transfrom CtOption into Option directly?
     if ap.is_some().into() {
         Some(CurvePoint::from(ap.unwrap()))
