@@ -6,8 +6,6 @@ use generic_array::sequence::Concat;
 use generic_array::typenum::U1;
 use generic_array::GenericArray;
 
-use core::default::Default;
-
 #[derive(Clone, Copy, Debug)]
 pub enum KeyType {
     NoKey,
@@ -58,21 +56,6 @@ pub struct KFrag {
     signature_for_proxy: UmbralSignature,
     pub signature_for_bob: UmbralSignature,
     keys_in_signature: KeyType,
-}
-
-impl Default for KFrag {
-    fn default() -> Self {
-        Self {
-            params: UmbralParameters::default(),
-            id: CurveScalar::default(),
-            bn_key: CurveScalar::default(),
-            point_commitment: CurvePoint::identity(),
-            point_precursor: CurvePoint::identity(),
-            signature_for_proxy: UmbralSignature::default(),
-            signature_for_bob: UmbralSignature::default(),
-            keys_in_signature: KeyType::default(),
-        }
-    }
 }
 
 impl KFrag {

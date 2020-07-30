@@ -1,4 +1,3 @@
-use core::default::Default;
 use digest::Digest;
 use ecdsa::hazmat::{SignPrimitive, VerifyPrimitive};
 use ecdsa::Signature;
@@ -12,22 +11,8 @@ use crate::curve::{
 };
 use crate::params::UmbralParameters;
 
-// FIXME: temporary measure to implement Default for UmbralSignature
-// (since Signature does not support it at the moment)
 #[derive(Clone, Debug)]
-pub struct UmbralSignature(Option<Signature<Secp256k1>>);
-
-impl UmbralSignature {
-    fn new(sig: &Signature<Secp256k1>) -> Self {
-        Self(Some(sig.clone()))
-    }
-}
-
-impl Default for UmbralSignature {
-    fn default() -> Self {
-        Self(None)
-    }
-}
+pub struct UmbralSignature(Signature<Secp256k1>);
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPrivateKey {
@@ -118,7 +103,7 @@ impl UmbralPublicKey {
         let ap = self.point_key.to_affine().unwrap();
         let res = ap.verify_prehashed(
             GenericArray::from_slice(&hashed[l - 32..l]),
-            &(signature.0).as_ref().unwrap(),
+            &(signature.0),
         );
 
         match res {
