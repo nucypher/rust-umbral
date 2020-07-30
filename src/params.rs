@@ -18,6 +18,7 @@ impl UmbralParameters {
         let g_bytes = point_to_bytes(&g);
 
         let parameters_seed = b"NuCypher/UmbralParameters/u";
+        // TODO: why not `g * hash_to_scalar()`?
         let u = unsafe_hash_to_point(&g_bytes, parameters_seed).unwrap();
 
         Self {
