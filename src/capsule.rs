@@ -62,7 +62,7 @@ impl Capsule {
     }
 
     pub fn verify(&self) -> bool {
-        let g = self.params.g;
+        let g = curve_generator();
         let h = hash_to_scalar(&[self.point_e, self.point_v], None);
         &g * &self.bn_sig == &self.point_v + &(&self.point_e * &h)
     }
