@@ -3,6 +3,7 @@ use crate::cfrags::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{
     point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurvePointSize, CurveScalar,
+    curve_generator
 };
 
 #[cfg(feature = "std")]
@@ -20,9 +21,8 @@ use generic_array::typenum::Unsigned;
 use generic_array::{ArrayLength, GenericArray};
 
 /// Generates a symmetric key and its associated KEM ciphertext
-pub fn encapsulate(alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
-    let params = alice_pubkey.params;
-    let g = params.g;
+pub fn encapsulate(params: &UmbralParameters, alice_pubkey: &UmbralPublicKey) -> (UmbralDEM, Capsule) {
+    let g = curve_generator();
 
     let priv_r = random_scalar();
     let pub_r = &g * &priv_r;
@@ -76,14 +76,14 @@ pub struct KFragFactory<Threshold: ArrayLength<CurveScalar> + Unsigned> {
 
 impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactory<Threshold> {
     pub fn new(
+        params: &UmbralParameters,
         delegating_privkey: &UmbralPrivateKey,
         receiving_pubkey: &UmbralPublicKey,
         signer: &UmbralPrivateKey,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
-        let params = delegating_privkey.params;
-        let g = params.g;
+        let g = curve_generator();
 
         let delegating_pubkey = delegating_privkey.get_pubkey();
 
@@ -114,7 +114,7 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactory<Threshold> {
             precursor,
             bob_pubkey_point,
             dh_point,
-            params,
+            params: *params,
             delegating_pubkey: delegating_pubkey,
             receiving_pubkey: *receiving_pubkey,
             sign_delegating_key,
@@ -208,6 +208,7 @@ Returns a list of N KFrags
 */
 #[cfg(feature = "std")]
 pub fn generate_kfrags<Threshold: ArrayLength<CurveScalar> + Unsigned>(
+    params: &UmbralParameters,
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
     num_kfrags: usize,
@@ -222,6 +223,7 @@ pub fn generate_kfrags<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     //    raise ValueError("Keys must have the same parameter set.")
 
     let factory = KFragFactory::<Threshold>::new(
+        params,
         delegating_privkey,
         receiving_pubkey,
         signer,

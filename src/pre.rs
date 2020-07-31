@@ -8,6 +8,7 @@ use crate::dem::Ciphertext;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
+use crate::params::UmbralParameters;
 use crate::dem::UmbralDEM;
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kem::{encapsulate, decapsulate_original, open_capsule};
@@ -21,18 +22,19 @@ use generic_array::ArrayLength;
 ///
 /// Returns the ciphertext and the KEM Capsule.
 #[cfg(feature = "std")]
-pub fn encrypt(alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Capsule) {
-    let (dem, capsule) = encapsulate(alice_pubkey);
+pub fn encrypt(params: &UmbralParameters, alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Capsule) {
+    let (dem, capsule) = encapsulate(params, alice_pubkey);
     let capsule_bytes = capsule.to_bytes();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
     (ciphertext, capsule)
 }
 
 pub fn encrypt_in_place(
+    params: &UmbralParameters,
     buffer: &mut dyn Buffer,
     alice_pubkey: &UmbralPublicKey,
 ) -> Option<Capsule> {
-    let (dem, capsule) = encapsulate(alice_pubkey);
+    let (dem, capsule) = encapsulate(params, alice_pubkey);
     let capsule_bytes = capsule.to_bytes();
     let result = dem.encrypt_in_place(buffer, &capsule_bytes);
     match result {
@@ -171,19 +173,19 @@ mod tests {
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralPrivateKey::gen_key(&params);
+        let delegating_privkey = UmbralPrivateKey::gen_key();
         let delegating_pubkey = delegating_privkey.get_pubkey();
 
-        let signing_privkey = UmbralPrivateKey::gen_key(&params);
+        let signing_privkey = UmbralPrivateKey::gen_key();
         let signing_pubkey = signing_privkey.get_pubkey();
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralPrivateKey::gen_key(&params);
+        let receiving_privkey = UmbralPrivateKey::gen_key();
         let receiving_pubkey = receiving_privkey.get_pubkey();
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
-        let (ciphertext, capsule) = encrypt(&delegating_pubkey, plain_data);
+        let (ciphertext, capsule) = encrypt(&params, &delegating_pubkey, plain_data);
 
         // Decryption by Alice
         let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_privkey).unwrap();
@@ -192,6 +194,7 @@ mod tests {
         // Split Re-Encryption Key Generation (aka Delegation)
         // FIXME: would be easier if KFrag implemented Copy, but for that Signature must implement Copy
         let kfrags = generate_kfrags::<Threshold>(
+            &params,
             &delegating_privkey,
             &receiving_pubkey,
             num_frags,
@@ -250,21 +253,21 @@ mod tests {
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralPrivateKey::gen_key(&params);
+        let delegating_privkey = UmbralPrivateKey::gen_key();
         let delegating_pubkey = delegating_privkey.get_pubkey();
 
-        let signing_privkey = UmbralPrivateKey::gen_key(&params);
+        let signing_privkey = UmbralPrivateKey::gen_key();
         let signing_pubkey = signing_privkey.get_pubkey();
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralPrivateKey::gen_key(&params);
+        let receiving_privkey = UmbralPrivateKey::gen_key();
         let receiving_pubkey = receiving_privkey.get_pubkey();
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
         let mut buffer: HeaplessVec<u8, U128> = HeaplessVec::new();
         buffer.extend_from_slice(plain_data).unwrap();
-        let capsule = encrypt_in_place(&mut buffer, &delegating_pubkey).unwrap();
+        let capsule = encrypt_in_place(&params, &mut buffer, &delegating_pubkey).unwrap();
 
         // Decryption by Alice
         let mut buffer2: HeaplessVec<u8, U128> = HeaplessVec::new();
@@ -274,6 +277,7 @@ mod tests {
 
         // Split Re-Encryption Key Generation (aka Delegation)
         let kfrag_factory = KFragFactory::<Threshold>::new(
+            &params,
             &delegating_privkey,
             &receiving_pubkey,
             &signing_privkey,

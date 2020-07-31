@@ -5,34 +5,31 @@ use generic_array::GenericArray;
 use k256::Secp256k1;
 use sha3::Sha3_256;
 
-use crate::curve::{point_to_bytes, random_scalar, CurvePoint, CurvePointSize, CurveScalar};
-use crate::params::UmbralParameters;
+use crate::curve::{point_to_bytes, random_scalar, CurvePoint, CurvePointSize, CurveScalar, curve_generator};
 
 #[derive(Clone, Debug)]
 pub struct UmbralSignature(Signature<Secp256k1>);
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPrivateKey {
-    pub params: UmbralParameters,
     pub bn_key: CurveScalar,
     pub pubkey: UmbralPublicKey,
 }
 
 impl UmbralPrivateKey {
-    pub fn new(bn_key: &CurveScalar, params: &UmbralParameters) -> Self {
-        let point_key = &(params.g) * &bn_key;
-        let pubkey = UmbralPublicKey::new(&point_key, params);
+    pub fn new(bn_key: &CurveScalar) -> Self {
+        let point_key = curve_generator() * &bn_key;
+        let pubkey = UmbralPublicKey::new(&point_key);
         Self {
-            params: *params,
             bn_key: *bn_key,
             pubkey,
         }
     }
 
     /// Generates a private key and returns it.
-    pub fn gen_key(params: &UmbralParameters) -> Self {
+    pub fn gen_key() -> Self {
         let bn_key = random_scalar();
-        Self::new(&bn_key, params)
+        Self::new(&bn_key)
     }
 
     pub fn get_pubkey(&self) -> UmbralPublicKey {
@@ -68,14 +65,12 @@ impl UmbralPrivateKey {
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPublicKey {
-    pub params: UmbralParameters,
     pub point_key: CurvePoint,
 }
 
 impl UmbralPublicKey {
-    pub fn new(point_key: &CurvePoint, params: &UmbralParameters) -> Self {
+    pub fn new(point_key: &CurvePoint) -> Self {
         Self {
-            params: *params,
             point_key: *point_key,
         }
     }

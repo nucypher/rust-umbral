@@ -18,6 +18,10 @@ pub fn random_scalar() -> CurveScalar {
     CurveScalar::generate_vartime(&mut OsRng)
 }
 
+pub fn curve_generator() -> CurvePoint {
+    CurvePoint::generator()
+}
+
 pub fn point_to_bytes(p: &CurvePoint) -> GenericArray<u8, CurvePointSize> {
     let cp = CompressedPoint::from(p.to_affine().unwrap());
     cp.into_bytes()
