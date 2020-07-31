@@ -8,14 +8,14 @@ use aead::{AeadInPlace, Buffer};
 use blake2::Blake2b;
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use generic_array::{typenum::Unsigned, typenum::U32, GenericArray};
+use generic_array::{typenum::Unsigned, GenericArray};
 use hkdf::Hkdf;
 use rand_core::OsRng;
 use rand_core::RngCore;
 
-pub type KdfSize = U32;
+type KdfSize = <ChaCha20Poly1305 as NewAead>::KeySize;
 
-pub fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8, KdfSize> {
+fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8, KdfSize> {
     let hk = Hkdf::<Blake2b>::new(salt, &seed);
 
     let mut okm = GenericArray::<u8, KdfSize>::default();
