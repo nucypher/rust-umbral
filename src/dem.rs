@@ -5,11 +5,31 @@ use std::vec::Vec;
 use aead::{Aead, Payload};
 
 use aead::{AeadInPlace, Buffer};
+use blake2::Blake2b;
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use generic_array::{typenum::Unsigned, GenericArray};
+use generic_array::{typenum::Unsigned, typenum::U32, GenericArray};
+use hkdf::Hkdf;
 use rand_core::OsRng;
 use rand_core::RngCore;
+
+pub type KdfSize = U32;
+
+pub fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8, KdfSize> {
+    let hk = Hkdf::<Blake2b>::new(salt, &seed);
+
+    let mut okm = GenericArray::<u8, KdfSize>::default();
+
+    let def_info = match info {
+        Some(x) => x,
+        None => &[],
+    };
+
+    // We can only get an error here if `KdfSize` is too large, and it's known at compile-time.
+    hk.expand(&def_info, &mut okm).unwrap();
+
+    okm
+}
 
 // TODO: put everything in a single vector, same as the heapless version?
 #[cfg(feature = "std")]
@@ -25,8 +45,9 @@ pub struct UmbralDEM {
 pub struct DemError();
 
 impl UmbralDEM {
-    pub fn new(bytes: &[u8]) -> Self {
-        let key = Key::from_slice(bytes);
+    pub fn new(key_seed: &[u8]) -> Self {
+        let key_bytes = kdf(&key_seed, None, None);
+        let key = Key::from_slice(&key_bytes);
         let cipher = ChaCha20Poly1305::new(key);
         Self { cipher }
     }
@@ -111,5 +132,25 @@ impl UmbralDEM {
             aad: authenticated_data,
         };
         self.cipher.decrypt(&ciphertext.nonce, payload).ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::kdf;
+    use crate::curve::{point_to_bytes, CurvePoint};
+
+    #[test]
+    fn test_kdf() {
+        let p1 = CurvePoint::generator();
+        let salt = b"abcdefg";
+        let info = b"sdasdasd";
+        let key = kdf(&point_to_bytes(&p1), Some(&salt[..]), Some(&info[..]));
+        let key_same = kdf(&point_to_bytes(&p1), Some(&salt[..]), Some(&info[..]));
+        assert_eq!(key, key_same);
+
+        let key_diff = kdf(&point_to_bytes(&p1), None, Some(&info[..]));
+        assert_ne!(key, key_diff);
     }
 }

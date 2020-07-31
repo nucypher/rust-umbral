@@ -8,10 +8,9 @@ use crate::dem::Ciphertext;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use crate::params::UmbralParameters;
 use crate::dem::UmbralDEM;
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
-use crate::kem::{encapsulate, decapsulate_original, open_capsule};
+use crate::params::UmbralParameters;
 
 use aead::Buffer;
 use generic_array::typenum::Unsigned;
@@ -22,8 +21,13 @@ use generic_array::ArrayLength;
 ///
 /// Returns the ciphertext and the KEM Capsule.
 #[cfg(feature = "std")]
-pub fn encrypt(params: &UmbralParameters, alice_pubkey: &UmbralPublicKey, plaintext: &[u8]) -> (Ciphertext, Capsule) {
-    let (dem, capsule) = encapsulate(params, alice_pubkey);
+pub fn encrypt(
+    params: &UmbralParameters,
+    alice_pubkey: &UmbralPublicKey,
+    plaintext: &[u8],
+) -> (Ciphertext, Capsule) {
+    let (capsule, key_seed) = Capsule::from_pubkey(params, alice_pubkey);
+    let dem = UmbralDEM::new(&key_seed);
     let capsule_bytes = capsule.to_bytes();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
     (ciphertext, capsule)
@@ -34,7 +38,8 @@ pub fn encrypt_in_place(
     buffer: &mut dyn Buffer,
     alice_pubkey: &UmbralPublicKey,
 ) -> Option<Capsule> {
-    let (dem, capsule) = encapsulate(params, alice_pubkey);
+    let (capsule, key_seed) = Capsule::from_pubkey(params, alice_pubkey);
+    let dem = UmbralDEM::new(&key_seed);
     let capsule_bytes = capsule.to_bytes();
     let result = dem.encrypt_in_place(buffer, &capsule_bytes);
     match result {
@@ -57,8 +62,8 @@ pub fn decrypt_original(
     //elif not isinstance(capsule, Capsule) or not capsule.verify():
     //    raise Capsule.NotValid
 
-    let encapsulated_key = decapsulate_original(decrypting_key, capsule);
-    let dem = UmbralDEM::new(&encapsulated_key);
+    let key_seed = capsule.open_original(decrypting_key);
+    let dem = UmbralDEM::new(&key_seed);
     dem.decrypt(&ciphertext, &capsule.to_bytes())
 }
 
@@ -75,8 +80,8 @@ pub fn decrypt_original_in_place(
     //elif not isinstance(capsule, Capsule) or not capsule.verify():
     //    raise Capsule.NotValid
 
-    let encapsulated_key = decapsulate_original(decrypting_key, capsule);
-    let dem = UmbralDEM::new(&encapsulated_key);
+    let key_seed = capsule.open_original(decrypting_key);
+    let dem = UmbralDEM::new(&key_seed);
     let res = dem.decrypt_in_place(buffer, &capsule.to_bytes());
     match res {
         Ok(_) => Some(()),
@@ -100,8 +105,8 @@ pub fn decrypt_reencrypted<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     //    return Err(Capsule.NotValid)
     //}
 
-    let encapsulated_key = open_capsule::<Threshold>(capsule, cfrags, decrypting_key, check_proof);
-    let dem = UmbralDEM::new(&encapsulated_key);
+    let key_seed = capsule.open_reencrypted::<Threshold>(cfrags, decrypting_key, check_proof);
+    let dem = UmbralDEM::new(&key_seed);
     dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
 }
 
@@ -120,8 +125,8 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
     //    return Err(Capsule.NotValid)
     //}
 
-    let encapsulated_key = open_capsule::<Threshold>(capsule, cfrags, decrypting_key, check_proof);
-    let dem = UmbralDEM::new(&encapsulated_key);
+    let key_seed = capsule.open_reencrypted::<Threshold>(cfrags, decrypting_key, check_proof);
+    let dem = UmbralDEM::new(&key_seed);
     let res = dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes());
     match res {
         Ok(_) => Some(()),
@@ -136,7 +141,7 @@ mod tests {
     use super::{decrypt_original, decrypt_reencrypted, encrypt};
 
     #[cfg(feature = "std")]
-    use crate::kem::generate_kfrags;
+    use crate::kfrags::generate_kfrags;
 
     #[cfg(feature = "std")]
     use crate::cfrags::CapsuleFrag;
@@ -144,7 +149,6 @@ mod tests {
     #[cfg(feature = "std")]
     use std::vec::Vec;
 
-    use crate::kem::reencrypt;
     use crate::keys::UmbralPrivateKey;
     use crate::params::UmbralParameters;
 
@@ -192,7 +196,6 @@ mod tests {
         assert_eq!(cleartext, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        // FIXME: would be easier if KFrag implemented Copy, but for that Signature must implement Copy
         let kfrags = generate_kfrags::<Threshold>(
             &params,
             &delegating_privkey,
@@ -220,7 +223,7 @@ mod tests {
             ));
 
             // Re-encryption by an Ursula
-            let cfrag = reencrypt(&kfrag, &prepared_capsule, None, true).unwrap();
+            let cfrag = prepared_capsule.reencrypt(&kfrag, None, true).unwrap();
 
             // Bob collects the result
             cfrags.push(cfrag);
@@ -238,7 +241,7 @@ mod tests {
     }
 
     use super::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};
-    use crate::kem::KFragFactory;
+    use crate::kfrags::KFragFactory;
 
     #[test]
     fn test_simple_api_heapless() {
@@ -306,8 +309,8 @@ mod tests {
         }
 
         // Re-encryption by an Ursula
-        let cfrag0 = reencrypt(&kfrags[0], &prepared_capsule, None, true).unwrap();
-        let cfrag1 = reencrypt(&kfrags[1], &prepared_capsule, None, true).unwrap();
+        let cfrag0 = prepared_capsule.reencrypt(&kfrags[0], None, true).unwrap();
+        let cfrag1 = prepared_capsule.reencrypt(&kfrags[1], None, true).unwrap();
 
         // Decryption by Bob
         decrypt_reencrypted_in_place::<Threshold>(

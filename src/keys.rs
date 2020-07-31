@@ -5,7 +5,9 @@ use generic_array::GenericArray;
 use k256::Secp256k1;
 use sha3::Sha3_256;
 
-use crate::curve::{point_to_bytes, random_scalar, CurvePoint, CurvePointSize, CurveScalar, curve_generator};
+use crate::curve::{
+    curve_generator, point_to_bytes, random_scalar, CurvePoint, CurvePointSize, CurveScalar,
+};
 
 #[derive(Clone, Debug)]
 pub struct UmbralSignature(Signature<Secp256k1>);

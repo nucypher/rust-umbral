@@ -1,7 +1,5 @@
 use blake2::{Blake2b, Digest};
-use generic_array::typenum::{Unsigned, U32};
-use generic_array::GenericArray;
-use hkdf::Hkdf;
+use generic_array::typenum::Unsigned;
 use sha3::Sha3_256;
 
 use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
@@ -79,34 +77,10 @@ pub fn hash_to_scalar(
     CurveScalar::from_digest(hasher)
 }
 
-// TODO: what's even the point of passing `key_length` then?
-pub type KdfSize = U32;
-
-pub fn kdf(
-    ecpoint: &CurvePoint,
-    salt: Option<&[u8]>,
-    info: Option<&[u8]>,
-) -> GenericArray<u8, KdfSize> {
-    let data = point_to_bytes(ecpoint);
-    let hk = Hkdf::<Blake2b>::new(salt, &data);
-
-    let mut okm = GenericArray::<u8, KdfSize>::default();
-
-    let def_info = match info {
-        Some(x) => x,
-        None => &[],
-    };
-
-    // We can only get an error here if `KdfSize` is too large, and it's known at compile-time.
-    hk.expand(&def_info, &mut okm).unwrap();
-
-    okm
-}
-
 #[cfg(test)]
 mod tests {
 
-    use super::{hash_to_scalar, kdf, unsafe_hash_to_point};
+    use super::{hash_to_scalar, unsafe_hash_to_point};
     use crate::curve::CurvePoint;
 
     #[test]
@@ -136,18 +110,5 @@ mod tests {
 
         let s_diff = hash_to_scalar(&[p2, p1], None);
         assert_ne!(s, s_diff);
-    }
-
-    #[test]
-    fn test_kdf() {
-        let p1 = CurvePoint::generator();
-        let salt = b"abcdefg";
-        let info = b"sdasdasd";
-        let key = kdf(&p1, Some(&salt[..]), Some(&info[..]));
-        let key_same = kdf(&p1, Some(&salt[..]), Some(&info[..]));
-        assert_eq!(key, key_same);
-
-        let key_diff = kdf(&p1, None, Some(&info[..]));
-        assert_ne!(key, key_diff);
     }
 }
