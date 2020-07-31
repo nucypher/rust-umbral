@@ -43,8 +43,8 @@ pub fn encrypt_in_place(
     let capsule_bytes = capsule.to_bytes();
     let result = dem.encrypt_in_place(buffer, &capsule_bytes);
     match result {
-        Ok(_) => Some(capsule),
-        Err(_) => None,
+        Some(_) => Some(capsule),
+        None => None,
     }
 }
 
@@ -82,11 +82,7 @@ pub fn decrypt_original_in_place(
 
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
-    let res = dem.decrypt_in_place(buffer, &capsule.to_bytes());
-    match res {
-        Ok(_) => Some(()),
-        Err(_) => None,
-    }
+    dem.decrypt_in_place(buffer, &capsule.to_bytes())
 }
 
 #[cfg(feature = "std")]
@@ -127,11 +123,7 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
 
     let key_seed = capsule.open_reencrypted::<Threshold>(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
-    let res = dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes());
-    match res {
-        Ok(_) => Some(()),
-        Err(_) => None,
-    }
+    dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes())
 }
 
 #[cfg(test)]

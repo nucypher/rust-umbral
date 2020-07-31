@@ -42,8 +42,6 @@ pub struct UmbralDEM {
     cipher: ChaCha20Poly1305,
 }
 
-pub struct DemError();
-
 impl UmbralDEM {
     pub fn new(key_seed: &[u8]) -> Self {
         let key_bytes = kdf(&key_seed, None, None);
@@ -67,7 +65,7 @@ impl UmbralDEM {
         &self,
         buffer: &mut dyn Buffer,
         authenticated_data: &[u8],
-    ) -> Result<(), DemError> {
+    ) -> Option<()> {
         type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
@@ -79,11 +77,11 @@ impl UmbralDEM {
             Ok(_) => {
                 let res2 = buffer.extend_from_slice(&nonce);
                 match res2 {
-                    Ok(_) => Ok(()),
-                    Err(_) => Err(DemError()),
+                    Ok(_) => Some(()),
+                    Err(_) => None,
                 }
             }
-            Err(_) => Err(DemError()),
+            Err(_) => None,
         }
     }
 
@@ -91,7 +89,7 @@ impl UmbralDEM {
         &self,
         buffer: &mut dyn Buffer,
         authenticated_data: &[u8],
-    ) -> Result<(), DemError> {
+    ) -> Option<()> {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         let buf_size = buffer.len();
 
@@ -101,8 +99,8 @@ impl UmbralDEM {
             .cipher
             .decrypt_in_place(&nonce, authenticated_data, buffer);
         match result {
-            Ok(_) => Ok(()),
-            Err(_) => Err(DemError()),
+            Ok(_) => Some(()),
+            Err(_) => None,
         }
     }
 
