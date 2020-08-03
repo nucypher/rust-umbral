@@ -27,6 +27,12 @@ path = "/Users/bogdan/wb/github/elliptic-curves/k256"
 
 [dev-dependencies]
 heapless = "0.5"
+criterion = "0.3"
 
 [features]
 std = []
+
+[[bench]]
+name = "bench"
+path = "bench/bench.rs"
+harness = false
