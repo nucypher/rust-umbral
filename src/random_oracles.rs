@@ -15,7 +15,6 @@ in constant time, and hence, it is not safe with respect to timing attacks.
 */
 
 pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
-    // FIXME: make it return a constant amount of bytes
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
 
