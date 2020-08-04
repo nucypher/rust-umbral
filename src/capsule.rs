@@ -116,9 +116,7 @@ impl Capsule {
         point_to_bytes(&shared_key)
     }
 
-    /// Derive the same symmetric encapsulated_key
-    #[cfg(feature = "std")]
-    pub fn open_reencrypted(
+    fn open_reencrypted_generic<LC: LambdaCoeff>(
         &self,
         receiving_privkey: &UmbralPrivateKey,
         delegating_key: &UmbralPublicKey,
@@ -131,21 +129,13 @@ impl Capsule {
         let dh_point = &precursor * &priv_key;
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
-        let mut xs = Vec::<CurveScalar>::with_capacity(cfrags.len());
-        for (_i, cfrag) in cfrags.iter().enumerate() {
-            let customization_string =
-                const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
-            xs.push(hash_to_scalar(
-                &[precursor, pub_key, dh_point],
-                Some(&customization_string),
-            ));
-        }
+        let lc = LC::new(cfrags, &[precursor, pub_key, dh_point]);
 
         let mut e_prime = CurvePoint::identity();
         let mut v_prime = CurvePoint::identity();
-        for (cfrag, x) in (&cfrags).iter().zip((&xs).iter()) {
+        for (i, cfrag) in (&cfrags).iter().enumerate() {
             assert!(precursor == cfrag.point_precursor);
-            let lambda_i = lambda_coeff(&x, &xs);
+            let lambda_i = lc.lambda_coeff(i);
             e_prime += &cfrag.point_e1 * &lambda_i;
             v_prime += &cfrag.point_v1 * &lambda_i;
         }
@@ -171,53 +161,75 @@ impl Capsule {
     }
 
     /// Derive the same symmetric encapsulated_key
+    #[cfg(feature = "std")]
+    pub fn open_reencrypted(
+        &self,
+        receiving_privkey: &UmbralPrivateKey,
+        delegating_key: &UmbralPublicKey,
+        cfrags: &[CapsuleFrag],
+    ) -> GenericArray<u8, CurvePointSize> {
+        self.open_reencrypted_generic::<LambdaCoeffHeap>(receiving_privkey, delegating_key, cfrags)
+    }
+
+    /// Derive the same symmetric encapsulated_key
     pub fn open_reencrypted_heapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
         &self,
         receiving_privkey: &UmbralPrivateKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, CurvePointSize> {
-        let pub_key = receiving_privkey.get_pubkey().point_key;
-        let priv_key = receiving_privkey.bn_key;
+        self.open_reencrypted_generic::<LambdaCoeffHeapless<Threshold>>(
+            receiving_privkey,
+            delegating_key,
+            cfrags,
+        )
+    }
+}
 
-        let precursor = cfrags[0].point_precursor;
-        let dh_point = &precursor * &priv_key;
+trait LambdaCoeff {
+    fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self;
+    fn lambda_coeff(&self, i: usize) -> CurveScalar;
+}
 
-        // Combination of CFrags via Shamir's Secret Sharing reconstruction
-        let mut xs = GenericArray::<CurveScalar, Threshold>::default();
-        for (i, cfrag) in cfrags.iter().enumerate() {
+struct LambdaCoeffHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
+    GenericArray<CurveScalar, Threshold>,
+);
+
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> LambdaCoeff
+    for LambdaCoeffHeapless<Threshold>
+{
+    fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
+        let mut result = GenericArray::<CurveScalar, Threshold>::default();
+        for i in 0..<Threshold as Unsigned>::to_usize() {
             let customization_string =
-                const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
-            xs[i] = hash_to_scalar(&[precursor, pub_key, dh_point], Some(&customization_string));
+                const_x_coordinate().concat(scalar_to_bytes(&cfrags[i].kfrag_id));
+            result[i] = hash_to_scalar(points, Some(&customization_string));
         }
+        Self(result)
+    }
 
-        let mut e_prime = CurvePoint::identity();
-        let mut v_prime = CurvePoint::identity();
-        for (cfrag, x) in (&cfrags).iter().zip((&xs).iter()) {
-            assert!(precursor == cfrag.point_precursor);
-            let lambda_i = lambda_coeff(&x, &xs);
-            e_prime += &cfrag.point_e1 * &lambda_i;
-            v_prime += &cfrag.point_v1 * &lambda_i;
+    fn lambda_coeff(&self, i: usize) -> CurveScalar {
+        lambda_coeff(&self.0[i], &self.0)
+    }
+}
+
+#[cfg(feature = "std")]
+struct LambdaCoeffHeap(Vec<CurveScalar>);
+
+#[cfg(feature = "std")]
+impl LambdaCoeff for LambdaCoeffHeap {
+    fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
+        let mut result = Vec::<CurveScalar>::with_capacity(cfrags.len());
+        for i in 0..cfrags.len() {
+            let customization_string =
+                const_x_coordinate().concat(scalar_to_bytes(&cfrags[i].kfrag_id));
+            result.push(hash_to_scalar(points, Some(&customization_string)));
         }
+        Self(result)
+    }
 
-        // Secret value 'd' allows to make Umbral non-interactive
-        let d = hash_to_scalar(
-            &[precursor, pub_key, dh_point],
-            Some(&const_non_interactive()),
-        );
-
-        let e = self.point_e;
-        let v = self.point_v;
-        let s = self.bn_sig;
-        let h = hash_to_scalar(&[e, v], None);
-
-        let orig_pub_key = delegating_key.point_key;
-
-        assert!(&orig_pub_key * &(&s * &d.invert().unwrap()) == &(&e_prime * &h) + &v_prime);
-        //    raise GenericUmbralError()
-
-        let shared_key = (&e_prime + &v_prime) * &d;
-        point_to_bytes(&shared_key)
+    fn lambda_coeff(&self, i: usize) -> CurveScalar {
+        lambda_coeff(&self.0[i], &self.0)
     }
 }
 
