@@ -193,8 +193,8 @@ mod tests {
             threshold,
             num_frags,
             &signing_privkey,
-            false,
-            false,
+            true,
+            true,
         );
 
         // Capsule preparation (necessary before re-encryotion and activation)
@@ -269,14 +269,12 @@ mod tests {
             &delegating_privkey,
             &receiving_pubkey,
             &signing_privkey,
-            false,
-            false,
         );
 
         let kfrags = [
-            kfrag_factory.make(),
-            kfrag_factory.make(),
-            kfrag_factory.make(),
+            kfrag_factory.make(true, true),
+            kfrag_factory.make(true, true),
+            kfrag_factory.make(true, true),
         ];
 
         // Capsule preparation (necessary before re-encryotion and activation)

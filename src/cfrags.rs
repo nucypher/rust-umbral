@@ -48,7 +48,7 @@ impl CorrectnessProof {
         let v1 = cfrag_v1;
 
         let u = params.u;
-        let u1 = kfrag.point_commitment;
+        let u1 = kfrag.proof.point_commitment;
 
         let e2 = &e * &t;
         let v2 = &v * &t;
@@ -69,7 +69,7 @@ impl CorrectnessProof {
             point_kfrag_commitment: u1,
             point_kfrag_pok: u2,
             bn_sig: z3,
-            kfrag_signature: kfrag.signature_for_bob.clone(),
+            kfrag_signature: kfrag.proof.signature_for_bob.clone(),
             metadata: *metadata,
         }
     }
