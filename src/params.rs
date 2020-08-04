@@ -1,8 +1,6 @@
 use crate::curve::{curve_generator, point_to_bytes, CurvePoint};
 use crate::random_oracles::unsafe_hash_to_point;
 
-use core::default::Default;
-
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralParameters {
     pub u: CurvePoint,

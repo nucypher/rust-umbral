@@ -22,6 +22,6 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
 pub use kfrags::generate_kfrags;
 
 pub use keys::UmbralPrivateKey;
-pub use kfrags::KFragFactory;
+pub use kfrags::KFragFactoryHeapless;
 pub use params::UmbralParameters;
 pub use pre::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};

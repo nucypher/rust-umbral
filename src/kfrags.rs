@@ -6,7 +6,6 @@ use crate::curve::{
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey, UmbralSignature};
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
-use crate::utils::poly_eval;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -95,6 +94,81 @@ impl KFrag {
         }
     }
 
+    fn make(base: &KFragFactoryBase, coefficients: &dyn KFragCoefficients) -> KFrag {
+        // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
+        let kfrag_id = random_scalar();
+
+        // The index of the re-encryption key share (which in Shamir's Secret
+        // Sharing corresponds to x in the tuple (x, f(x)), with f being the
+        // generating polynomial), is used to prevent reconstruction of the
+        // re-encryption key without Bob's intervention
+        let customization_string = const_x_coordinate().concat(scalar_to_bytes(&kfrag_id));
+        let share_index = hash_to_scalar(
+            &[base.precursor, base.bob_pubkey_point, base.dh_point],
+            Some(&customization_string),
+        );
+
+        // The re-encryption key share is the result of evaluating the generating
+        // polynomial for the index value
+        let rk = coefficients.poly_eval(&share_index);
+
+        let commitment = &base.params.u * &rk;
+
+        // TODO: hide this in a special mutable object associated with Signer?
+        let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
+            .concat(base.delegating_pubkey.to_bytes())
+            .concat(base.receiving_pubkey.to_bytes())
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&base.precursor));
+        let signature_for_bob = base.signer.sign(&validity_message_for_bob);
+
+        // TODO: can be a function where KeyType is defined
+        let mode = match (base.sign_delegating_key, base.sign_receiving_key) {
+            (true, true) => KeyType::DelegatingAndReceiving,
+            (true, false) => KeyType::DelegatingOnly,
+            (false, true) => KeyType::ReceivingOnly,
+            (false, false) => KeyType::NoKey,
+        };
+
+        // TODO: hide this in a special mutable object associated with Signer?
+        let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
+            .concat(point_to_bytes(&commitment))
+            .concat(point_to_bytes(&base.precursor))
+            .concat(key_type_to_bytes(&mode));
+
+        // `validity_message_for_proxy` needs to have a static type and
+        // (since it's a GenericArray) a static size.
+        // So we have to concat the same number of bytes regardless of any runtime state.
+        // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
+
+        let validity_message_for_proxy =
+            validity_message_for_proxy.concat(if base.sign_delegating_key {
+                base.delegating_pubkey.to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
+
+        let validity_message_for_proxy =
+            validity_message_for_proxy.concat(if base.sign_receiving_key {
+                base.receiving_pubkey.to_bytes()
+            } else {
+                GenericArray::<u8, CurvePointSize>::default()
+            });
+
+        let signature_for_proxy = base.signer.sign(&validity_message_for_proxy);
+
+        KFrag::new(
+            &base.params,
+            &kfrag_id,
+            &rk,
+            &commitment,
+            &base.precursor,
+            &signature_for_proxy,
+            &signature_for_bob,
+            Some(mode),
+        )
+    }
+
     // FIXME: should it be constant-time?
     pub fn verify(
         &self,
@@ -154,7 +228,7 @@ impl KFrag {
     }
 }
 
-pub struct KFragFactory<Threshold: ArrayLength<CurveScalar> + Unsigned> {
+pub struct KFragFactoryBase {
     signer: UmbralPrivateKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
@@ -164,10 +238,10 @@ pub struct KFragFactory<Threshold: ArrayLength<CurveScalar> + Unsigned> {
     receiving_pubkey: UmbralPublicKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-    coefficients: GenericArray<CurveScalar, Threshold>,
+    coefficient0: CurveScalar,
 }
 
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactory<Threshold> {
+impl KFragFactoryBase {
     pub fn new(
         params: &UmbralParameters,
         delegating_privkey: &UmbralPrivateKey,
@@ -196,11 +270,7 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactory<Threshold> {
         );
 
         // Coefficients of the generating polynomial
-        let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
-        coefficients[0] = &delegating_privkey.bn_key * &(d.invert().unwrap());
-        for i in 1..<Threshold as Unsigned>::to_usize() {
-            coefficients[i] = random_scalar();
-        }
+        let coefficient0 = &delegating_privkey.bn_key * &(d.invert().unwrap());
 
         Self {
             signer: *signer,
@@ -212,83 +282,98 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactory<Threshold> {
             receiving_pubkey: *receiving_pubkey,
             sign_delegating_key,
             sign_receiving_key,
-            coefficients,
+            coefficient0,
         }
+    }
+}
+
+// Coefficients of the generating polynomial
+trait KFragCoefficients {
+    fn coefficients(&self) -> &[CurveScalar];
+
+    fn poly_eval(&self, x: &CurveScalar) -> CurveScalar {
+        let coeffs = self.coefficients();
+        let mut result: CurveScalar = coeffs[coeffs.len() - 1];
+        for i in (0..coeffs.len() - 1).rev() {
+            result = (&result * &x) + &coeffs[i];
+        }
+        result
+    }
+}
+
+struct KFragCoefficientsHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
+    GenericArray<CurveScalar, Threshold>,
+);
+
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragCoefficientsHeapless<Threshold> {
+    fn new(coeff0: &CurveScalar) -> Self {
+        let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
+        coefficients[0] = *coeff0;
+        for i in 1..<Threshold as Unsigned>::to_usize() {
+            coefficients[i] = random_scalar();
+        }
+        Self(coefficients)
+    }
+}
+
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragCoefficients
+    for KFragCoefficientsHeapless<Threshold>
+{
+    fn coefficients(&self) -> &[CurveScalar] {
+        &self.0
+    }
+}
+
+#[cfg(feature = "std")]
+struct KFragCoefficientsHeap(Vec<CurveScalar>);
+
+#[cfg(feature = "std")]
+impl KFragCoefficientsHeap {
+    fn new(coeff0: &CurveScalar, threshold: usize) -> Self {
+        let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold - 1);
+        coefficients.push(*coeff0);
+        for _i in 1..threshold {
+            coefficients.push(random_scalar());
+        }
+        Self(coefficients)
+    }
+}
+
+#[cfg(feature = "std")]
+impl KFragCoefficients for KFragCoefficientsHeap {
+    fn coefficients(&self) -> &[CurveScalar] {
+        &self.0
+    }
+}
+
+pub struct KFragFactoryHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned> {
+    base: KFragFactoryBase,
+    coefficients: KFragCoefficientsHeapless<Threshold>,
+}
+
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactoryHeapless<Threshold> {
+    pub fn new(
+        params: &UmbralParameters,
+        delegating_privkey: &UmbralPrivateKey,
+        receiving_pubkey: &UmbralPublicKey,
+        signer: &UmbralPrivateKey,
+        sign_delegating_key: bool,
+        sign_receiving_key: bool,
+    ) -> Self {
+        let base = KFragFactoryBase::new(
+            params,
+            delegating_privkey,
+            receiving_pubkey,
+            signer,
+            sign_delegating_key,
+            sign_receiving_key,
+        );
+        let coefficients = KFragCoefficientsHeapless::<Threshold>::new(&base.coefficient0);
+        Self { base, coefficients }
     }
 
     pub fn make(&self) -> KFrag {
-        // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
-        let kfrag_id = random_scalar();
-
-        // The index of the re-encryption key share (which in Shamir's Secret
-        // Sharing corresponds to x in the tuple (x, f(x)), with f being the
-        // generating polynomial), is used to prevent reconstruction of the
-        // re-encryption key without Bob's intervention
-        let customization_string = const_x_coordinate().concat(scalar_to_bytes(&kfrag_id));
-        let share_index = hash_to_scalar(
-            &[self.precursor, self.bob_pubkey_point, self.dh_point],
-            Some(&customization_string),
-        );
-
-        // The re-encryption key share is the result of evaluating the generating
-        // polynomial for the index value
-        let rk = poly_eval(&self.coefficients, &share_index);
-
-        let commitment = &self.params.u * &rk;
-
-        // TODO: hide this in a special mutable object associated with Signer?
-        let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
-            .concat(self.delegating_pubkey.to_bytes())
-            .concat(self.receiving_pubkey.to_bytes())
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&self.precursor));
-        let signature_for_bob = self.signer.sign(&validity_message_for_bob);
-
-        // TODO: can be a function where KeyType is defined
-        let mode = match (self.sign_delegating_key, self.sign_receiving_key) {
-            (true, true) => KeyType::DelegatingAndReceiving,
-            (true, false) => KeyType::DelegatingOnly,
-            (false, true) => KeyType::ReceivingOnly,
-            (false, false) => KeyType::NoKey,
-        };
-
-        // TODO: hide this in a special mutable object associated with Signer?
-        let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&self.precursor))
-            .concat(key_type_to_bytes(&mode));
-
-        // `validity_message_for_proxy` needs to have a static type and
-        // (since it's a GenericArray) a static size.
-        // So we have to concat the same number of bytes regardless of any runtime state.
-        // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
-
-        let validity_message_for_proxy =
-            validity_message_for_proxy.concat(if self.sign_delegating_key {
-                self.delegating_pubkey.to_bytes()
-            } else {
-                GenericArray::<u8, CurvePointSize>::default()
-            });
-
-        let validity_message_for_proxy =
-            validity_message_for_proxy.concat(if self.sign_receiving_key {
-                self.receiving_pubkey.to_bytes()
-            } else {
-                GenericArray::<u8, CurvePointSize>::default()
-            });
-
-        let signature_for_proxy = self.signer.sign(&validity_message_for_proxy);
-
-        KFrag::new(
-            &self.params,
-            &kfrag_id,
-            &rk,
-            &commitment,
-            &self.precursor,
-            &signature_for_proxy,
-            &signature_for_bob,
-            Some(mode),
-        )
+        KFrag::make(&self.base, &self.coefficients)
     }
 }
 
@@ -300,10 +385,11 @@ Requires a threshold number of KFrags out of N.
 Returns a list of N KFrags
 */
 #[cfg(feature = "std")]
-pub fn generate_kfrags<Threshold: ArrayLength<CurveScalar> + Unsigned>(
+pub fn generate_kfrags(
     params: &UmbralParameters,
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
+    threshold: usize,
     num_kfrags: usize,
     signer: &UmbralPrivateKey,
     sign_delegating_key: bool,
@@ -315,7 +401,7 @@ pub fn generate_kfrags<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     //if delegating_privkey.params != receiving_pubkey.params:
     //    raise ValueError("Keys must have the same parameter set.")
 
-    let factory = KFragFactory::<Threshold>::new(
+    let base = KFragFactoryBase::new(
         params,
         delegating_privkey,
         receiving_pubkey,
@@ -324,9 +410,11 @@ pub fn generate_kfrags<Threshold: ArrayLength<CurveScalar> + Unsigned>(
         sign_receiving_key,
     );
 
+    let coefficients = KFragCoefficientsHeap::new(&base.coefficient0, threshold);
+
     let mut result = Vec::<KFrag>::new();
     for _ in 0..num_kfrags {
-        result.push(factory.make());
+        result.push(KFrag::make(&base, &coefficients));
     }
 
     result

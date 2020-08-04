@@ -86,7 +86,7 @@ pub fn decrypt_original_in_place(
 }
 
 #[cfg(feature = "std")]
-pub fn decrypt_reencrypted<Threshold: ArrayLength<CurveScalar> + Unsigned>(
+pub fn decrypt_reencrypted(
     ciphertext: &Ciphertext,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
@@ -101,7 +101,7 @@ pub fn decrypt_reencrypted<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     //    return Err(Capsule.NotValid)
     //}
 
-    let key_seed = capsule.open_reencrypted::<Threshold>(cfrags, decrypting_key, check_proof);
+    let key_seed = capsule.open_reencrypted(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
     dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
 }
@@ -121,7 +121,8 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
     //    return Err(Capsule.NotValid)
     //}
 
-    let key_seed = capsule.open_reencrypted::<Threshold>(cfrags, decrypting_key, check_proof);
+    let key_seed =
+        capsule.open_reencrypted_heapless::<Threshold>(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
     dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes())
 }
@@ -147,8 +148,6 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn test_simple_api() {
-        use generic_array::typenum::{Unsigned, U2};
-
         /*
         This test models the main interactions between NuCypher actors (i.e., Alice,
         Bob, Data Source, and Ursulas) and artifacts (i.e., public and private keys,
@@ -161,8 +160,7 @@ mod tests {
         Manually injects umbralparameters for multi-curve testing.
         */
 
-        type Threshold = U2;
-        let threshold: usize = <Threshold as Unsigned>::to_usize();
+        let threshold: usize = 2;
         let num_frags: usize = threshold + 1;
 
         // Generation of global parameters
@@ -188,10 +186,11 @@ mod tests {
         assert_eq!(cleartext, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrags = generate_kfrags::<Threshold>(
+        let kfrags = generate_kfrags(
             &params,
             &delegating_privkey,
             &receiving_pubkey,
+            threshold,
             num_frags,
             &signing_privkey,
             false,
@@ -202,27 +201,21 @@ mod tests {
         let prepared_capsule =
             capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
 
+        // Ursulas check that the received kfrags are valid
+        assert!(kfrags.iter().all(|kfrag| kfrag.verify(
+            &signing_pubkey,
+            Some(&delegating_pubkey),
+            Some(&receiving_pubkey)
+        )));
+
         // Bob requests re-encryption to some set of `threshold` ursulas
-        let mut cfrags = Vec::<CapsuleFrag>::new();
-        for frag_num in 0..threshold {
-            let kfrag = &kfrags[frag_num];
-
-            // Ursula checks that the received kfrag is valid
-            assert!(kfrag.verify(
-                &signing_pubkey,
-                Some(&delegating_pubkey),
-                Some(&receiving_pubkey)
-            ));
-
-            // Re-encryption by an Ursula
-            let cfrag = prepared_capsule.reencrypt(&kfrag, None, true).unwrap();
-
-            // Bob collects the result
-            cfrags.push(cfrag);
-        }
+        let cfrags: Vec<CapsuleFrag> = kfrags[0..threshold]
+            .iter()
+            .map(|kfrag| prepared_capsule.reencrypt(&kfrag, None, true).unwrap())
+            .collect();
 
         // Decryption by Bob
-        let reenc_cleartext = decrypt_reencrypted::<Threshold>(
+        let reenc_cleartext = decrypt_reencrypted(
             &ciphertext,
             &prepared_capsule,
             &cfrags,
@@ -233,7 +226,7 @@ mod tests {
     }
 
     use super::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};
-    use crate::kfrags::KFragFactory;
+    use crate::kfrags::KFragFactoryHeapless;
 
     #[test]
     fn test_simple_api_heapless() {
@@ -271,7 +264,7 @@ mod tests {
         assert_eq!(buffer2, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrag_factory = KFragFactory::<Threshold>::new(
+        let kfrag_factory = KFragFactoryHeapless::<Threshold>::new(
             &params,
             &delegating_privkey,
             &receiving_pubkey,
