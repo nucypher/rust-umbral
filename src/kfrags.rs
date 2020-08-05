@@ -18,33 +18,37 @@ use generic_array::{ArrayLength, GenericArray};
 pub struct KFragProof {
     pub point_commitment: CurvePoint,
     signature_for_proxy: UmbralSignature,
-    pub signature_for_bob: UmbralSignature,
+    signature_for_bob: UmbralSignature,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 }
 
 impl KFragProof {
     fn new(
-        factory_base: &KFragFactoryBase,
+        params: &UmbralParameters,
         kfrag_id: &CurveScalar,
-        kfrag_key: &CurveScalar,
+        kfrag_bn_key: &CurveScalar,
+        kfrag_point_precursor: &CurvePoint,
+        signing_privkey: &UmbralPrivateKey,
+        delegating_pubkey: &UmbralPublicKey,
+        receiving_pubkey: &UmbralPublicKey,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
-        let commitment = &factory_base.params.u * &kfrag_key;
+        let commitment = &params.u * &kfrag_bn_key;
 
         // TODO: hide this in a special mutable object associated with Signer?
         let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
-            .concat(factory_base.delegating_pubkey.to_bytes())
-            .concat(factory_base.receiving_pubkey.to_bytes())
+            .concat(delegating_pubkey.to_bytes())
+            .concat(receiving_pubkey.to_bytes())
             .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&factory_base.precursor));
-        let signature_for_bob = factory_base.signer.sign(&validity_message_for_bob);
+            .concat(point_to_bytes(&kfrag_point_precursor));
+        let signature_for_bob = signing_privkey.sign(&validity_message_for_bob);
 
         // TODO: hide this in a special mutable object associated with Signer?
         let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
             .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&factory_base.precursor))
+            .concat(point_to_bytes(&kfrag_point_precursor))
             .concat([sign_delegating_key as u8].into())
             .concat([sign_receiving_key as u8].into());
 
@@ -55,18 +59,18 @@ impl KFragProof {
 
         let validity_message_for_proxy =
             validity_message_for_proxy.concat(if sign_delegating_key {
-                factory_base.delegating_pubkey.to_bytes()
+                delegating_pubkey.to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()
             });
 
         let validity_message_for_proxy = validity_message_for_proxy.concat(if sign_receiving_key {
-            factory_base.receiving_pubkey.to_bytes()
+            receiving_pubkey.to_bytes()
         } else {
             GenericArray::<u8, CurvePointSize>::default()
         });
 
-        let signature_for_proxy = factory_base.signer.sign(&validity_message_for_proxy);
+        let signature_for_proxy = signing_privkey.sign(&validity_message_for_proxy);
 
         Self {
             point_commitment: commitment,
@@ -75,6 +79,10 @@ impl KFragProof {
             sign_delegating_key,
             sign_receiving_key,
         }
+    }
+
+    pub fn signature_for_bob(&self) -> UmbralSignature {
+        self.signature_for_bob.clone()
     }
 }
 
@@ -116,9 +124,13 @@ impl KFrag {
         let rk = coefficients.poly_eval(&share_index);
 
         let proof = KFragProof::new(
-            &factory_base,
+            &factory_base.params,
             &kfrag_id,
             &rk,
+            &factory_base.precursor,
+            &factory_base.signer,
+            &factory_base.delegating_pubkey,
+            &factory_base.receiving_pubkey,
             sign_delegating_key,
             sign_receiving_key,
         );
@@ -128,7 +140,7 @@ impl KFrag {
             id: kfrag_id,
             bn_key: rk,
             point_precursor: factory_base.precursor,
-            proof,
+            proof
         }
     }
 

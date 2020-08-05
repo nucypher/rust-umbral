@@ -69,7 +69,7 @@ impl CorrectnessProof {
             point_kfrag_commitment: u1,
             point_kfrag_pok: u2,
             bn_sig: z3,
-            kfrag_signature: kfrag.proof.signature_for_bob.clone(),
+            kfrag_signature: kfrag.proof.signature_for_bob(),
             metadata: *metadata,
         }
     }
