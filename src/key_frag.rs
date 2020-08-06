@@ -322,7 +322,12 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragFactoryHeapless<Thre
         receiving_pubkey: &UmbralPublicKey,
         signing_privkey: &UmbralPrivateKey,
     ) -> Self {
-        let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signing_privkey);
+        let base = KeyFragFactoryBase::new(
+            params,
+            delegating_privkey,
+            receiving_pubkey,
+            signing_privkey,
+        );
         let coefficients = KeyFragCoefficientsHeapless::<Threshold>::new(&base.coefficient0);
         Self { base, coefficients }
     }
@@ -355,13 +360,17 @@ pub fn generate_kfrags(
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Vec<KeyFrag> {
-    // TODO: debug_assert!, or panic in release too?
-    //if threshold <= 0 or threshold > N:
-    //    raise ValueError('Arguments threshold and N must satisfy 0 < threshold <= N')
-    //if delegating_privkey.params != receiving_pubkey.params:
-    //    raise ValueError("Keys must have the same parameter set.")
+    assert!(threshold > 0);
 
-    let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signing_privkey);
+    // Technically we can do threshold > num_kfrags, but the result will be useless
+    assert!(threshold <= num_kfrags);
+
+    let base = KeyFragFactoryBase::new(
+        params,
+        delegating_privkey,
+        receiving_pubkey,
+        signing_privkey,
+    );
 
     let coefficients = KeyFragCoefficientsHeap::new(&base.coefficient0, threshold);
 
