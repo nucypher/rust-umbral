@@ -78,7 +78,7 @@ impl KFragProof {
         }
     }
 
-    pub fn signature_for_bob(&self) -> UmbralSignature {
+    pub(crate) fn signature_for_bob(&self) -> UmbralSignature {
         self.signature_for_bob.clone()
     }
 }
@@ -86,10 +86,10 @@ impl KFragProof {
 #[derive(Clone, Debug)]
 pub struct KFrag {
     params: UmbralParameters,
-    pub id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
-    pub key: CurveScalar,
-    pub precursor: CurvePoint,
-    pub proof: KFragProof,
+    pub(crate) id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
+    pub(crate) key: CurveScalar,
+    pub(crate) precursor: CurvePoint,
+    pub(crate) proof: KFragProof,
 }
 
 impl KFrag {
@@ -198,7 +198,7 @@ impl KFrag {
     }
 }
 
-pub struct KFragFactoryBase {
+struct KFragFactoryBase {
     signer: UmbralPrivateKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,

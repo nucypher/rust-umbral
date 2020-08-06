@@ -19,30 +19,16 @@ use generic_array::{ArrayLength, GenericArray};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
-    pub params: UmbralParameters,
-    pub point_e: CurvePoint,
-    pub point_v: CurvePoint,
-    pub signature: CurveScalar,
+    pub(crate) params: UmbralParameters,
+    pub(crate) point_e: CurvePoint,
+    pub(crate) point_v: CurvePoint,
+    pub(crate) signature: CurveScalar,
 }
 
 type CapsuleSize =
     <<CurvePointSize as Add<CurvePointSize>>::Output as Add<CurveScalarSize>>::Output;
 
 impl Capsule {
-    pub fn new(
-        params: &UmbralParameters,
-        point_e: &CurvePoint,
-        point_v: &CurvePoint,
-        signature: &CurveScalar,
-    ) -> Self {
-        Self {
-            params: *params,
-            point_e: *point_e,
-            point_v: *point_v,
-            signature: *signature,
-        }
-    }
-
     pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
         point_to_bytes(&self.point_e)
             .concat(point_to_bytes(&self.point_v))
@@ -243,15 +229,15 @@ impl LambdaCoeff for LambdaCoeffHeap {
 
 #[derive(Clone, Copy, Debug)]
 pub struct PreparedCapsule {
-    pub capsule: Capsule,
-    pub delegating_key: UmbralPublicKey,
-    pub receiving_key: UmbralPublicKey,
-    pub verifying_key: UmbralPublicKey,
+    pub(crate) capsule: Capsule,
+    pub(crate) delegating_key: UmbralPublicKey,
+    pub(crate) receiving_key: UmbralPublicKey,
+    pub(crate) verifying_key: UmbralPublicKey,
 }
 
 impl PreparedCapsule {
     pub fn verify_cfrag(&self, cfrag: &CapsuleFrag) -> bool {
-        cfrag.verify_correctness(
+        cfrag.verify(
             &self.capsule,
             &self.delegating_key,
             &self.receiving_key,

@@ -30,7 +30,7 @@ impl UmbralPrivateKey {
         }
     }
 
-    pub fn to_scalar(&self) -> CurveScalar {
+    pub(crate) fn to_scalar(&self) -> CurveScalar {
         self.scalar
     }
 
@@ -41,7 +41,7 @@ impl UmbralPrivateKey {
     // TODO: should be moved to impl Signer
     // TODO: should be implemented with high-level Signer trait of SecretKey or Scalar,
     // when it's available in RustCrypto.
-    pub fn sign(&self, message: &[u8]) -> UmbralSignature {
+    pub(crate) fn sign(&self, message: &[u8]) -> UmbralSignature {
         let mut hasher = Sha3_256::new();
         hasher.update(message);
         let hashed = hasher.finalize();
@@ -71,11 +71,11 @@ pub struct UmbralPublicKey {
 }
 
 impl UmbralPublicKey {
-    pub fn new(point: &CurvePoint) -> Self {
+    pub(crate) fn new(point: &CurvePoint) -> Self {
         Self { point: *point }
     }
 
-    pub fn to_point(&self) -> CurvePoint {
+    pub(crate) fn to_point(&self) -> CurvePoint {
         self.point
     }
 
@@ -86,7 +86,7 @@ impl UmbralPublicKey {
     // TODO: should be moved to impl Verifier
     // TODO: should be implemented with high-level Verifier trait of PublicKey or AffinePoint,
     // when it's available in RustCrypto.
-    pub fn verify(&self, message: &[u8], signature: &UmbralSignature) -> bool {
+    pub(crate) fn verify(&self, message: &[u8], signature: &UmbralSignature) -> bool {
         let mut hasher = Sha3_256::new();
         hasher.update(message);
         let hashed = hasher.finalize();

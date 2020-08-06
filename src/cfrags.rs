@@ -22,7 +22,7 @@ pub struct CorrectnessProof {
 }
 
 impl CorrectnessProof {
-    pub fn from_kfrag_and_cfrag(
+    fn from_kfrag_and_cfrag(
         capsule: &Capsule,
         kfrag: &KFrag,
         cfrag_e1: &CurvePoint,
@@ -76,11 +76,11 @@ impl CorrectnessProof {
 }
 
 pub struct CapsuleFrag {
-    pub point_e1: CurvePoint,
-    pub point_v1: CurvePoint,
-    pub kfrag_id: CurveScalar,
-    pub precursor: CurvePoint,
-    pub proof: CorrectnessProof,
+    pub(crate) point_e1: CurvePoint,
+    pub(crate) point_v1: CurvePoint,
+    pub(crate) kfrag_id: CurveScalar,
+    pub(crate) precursor: CurvePoint,
+    pub(crate) proof: CorrectnessProof,
 }
 
 impl CapsuleFrag {
@@ -104,7 +104,7 @@ impl CapsuleFrag {
         }
     }
 
-    pub fn verify_correctness(
+    pub(crate) fn verify(
         &self,
         capsule: &Capsule,
         delegating_pubkey: &UmbralPublicKey,

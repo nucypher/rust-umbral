@@ -38,7 +38,7 @@ pub struct Ciphertext {
     data: Vec<u8>,
 }
 
-pub struct UmbralDEM {
+pub(crate) struct UmbralDEM {
     cipher: ChaCha20Poly1305,
 }
 

@@ -14,7 +14,7 @@ WARNING: Do not use when the input data is secret, as this implementation is not
 in constant time, and hence, it is not safe with respect to timing attacks.
 */
 
-pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
+pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
 
@@ -54,7 +54,7 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
 
 // TODO: would be more convenient to take anything implementing `to_bytes()` in some form,
 // since `customization_string` is used in the same way as `crypto_items`.
-pub fn hash_to_scalar(
+pub(crate) fn hash_to_scalar(
     crypto_items: &[CurvePoint],
     customization_string: Option<&[u8]>,
 ) -> CurveScalar {
