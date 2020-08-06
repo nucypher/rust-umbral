@@ -155,9 +155,9 @@ mod tests {
             &params,
             &delegating_privkey,
             &receiving_pubkey,
+            &signing_privkey,
             threshold,
             num_frags,
-            &signing_privkey,
             true,
             true,
         );

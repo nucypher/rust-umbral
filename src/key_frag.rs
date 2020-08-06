@@ -19,8 +19,8 @@ pub struct KeyFragProof {
     pub commitment: CurvePoint,
     signature_for_proxy: UmbralSignature,
     signature_for_bob: UmbralSignature,
-    sign_delegating_key: bool,
-    sign_receiving_key: bool,
+    delegating_key_signed: bool,
+    receiving_key_signed: bool,
 }
 
 impl KeyFragProof {
@@ -73,8 +73,8 @@ impl KeyFragProof {
             commitment,
             signature_for_proxy,
             signature_for_bob,
-            sign_delegating_key,
-            sign_receiving_key,
+            delegating_key_signed: sign_delegating_key,
+            receiving_key_signed: sign_receiving_key,
         }
     }
 
@@ -125,7 +125,7 @@ impl KeyFrag {
             &kfrag_id,
             &rk,
             &factory_base.precursor,
-            &factory_base.signer,
+            &factory_base.signing_privkey,
             &factory_base.delegating_pubkey,
             &factory_base.receiving_pubkey,
             sign_delegating_key,
@@ -147,12 +147,12 @@ impl KeyFrag {
         delegating_pubkey: Option<&UmbralPublicKey>,
         receiving_pubkey: Option<&UmbralPublicKey>,
     ) -> bool {
-        if self.proof.sign_delegating_key {
+        if self.proof.delegating_key_signed {
             // TODO: how to handle it better?
             assert!(delegating_pubkey.is_some());
         }
 
-        if self.proof.sign_receiving_key {
+        if self.proof.receiving_key_signed {
             // TODO: how to handle it better?
             assert!(receiving_pubkey.is_some());
         }
@@ -170,22 +170,22 @@ impl KeyFrag {
         let kfrag_validity_message = scalar_to_bytes(&kfrag_id)
             .concat(point_to_bytes(&commitment))
             .concat(point_to_bytes(&precursor))
-            .concat([self.proof.sign_delegating_key as u8].into())
-            .concat([self.proof.sign_receiving_key as u8].into());
+            .concat([self.proof.delegating_key_signed as u8].into())
+            .concat([self.proof.receiving_key_signed as u8].into());
 
         // `validity_message_for_proxy` needs to have a static type and
         // (since it's a GenericArray) a static size.
         // So we have to concat the same number of bytes regardless of any runtime state.
 
         let kfrag_validity_message =
-            kfrag_validity_message.concat(if self.proof.sign_delegating_key {
+            kfrag_validity_message.concat(if self.proof.delegating_key_signed {
                 delegating_pubkey.unwrap().to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()
             });
 
         let kfrag_validity_message =
-            kfrag_validity_message.concat(if self.proof.sign_receiving_key {
+            kfrag_validity_message.concat(if self.proof.receiving_key_signed {
                 receiving_pubkey.unwrap().to_bytes()
             } else {
                 GenericArray::<u8, CurvePointSize>::default()
@@ -199,7 +199,7 @@ impl KeyFrag {
 }
 
 struct KeyFragFactoryBase {
-    signer: UmbralPrivateKey,
+    signing_privkey: UmbralPrivateKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
     dh_point: CurvePoint,
@@ -214,7 +214,7 @@ impl KeyFragFactoryBase {
         params: &UmbralParameters,
         delegating_privkey: &UmbralPrivateKey,
         receiving_pubkey: &UmbralPublicKey,
-        signer: &UmbralPrivateKey,
+        signing_privkey: &UmbralPrivateKey,
     ) -> Self {
         let g = curve_generator();
 
@@ -239,7 +239,7 @@ impl KeyFragFactoryBase {
         let coefficient0 = &delegating_privkey.to_scalar() * &(d.invert().unwrap());
 
         Self {
-            signer: *signer,
+            signing_privkey: *signing_privkey,
             precursor,
             bob_pubkey_point,
             dh_point,
@@ -320,9 +320,9 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragFactoryHeapless<Thre
         params: &UmbralParameters,
         delegating_privkey: &UmbralPrivateKey,
         receiving_pubkey: &UmbralPublicKey,
-        signer: &UmbralPrivateKey,
+        signing_privkey: &UmbralPrivateKey,
     ) -> Self {
-        let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signer);
+        let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signing_privkey);
         let coefficients = KeyFragCoefficientsHeapless::<Threshold>::new(&base.coefficient0);
         Self { base, coefficients }
     }
@@ -349,9 +349,9 @@ pub fn generate_kfrags(
     params: &UmbralParameters,
     delegating_privkey: &UmbralPrivateKey,
     receiving_pubkey: &UmbralPublicKey,
+    signing_privkey: &UmbralPrivateKey,
     threshold: usize,
     num_kfrags: usize,
-    signer: &UmbralPrivateKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Vec<KeyFrag> {
@@ -361,7 +361,7 @@ pub fn generate_kfrags(
     //if delegating_privkey.params != receiving_pubkey.params:
     //    raise ValueError("Keys must have the same parameter set.")
 
-    let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signer);
+    let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signing_privkey);
 
     let coefficients = KeyFragCoefficientsHeap::new(&base.coefficient0, threshold);
 
