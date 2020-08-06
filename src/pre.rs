@@ -1,5 +1,5 @@
 use crate::capsule::{Capsule, PreparedCapsule};
-use crate::cfrags::CapsuleFrag;
+use crate::capsule_frag::CapsuleFrag;
 use crate::curve::CurveScalar;
 
 #[cfg(feature = "std")]
@@ -134,10 +134,10 @@ mod tests {
     use super::{decrypt_original, decrypt_reencrypted, encrypt};
 
     #[cfg(feature = "std")]
-    use crate::kfrags::generate_kfrags;
+    use crate::key_frag::generate_kfrags;
 
     #[cfg(feature = "std")]
-    use crate::cfrags::CapsuleFrag;
+    use crate::capsule_frag::CapsuleFrag;
 
     #[cfg(feature = "std")]
     use std::vec::Vec;
@@ -151,7 +151,7 @@ mod tests {
         /*
         This test models the main interactions between NuCypher actors (i.e., Alice,
         Bob, Data Source, and Ursulas) and artifacts (i.e., public and private keys,
-        ciphertexts, capsules, KFrags, CFrags, etc).
+        ciphertexts, capsules, KeyFrags, CFrags, etc).
 
         The test covers all the main stages of data sharing with NuCypher:
         key generation, delegation, encryption, decryption by
@@ -226,7 +226,7 @@ mod tests {
     }
 
     use super::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};
-    use crate::kfrags::KFragFactoryHeapless;
+    use crate::key_frag::KeyFragFactoryHeapless;
 
     #[test]
     fn test_simple_api_heapless() {
@@ -264,7 +264,7 @@ mod tests {
         assert_eq!(buffer2, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrag_factory = KFragFactoryHeapless::<Threshold>::new(
+        let kfrag_factory = KeyFragFactoryHeapless::<Threshold>::new(
             &params,
             &delegating_privkey,
             &receiving_pubkey,

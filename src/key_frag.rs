@@ -15,7 +15,7 @@ use generic_array::typenum::Unsigned;
 use generic_array::{ArrayLength, GenericArray};
 
 #[derive(Clone, Debug)]
-pub struct KFragProof {
+pub struct KeyFragProof {
     pub commitment: CurvePoint,
     signature_for_proxy: UmbralSignature,
     signature_for_bob: UmbralSignature,
@@ -23,7 +23,7 @@ pub struct KFragProof {
     sign_receiving_key: bool,
 }
 
-impl KFragProof {
+impl KeyFragProof {
     fn new(
         params: &UmbralParameters,
         kfrag_id: &CurveScalar,
@@ -84,18 +84,18 @@ impl KFragProof {
 }
 
 #[derive(Clone, Debug)]
-pub struct KFrag {
+pub struct KeyFrag {
     params: UmbralParameters,
     pub(crate) id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
     pub(crate) key: CurveScalar,
     pub(crate) precursor: CurvePoint,
-    pub(crate) proof: KFragProof,
+    pub(crate) proof: KeyFragProof,
 }
 
-impl KFrag {
+impl KeyFrag {
     fn new(
-        factory_base: &KFragFactoryBase,
-        coefficients: &dyn KFragCoefficients,
+        factory_base: &KeyFragFactoryBase,
+        coefficients: &dyn KeyFragCoefficients,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -120,7 +120,7 @@ impl KFrag {
         // polynomial for the index value
         let rk = coefficients.poly_eval(&share_index);
 
-        let proof = KFragProof::new(
+        let proof = KeyFragProof::new(
             &factory_base.params,
             &kfrag_id,
             &rk,
@@ -198,7 +198,7 @@ impl KFrag {
     }
 }
 
-struct KFragFactoryBase {
+struct KeyFragFactoryBase {
     signer: UmbralPrivateKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
@@ -209,7 +209,7 @@ struct KFragFactoryBase {
     coefficient0: CurveScalar,
 }
 
-impl KFragFactoryBase {
+impl KeyFragFactoryBase {
     pub fn new(
         params: &UmbralParameters,
         delegating_privkey: &UmbralPrivateKey,
@@ -252,7 +252,7 @@ impl KFragFactoryBase {
 }
 
 // Coefficients of the generating polynomial
-trait KFragCoefficients {
+trait KeyFragCoefficients {
     fn coefficients(&self) -> &[CurveScalar];
 
     fn poly_eval(&self, x: &CurveScalar) -> CurveScalar {
@@ -265,11 +265,11 @@ trait KFragCoefficients {
     }
 }
 
-struct KFragCoefficientsHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
+struct KeyFragCoefficientsHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
     GenericArray<CurveScalar, Threshold>,
 );
 
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragCoefficientsHeapless<Threshold> {
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragCoefficientsHeapless<Threshold> {
     fn new(coeff0: &CurveScalar) -> Self {
         let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
         coefficients[0] = *coeff0;
@@ -280,8 +280,8 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragCoefficientsHeapless<T
     }
 }
 
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragCoefficients
-    for KFragCoefficientsHeapless<Threshold>
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragCoefficients
+    for KeyFragCoefficientsHeapless<Threshold>
 {
     fn coefficients(&self) -> &[CurveScalar] {
         &self.0
@@ -289,10 +289,10 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragCoefficients
 }
 
 #[cfg(feature = "std")]
-struct KFragCoefficientsHeap(Vec<CurveScalar>);
+struct KeyFragCoefficientsHeap(Vec<CurveScalar>);
 
 #[cfg(feature = "std")]
-impl KFragCoefficientsHeap {
+impl KeyFragCoefficientsHeap {
     fn new(coeff0: &CurveScalar, threshold: usize) -> Self {
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold - 1);
         coefficients.push(*coeff0);
@@ -304,31 +304,31 @@ impl KFragCoefficientsHeap {
 }
 
 #[cfg(feature = "std")]
-impl KFragCoefficients for KFragCoefficientsHeap {
+impl KeyFragCoefficients for KeyFragCoefficientsHeap {
     fn coefficients(&self) -> &[CurveScalar] {
         &self.0
     }
 }
 
-pub struct KFragFactoryHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned> {
-    base: KFragFactoryBase,
-    coefficients: KFragCoefficientsHeapless<Threshold>,
+pub struct KeyFragFactoryHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned> {
+    base: KeyFragFactoryBase,
+    coefficients: KeyFragCoefficientsHeapless<Threshold>,
 }
 
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactoryHeapless<Threshold> {
+impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragFactoryHeapless<Threshold> {
     pub fn new(
         params: &UmbralParameters,
         delegating_privkey: &UmbralPrivateKey,
         receiving_pubkey: &UmbralPublicKey,
         signer: &UmbralPrivateKey,
     ) -> Self {
-        let base = KFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signer);
-        let coefficients = KFragCoefficientsHeapless::<Threshold>::new(&base.coefficient0);
+        let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signer);
+        let coefficients = KeyFragCoefficientsHeapless::<Threshold>::new(&base.coefficient0);
         Self { base, coefficients }
     }
 
-    pub fn make(&self, sign_delegating_key: bool, sign_receiving_key: bool) -> KFrag {
-        KFrag::new(
+    pub fn make(&self, sign_delegating_key: bool, sign_receiving_key: bool) -> KeyFrag {
+        KeyFrag::new(
             &self.base,
             &self.coefficients,
             sign_delegating_key,
@@ -339,10 +339,10 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KFragFactoryHeapless<Thresh
 
 /*
 Creates a re-encryption key from Alice's delegating public key to Bob's
-receiving public key, and splits it in KFrags, using Shamir's Secret Sharing.
-Requires a threshold number of KFrags out of N.
+receiving public key, and splits it in KeyFrags, using Shamir's Secret Sharing.
+Requires a threshold number of KeyFrags out of N.
 
-Returns a list of N KFrags
+Returns a list of N KeyFrags
 */
 #[cfg(feature = "std")]
 pub fn generate_kfrags(
@@ -354,20 +354,20 @@ pub fn generate_kfrags(
     signer: &UmbralPrivateKey,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> Vec<KFrag> {
+) -> Vec<KeyFrag> {
     // TODO: debug_assert!, or panic in release too?
     //if threshold <= 0 or threshold > N:
     //    raise ValueError('Arguments threshold and N must satisfy 0 < threshold <= N')
     //if delegating_privkey.params != receiving_pubkey.params:
     //    raise ValueError("Keys must have the same parameter set.")
 
-    let base = KFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signer);
+    let base = KeyFragFactoryBase::new(params, delegating_privkey, receiving_pubkey, signer);
 
-    let coefficients = KFragCoefficientsHeap::new(&base.coefficient0, threshold);
+    let coefficients = KeyFragCoefficientsHeap::new(&base.coefficient0, threshold);
 
-    let mut result = Vec::<KFrag>::new();
+    let mut result = Vec::<KeyFrag>::new();
     for _ in 0..num_kfrags {
-        result.push(KFrag::new(
+        result.push(KeyFrag::new(
             &base,
             &coefficients,
             sign_delegating_key,

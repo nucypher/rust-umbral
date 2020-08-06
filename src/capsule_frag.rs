@@ -1,12 +1,12 @@
 use crate::capsule::Capsule;
 use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar};
+use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSignature};
-use crate::kfrags::KFrag;
 use crate::random_oracles::hash_to_scalar;
 
 use generic_array::sequence::Concat;
 
-pub struct CorrectnessProof {
+pub struct CapsuleFragProof {
     point_e2: CurvePoint,
     point_v2: CurvePoint,
     kfrag_commitment: CurvePoint,
@@ -21,10 +21,10 @@ pub struct CorrectnessProof {
     metadata: CurveScalar,
 }
 
-impl CorrectnessProof {
+impl CapsuleFragProof {
     fn from_kfrag_and_cfrag(
         capsule: &Capsule,
-        kfrag: &KFrag,
+        kfrag: &KeyFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
         metadata: &CurveScalar,
@@ -80,11 +80,11 @@ pub struct CapsuleFrag {
     pub(crate) point_v1: CurvePoint,
     pub(crate) kfrag_id: CurveScalar,
     pub(crate) precursor: CurvePoint,
-    pub(crate) proof: CorrectnessProof,
+    pub(crate) proof: CapsuleFragProof,
 }
 
 impl CapsuleFrag {
-    pub fn from_kfrag(capsule: &Capsule, kfrag: &KFrag, metadata: Option<&[u8]>) -> Self {
+    pub fn from_kfrag(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
@@ -93,7 +93,7 @@ impl CapsuleFrag {
             None => CurveScalar::default(),
         };
         let proof =
-            CorrectnessProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata_scalar);
+            CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata_scalar);
 
         Self {
             point_e1: e1,

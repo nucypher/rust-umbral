@@ -1,11 +1,11 @@
-use crate::cfrags::CapsuleFrag;
+use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{
     curve_generator, point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurvePointSize,
     CurveScalar, CurveScalarSize,
 };
+use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
-use crate::kfrags::KFrag;
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
 
@@ -245,7 +245,7 @@ impl PreparedCapsule {
         )
     }
 
-    pub fn verify_kfrag(&self, kfrag: &KFrag) -> bool {
+    pub fn verify_kfrag(&self, kfrag: &KeyFrag) -> bool {
         kfrag.verify(
             &self.verifying_key,
             Some(&self.delegating_key),
@@ -255,7 +255,7 @@ impl PreparedCapsule {
 
     pub fn reencrypt(
         &self,
-        kfrag: &KFrag,
+        kfrag: &KeyFrag,
         metadata: Option<&[u8]>,
         verify_kfrag: bool,
     ) -> Option<CapsuleFrag> {

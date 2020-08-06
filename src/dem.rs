@@ -74,6 +74,8 @@ impl UmbralDEM {
             .cipher
             .encrypt_in_place(&nonce, authenticated_data, buffer);
         match result {
+            // It would be better to add the nonce in front,
+            // but `Buffer` can only be extended from the end.
             Ok(_) => {
                 let res2 = buffer.extend_from_slice(&nonce);
                 match res2 {
@@ -105,7 +107,7 @@ impl UmbralDEM {
     }
 
     #[cfg(feature = "std")]
-    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Ciphertext {
+    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Vec<u8> {
         type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
@@ -114,22 +116,30 @@ impl UmbralDEM {
             msg: data,
             aad: authenticated_data,
         };
-        let enc_data = self.cipher.encrypt(nonce, payload);
-        // Ciphertext will be a 12 byte nonce, the ciphertext, and a 16 byte tag.
+        let mut enc_data = self.cipher.encrypt(nonce, payload).unwrap();
 
-        Ciphertext {
-            nonce: *nonce,
-            data: enc_data.unwrap(),
-        }
+        // Add nonce at the end to keep the compatibility with `encrypt_in_place()`
+        // (see the note there)
+        enc_data.extend_from_slice(&nonce);
+
+        enc_data
     }
 
     #[cfg(feature = "std")]
-    pub fn decrypt(&self, ciphertext: &Ciphertext, authenticated_data: &[u8]) -> Option<Vec<u8>> {
+    pub fn decrypt(&self, ciphertext: &Vec<u8>, authenticated_data: &[u8]) -> Option<Vec<u8>> {
+        let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
+        let total_size = ciphertext.len();
+
+        if total_size < nonce_size {
+            return None;
+        }
+
+        let nonce = Nonce::from_slice(&ciphertext[total_size-nonce_size..total_size]);
         let payload = Payload {
-            msg: &ciphertext.data,
+            msg: &ciphertext[0..total_size-nonce_size],
             aad: authenticated_data,
         };
-        self.cipher.decrypt(&ciphertext.nonce, payload).ok()
+        self.cipher.decrypt(&nonce, payload).ok()
     }
 }
 
