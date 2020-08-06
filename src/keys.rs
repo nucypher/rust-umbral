@@ -14,28 +14,28 @@ pub struct UmbralSignature(Signature<Secp256k1>);
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPrivateKey {
-    pub bn_key: CurveScalar,
-    pub pubkey: UmbralPublicKey,
+    scalar: CurveScalar,
+    public_key: UmbralPublicKey,
 }
 
 impl UmbralPrivateKey {
-    pub fn new(bn_key: &CurveScalar) -> Self {
-        let point_key = curve_generator() * &bn_key;
-        let pubkey = UmbralPublicKey::new(&point_key);
+    /// Generates a private key and returns it.
+    pub fn generate() -> Self {
+        let secret_scalar = random_scalar();
+        let public_point = curve_generator() * &secret_scalar;
+        let public_key = UmbralPublicKey::new(&public_point);
         Self {
-            bn_key: *bn_key,
-            pubkey,
+            scalar: secret_scalar,
+            public_key,
         }
     }
 
-    /// Generates a private key and returns it.
-    pub fn gen_key() -> Self {
-        let bn_key = random_scalar();
-        Self::new(&bn_key)
+    pub fn to_scalar(&self) -> CurveScalar {
+        self.scalar
     }
 
-    pub fn get_pubkey(&self) -> UmbralPublicKey {
-        self.pubkey.clone()
+    pub fn public_key(&self) -> UmbralPublicKey {
+        self.public_key
     }
 
     // TODO: should be moved to impl Signer
@@ -51,7 +51,7 @@ impl UmbralPrivateKey {
         loop {
             let k = random_scalar();
             let res = self
-                .bn_key
+                .scalar
                 .try_sign_prehashed(&k, GenericArray::from_slice(&hashed[l - 32..l]));
             match res {
                 Ok(sig) => {
@@ -67,18 +67,22 @@ impl UmbralPrivateKey {
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPublicKey {
-    pub point_key: CurvePoint,
+    point: CurvePoint,
 }
 
 impl UmbralPublicKey {
-    pub fn new(point_key: &CurvePoint) -> Self {
+    pub fn new(point: &CurvePoint) -> Self {
         Self {
-            point_key: *point_key,
+            point: *point,
         }
     }
 
+    pub fn to_point(&self) -> CurvePoint {
+        self.point
+    }
+
     pub fn to_bytes(&self) -> GenericArray<u8, CurvePointSize> {
-        point_to_bytes(&self.point_key)
+        point_to_bytes(&self.point)
     }
 
     // TODO: should be moved to impl Verifier
@@ -90,7 +94,7 @@ impl UmbralPublicKey {
         let hashed = hasher.finalize();
         let l = hashed.len();
 
-        let ap = self.point_key.to_affine().unwrap();
+        let ap = self.point.to_affine().unwrap();
         let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l - 32..l]), &(signature.0));
 
         match res {

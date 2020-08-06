@@ -90,7 +90,7 @@ impl Capsule {
 
         let s = &priv_u + (&priv_r * &h);
 
-        let shared_key = &(alice_pubkey.point_key) * &(&priv_r + &priv_u);
+        let shared_key = &alice_pubkey.to_point() * &(&priv_r + &priv_u);
 
         let capsule = Self {
             params: *params,
@@ -112,7 +112,7 @@ impl Capsule {
         //    # Check correctness of original ciphertext
         //    raise capsule.NotValid("Capsule verification failed.")
 
-        let shared_key = (&self.point_e + &self.point_v) * &private_key.bn_key;
+        let shared_key = (&self.point_e + &self.point_v) * &private_key.to_scalar();
         point_to_bytes(&shared_key)
     }
 
@@ -122,8 +122,8 @@ impl Capsule {
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, CurvePointSize> {
-        let pub_key = receiving_privkey.get_pubkey().point_key;
-        let priv_key = receiving_privkey.bn_key;
+        let pub_key = receiving_privkey.public_key().to_point();
+        let priv_key = receiving_privkey.to_scalar();
 
         let precursor = cfrags[0].point_precursor;
         let dh_point = &precursor * &priv_key;
@@ -151,7 +151,7 @@ impl Capsule {
         let s = self.bn_sig;
         let h = hash_to_scalar(&[e, v], None);
 
-        let orig_pub_key = delegating_key.point_key;
+        let orig_pub_key = delegating_key.to_point();
 
         assert!(&orig_pub_key * &(&s * &d.invert().unwrap()) == &(&e_prime * &h) + &v_prime);
         //    raise GenericUmbralError()

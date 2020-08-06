@@ -223,9 +223,9 @@ impl KFragFactoryBase {
     ) -> Self {
         let g = curve_generator();
 
-        let delegating_pubkey = delegating_privkey.get_pubkey();
+        let delegating_pubkey = delegating_privkey.public_key();
 
-        let bob_pubkey_point = receiving_pubkey.point_key;
+        let bob_pubkey_point = receiving_pubkey.to_point();
 
         // The precursor point is used as an ephemeral public key in a DH key exchange,
         // and the resulting shared secret 'dh_point' is used to derive other secret values
@@ -241,7 +241,7 @@ impl KFragFactoryBase {
         );
 
         // Coefficients of the generating polynomial
-        let coefficient0 = &delegating_privkey.bn_key * &(d.invert().unwrap());
+        let coefficient0 = &delegating_privkey.to_scalar() * &(d.invert().unwrap());
 
         Self {
             signer: *signer,

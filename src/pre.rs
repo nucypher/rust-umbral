@@ -167,15 +167,15 @@ mod tests {
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralPrivateKey::gen_key();
-        let delegating_pubkey = delegating_privkey.get_pubkey();
+        let delegating_privkey = UmbralPrivateKey::generate();
+        let delegating_pubkey = delegating_privkey.public_key();
 
-        let signing_privkey = UmbralPrivateKey::gen_key();
-        let signing_pubkey = signing_privkey.get_pubkey();
+        let signing_privkey = UmbralPrivateKey::generate();
+        let signing_pubkey = signing_privkey.public_key();
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralPrivateKey::gen_key();
-        let receiving_pubkey = receiving_privkey.get_pubkey();
+        let receiving_privkey = UmbralPrivateKey::generate();
+        let receiving_pubkey = receiving_privkey.public_key();
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
@@ -241,15 +241,15 @@ mod tests {
         let params = UmbralParameters::new(); // TODO: parametrize by curve type
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralPrivateKey::gen_key();
-        let delegating_pubkey = delegating_privkey.get_pubkey();
+        let delegating_privkey = UmbralPrivateKey::generate();
+        let delegating_pubkey = delegating_privkey.public_key();
 
-        let signing_privkey = UmbralPrivateKey::gen_key();
-        let signing_pubkey = signing_privkey.get_pubkey();
+        let signing_privkey = UmbralPrivateKey::generate();
+        let signing_pubkey = signing_privkey.public_key();
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralPrivateKey::gen_key();
-        let receiving_pubkey = receiving_privkey.get_pubkey();
+        let receiving_privkey = UmbralPrivateKey::generate();
+        let receiving_pubkey = receiving_privkey.public_key();
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
