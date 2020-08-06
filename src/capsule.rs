@@ -56,8 +56,6 @@ impl Capsule {
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    // TODO: might as well return a GenericArray instead of a point,
-    // it's going to be hashed anyway.
     pub fn from_pubkey(
         params: &UmbralParameters,
         alice_pubkey: &UmbralPublicKey,
@@ -91,11 +89,6 @@ impl Capsule {
         &self,
         private_key: &UmbralPrivateKey,
     ) -> GenericArray<u8, CurvePointSize> {
-        // TODO: capsule should be verified on creation
-        //if not capsule.verify():
-        //    # Check correctness of original ciphertext
-        //    raise capsule.NotValid("Capsule verification failed.")
-
         let shared_key = (&self.point_e + &self.point_v) * &private_key.to_scalar();
         point_to_bytes(&shared_key)
     }
@@ -259,10 +252,6 @@ impl PreparedCapsule {
         metadata: Option<&[u8]>,
         verify_kfrag: bool,
     ) -> Option<CapsuleFrag> {
-        // TODO: verify on creation?
-        //if not prepared_capsule.verify():
-        //    raise Capsule.NotValid
-
         if verify_kfrag && !self.verify_kfrag(&kfrag) {
             return None;
         }

@@ -31,11 +31,6 @@ impl CapsuleFragProof {
     ) -> Self {
         let params = capsule.params;
 
-        // Check correctness of original ciphertext
-        // TODO: should be already verified?
-        //if not capsule.verify():
-        //    raise capsule.NotValid("Capsule verification failed.")
-
         let rk = kfrag.key;
         let t = random_scalar();
 
@@ -138,7 +133,6 @@ impl CapsuleFrag {
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        // TODO: hide this in a special mutable object associated with Signer?
         let kfrag_validity_message = scalar_to_bytes(&kfrag_id)
             .concat(delegating_pubkey.to_bytes())
             .concat(receiving_pubkey.to_bytes())

@@ -47,9 +47,12 @@ impl UmbralPrivateKey {
         let hashed = hasher.finalize();
         let l = hashed.len();
 
-        // FIXME: k should be > 0
         loop {
             let k = random_scalar();
+            if k.is_zero().into() {
+                continue;
+            }
+
             let res = self
                 .scalar
                 .try_sign_prehashed(&k, GenericArray::from_slice(&hashed[l - 32..l]));

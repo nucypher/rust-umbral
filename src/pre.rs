@@ -51,10 +51,6 @@ pub fn decrypt_original(
     capsule: &Capsule,
     decrypting_key: &UmbralPrivateKey,
 ) -> Option<Vec<u8>> {
-    // TODO: capsule should perhaps be verified on creation?
-    //elif not isinstance(capsule, Capsule) or not capsule.verify():
-    //    raise Capsule.NotValid
-
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
     dem.decrypt(&ciphertext, &capsule.to_bytes())
@@ -65,10 +61,6 @@ pub fn decrypt_original_in_place(
     capsule: &Capsule,
     decrypting_key: &UmbralPrivateKey,
 ) -> Option<()> {
-    // TODO: capsule should perhaps be verified on creation?
-    //elif not isinstance(capsule, Capsule) or not capsule.verify():
-    //    raise Capsule.NotValid
-
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
     dem.decrypt_in_place(buffer, &capsule.to_bytes())
@@ -82,11 +74,6 @@ pub fn decrypt_reencrypted(
     decrypting_key: &UmbralPrivateKey,
     check_proof: bool,
 ) -> Option<Vec<u8>> {
-    // TODO: verify capsule on creation?
-    //if !capsule.verify() {
-    //    return Err(Capsule.NotValid)
-    //}
-
     let key_seed = capsule.open_reencrypted(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
     dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
@@ -99,11 +86,6 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
     decrypting_key: &UmbralPrivateKey,
     check_proof: bool,
 ) -> Option<()> {
-    // TODO: verify capsule on creation?
-    //if !capsule.verify() {
-    //    return Err(Capsule.NotValid)
-    //}
-
     let key_seed =
         capsule.open_reencrypted_heapless::<Threshold>(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
@@ -147,7 +129,7 @@ mod tests {
         let num_frags: usize = threshold + 1;
 
         // Generation of global parameters
-        let params = UmbralParameters::new(); // TODO: parametrize by curve type
+        let params = UmbralParameters::new();
 
         // Key Generation (Alice)
         let delegating_privkey = UmbralPrivateKey::generate();
@@ -221,7 +203,7 @@ mod tests {
         let threshold: usize = <Threshold as Unsigned>::to_usize();
 
         // Generation of global parameters
-        let params = UmbralParameters::new(); // TODO: parametrize by curve type
+        let params = UmbralParameters::new();
 
         // Key Generation (Alice)
         let delegating_privkey = UmbralPrivateKey::generate();

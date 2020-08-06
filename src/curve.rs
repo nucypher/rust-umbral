@@ -32,10 +32,11 @@ pub(crate) fn scalar_to_bytes(s: &CurveScalar) -> GenericArray<u8, CurveScalarSi
 }
 
 pub(crate) fn bytes_to_point(bytes: &[u8]) -> Option<CurvePoint> {
-    // FIXME: Can we transform Option into CtOption directly?
-    let pk = PublicKey::from_bytes(bytes).unwrap();
-    let ap = AffinePoint::from_public_key(&pk);
-    // TODO: Can we transfrom CtOption into Option directly?
+    let pk = PublicKey::from_bytes(bytes);
+    if pk.is_none() {
+        return None;
+    }
+    let ap = AffinePoint::from_public_key(&pk.unwrap());
     if ap.is_some().into() {
         Some(CurvePoint::from(ap.unwrap()))
     } else {
