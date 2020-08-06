@@ -3,9 +3,6 @@ use crate::capsule_frag::CapsuleFrag;
 use crate::curve::CurveScalar;
 
 #[cfg(feature = "std")]
-use crate::dem::Ciphertext;
-
-#[cfg(feature = "std")]
 use std::vec::Vec;
 
 use crate::dem::UmbralDEM;
@@ -25,7 +22,7 @@ pub fn encrypt(
     params: &UmbralParameters,
     alice_pubkey: &UmbralPublicKey,
     plaintext: &[u8],
-) -> (Ciphertext, Capsule) {
+) -> (Vec<u8>, Capsule) {
     let (capsule, key_seed) = Capsule::from_pubkey(params, alice_pubkey);
     let dem = UmbralDEM::new(&key_seed);
     let capsule_bytes = capsule.to_bytes();
@@ -50,14 +47,10 @@ pub fn encrypt_in_place(
 
 #[cfg(feature = "std")]
 pub fn decrypt_original(
-    ciphertext: &Ciphertext,
+    ciphertext: &Vec<u8>,
     capsule: &Capsule,
     decrypting_key: &UmbralPrivateKey,
 ) -> Option<Vec<u8>> {
-    // TODO: this should be checked in Ciphertext::from_bytes()
-    //if not isinstance(ciphertext, bytes) or len(ciphertext) < DEM_NONCE_SIZE:
-    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
-
     // TODO: capsule should perhaps be verified on creation?
     //elif not isinstance(capsule, Capsule) or not capsule.verify():
     //    raise Capsule.NotValid
@@ -72,10 +65,6 @@ pub fn decrypt_original_in_place(
     capsule: &Capsule,
     decrypting_key: &UmbralPrivateKey,
 ) -> Option<()> {
-    // TODO: this should be checked in Ciphertext::from_bytes()
-    //if not isinstance(ciphertext, bytes) or len(ciphertext) < DEM_NONCE_SIZE:
-    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
-
     // TODO: capsule should perhaps be verified on creation?
     //elif not isinstance(capsule, Capsule) or not capsule.verify():
     //    raise Capsule.NotValid
@@ -87,15 +76,12 @@ pub fn decrypt_original_in_place(
 
 #[cfg(feature = "std")]
 pub fn decrypt_reencrypted(
-    ciphertext: &Ciphertext,
+    ciphertext: &Vec<u8>,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
     decrypting_key: &UmbralPrivateKey,
     check_proof: bool,
 ) -> Option<Vec<u8>> {
-    // TODO: should be checked when creating a ciphertext object?
-    //if len(ciphertext) < DEM_NONCE_SIZE:
-    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
     // TODO: verify capsule on creation?
     //if !capsule.verify() {
     //    return Err(Capsule.NotValid)
@@ -113,9 +99,6 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
     decrypting_key: &UmbralPrivateKey,
     check_proof: bool,
 ) -> Option<()> {
-    // TODO: should be checked when creating a ciphertext object?
-    //if len(ciphertext) < DEM_NONCE_SIZE:
-    //    raise ValueError("Input ciphertext must be a bytes object of length >= {}".format(DEM_NONCE_SIZE))
     // TODO: verify capsule on creation?
     //if !capsule.verify() {
     //    return Err(Capsule.NotValid)

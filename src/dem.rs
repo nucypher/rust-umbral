@@ -31,13 +31,6 @@ fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8
     okm
 }
 
-// TODO: put everything in a single vector, same as the heapless version?
-#[cfg(feature = "std")]
-pub struct Ciphertext {
-    nonce: Nonce,
-    data: Vec<u8>,
-}
-
 pub(crate) struct UmbralDEM {
     cipher: ChaCha20Poly1305,
 }
@@ -95,6 +88,10 @@ impl UmbralDEM {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         let buf_size = buffer.len();
 
+        if buf_size < nonce_size {
+            return None;
+        }
+
         let nonce = Nonce::clone_from_slice(&buffer.as_ref()[buf_size - nonce_size..buf_size]);
         buffer.truncate(buf_size - nonce_size);
         let result = self
@@ -128,15 +125,15 @@ impl UmbralDEM {
     #[cfg(feature = "std")]
     pub fn decrypt(&self, ciphertext: &Vec<u8>, authenticated_data: &[u8]) -> Option<Vec<u8>> {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
-        let total_size = ciphertext.len();
+        let buf_size = ciphertext.len();
 
-        if total_size < nonce_size {
+        if buf_size < nonce_size {
             return None;
         }
 
-        let nonce = Nonce::from_slice(&ciphertext[total_size-nonce_size..total_size]);
+        let nonce = Nonce::from_slice(&ciphertext[buf_size - nonce_size..buf_size]);
         let payload = Payload {
-            msg: &ciphertext[0..total_size-nonce_size],
+            msg: &ciphertext[0..buf_size - nonce_size],
             aad: authenticated_data,
         };
         self.cipher.decrypt(&nonce, payload).ok()
