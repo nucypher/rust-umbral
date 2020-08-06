@@ -72,9 +72,7 @@ pub struct UmbralPublicKey {
 
 impl UmbralPublicKey {
     pub fn new(point: &CurvePoint) -> Self {
-        Self {
-            point: *point,
-        }
+        Self { point: *point }
     }
 
     pub fn to_point(&self) -> CurvePoint {
@@ -97,9 +95,6 @@ impl UmbralPublicKey {
         let ap = self.point.to_affine().unwrap();
         let res = ap.verify_prehashed(GenericArray::from_slice(&hashed[l - 32..l]), &(signature.0));
 
-        match res {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        res.is_ok()
     }
 }

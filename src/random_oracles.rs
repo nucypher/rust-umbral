@@ -64,10 +64,9 @@ pub fn hash_to_scalar(
     let mut hasher = Sha3_256::new();
 
     hasher.update(&"hash_to_curvebn");
-    match customization_string {
-        Some(s) => hasher.update(s),
-        None => {}
-    };
+    if let Some(s) = customization_string {
+        hasher.update(s)
+    }
 
     for item in crypto_items {
         hasher.update(point_to_bytes(item));

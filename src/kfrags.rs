@@ -16,7 +16,7 @@ use generic_array::{ArrayLength, GenericArray};
 
 #[derive(Clone, Debug)]
 pub struct KFragProof {
-    pub point_commitment: CurvePoint,
+    pub commitment: CurvePoint,
     signature_for_proxy: UmbralSignature,
     signature_for_bob: UmbralSignature,
     sign_delegating_key: bool,
@@ -27,35 +27,32 @@ impl KFragProof {
     fn new(
         params: &UmbralParameters,
         kfrag_id: &CurveScalar,
-        kfrag_bn_key: &CurveScalar,
-        kfrag_point_precursor: &CurvePoint,
+        kfrag_key: &CurveScalar,
+        kfrag_precursor: &CurvePoint,
         signing_privkey: &UmbralPrivateKey,
         delegating_pubkey: &UmbralPublicKey,
         receiving_pubkey: &UmbralPublicKey,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
-        let commitment = &params.u * &kfrag_bn_key;
+        let commitment = params.u * kfrag_key;
 
-        // TODO: hide this in a special mutable object associated with Signer?
         let validity_message_for_bob = scalar_to_bytes(&kfrag_id)
             .concat(delegating_pubkey.to_bytes())
             .concat(receiving_pubkey.to_bytes())
             .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&kfrag_point_precursor));
+            .concat(point_to_bytes(&kfrag_precursor));
         let signature_for_bob = signing_privkey.sign(&validity_message_for_bob);
 
-        // TODO: hide this in a special mutable object associated with Signer?
         let validity_message_for_proxy = scalar_to_bytes(&kfrag_id)
             .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&kfrag_point_precursor))
+            .concat(point_to_bytes(&kfrag_precursor))
             .concat([sign_delegating_key as u8].into())
             .concat([sign_receiving_key as u8].into());
 
         // `validity_message_for_proxy` needs to have a static type and
         // (since it's a GenericArray) a static size.
         // So we have to concat the same number of bytes regardless of any runtime state.
-        // TODO: question for @dnunez, @tux: is it safe to attach dummy keys to a message like that?
 
         let validity_message_for_proxy =
             validity_message_for_proxy.concat(if sign_delegating_key {
@@ -73,9 +70,9 @@ impl KFragProof {
         let signature_for_proxy = signing_privkey.sign(&validity_message_for_proxy);
 
         Self {
-            point_commitment: commitment,
-            signature_for_proxy: signature_for_proxy.clone(),
-            signature_for_bob: signature_for_bob.clone(),
+            commitment,
+            signature_for_proxy,
+            signature_for_bob,
             sign_delegating_key,
             sign_receiving_key,
         }
@@ -90,8 +87,8 @@ impl KFragProof {
 pub struct KFrag {
     params: UmbralParameters,
     pub id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
-    pub bn_key: CurveScalar,
-    pub point_precursor: CurvePoint,
+    pub key: CurveScalar,
+    pub precursor: CurvePoint,
     pub proof: KFragProof,
 }
 
@@ -138,13 +135,12 @@ impl KFrag {
         Self {
             params: factory_base.params,
             id: kfrag_id,
-            bn_key: rk,
-            point_precursor: factory_base.precursor,
-            proof
+            key: rk,
+            precursor: factory_base.precursor,
+            proof,
         }
     }
 
-    // FIXME: should it be constant-time?
     pub fn verify(
         &self,
         signing_pubkey: &UmbralPublicKey,
@@ -164,14 +160,13 @@ impl KFrag {
         let u = self.params.u;
 
         let kfrag_id = self.id;
-        let key = self.bn_key;
-        let commitment = self.proof.point_commitment;
-        let precursor = self.point_precursor;
+        let key = self.key;
+        let commitment = self.proof.commitment;
+        let precursor = self.precursor;
 
         // We check that the commitment is well-formed
         let correct_commitment = commitment == &u * &key;
 
-        // TODO: hide this in a special mutable object associated with Signer?
         let kfrag_validity_message = scalar_to_bytes(&kfrag_id)
             .concat(point_to_bytes(&commitment))
             .concat(point_to_bytes(&precursor))
@@ -199,7 +194,7 @@ impl KFrag {
         let valid_kfrag_signature =
             signing_pubkey.verify(&kfrag_validity_message, &self.proof.signature_for_proxy);
 
-        return correct_commitment & valid_kfrag_signature;
+        correct_commitment & valid_kfrag_signature
     }
 }
 
@@ -249,7 +244,7 @@ impl KFragFactoryBase {
             bob_pubkey_point,
             dh_point,
             params: *params,
-            delegating_pubkey: delegating_pubkey,
+            delegating_pubkey,
             receiving_pubkey: *receiving_pubkey,
             coefficient0,
         }
@@ -264,7 +259,7 @@ trait KFragCoefficients {
         let coeffs = self.coefficients();
         let mut result: CurveScalar = coeffs[coeffs.len() - 1];
         for i in (0..coeffs.len() - 1).rev() {
-            result = (&result * &x) + &coeffs[i];
+            result = (result * x) + &coeffs[i];
         }
         result
     }

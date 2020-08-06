@@ -22,7 +22,7 @@ pub struct Capsule {
     pub params: UmbralParameters,
     pub point_e: CurvePoint,
     pub point_v: CurvePoint,
-    pub bn_sig: CurveScalar,
+    pub signature: CurveScalar,
 }
 
 type CapsuleSize =
@@ -33,21 +33,20 @@ impl Capsule {
         params: &UmbralParameters,
         point_e: &CurvePoint,
         point_v: &CurvePoint,
-        bn_sig: &CurveScalar,
+        signature: &CurveScalar,
     ) -> Self {
-        let res = Self {
+        Self {
             params: *params,
             point_e: *point_e,
             point_v: *point_v,
-            bn_sig: *bn_sig,
-        };
-        res
+            signature: *signature,
+        }
     }
 
     pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
         point_to_bytes(&self.point_e)
             .concat(point_to_bytes(&self.point_v))
-            .concat(scalar_to_bytes(&self.bn_sig))
+            .concat(scalar_to_bytes(&self.signature))
     }
 
     pub fn with_correctness_keys(
@@ -67,7 +66,7 @@ impl Capsule {
     pub fn verify(&self) -> bool {
         let g = curve_generator();
         let h = hash_to_scalar(&[self.point_e, self.point_v], None);
-        &g * &self.bn_sig == &self.point_v + &(&self.point_e * &h)
+        &g * &self.signature == &self.point_v + &(&self.point_e * &h)
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
@@ -95,7 +94,7 @@ impl Capsule {
             params: *params,
             point_e: pub_r,
             point_v: pub_u,
-            bn_sig: s,
+            signature: s,
         };
 
         (capsule, point_to_bytes(&shared_key))
@@ -124,7 +123,7 @@ impl Capsule {
         let pub_key = receiving_privkey.public_key().to_point();
         let priv_key = receiving_privkey.to_scalar();
 
-        let precursor = cfrags[0].point_precursor;
+        let precursor = cfrags[0].precursor;
         let dh_point = &precursor * &priv_key;
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
@@ -133,7 +132,7 @@ impl Capsule {
         let mut e_prime = CurvePoint::identity();
         let mut v_prime = CurvePoint::identity();
         for (i, cfrag) in (&cfrags).iter().enumerate() {
-            assert!(precursor == cfrag.point_precursor);
+            assert!(precursor == cfrag.precursor);
             let lambda_i = lc.lambda_coeff(i);
             e_prime += &cfrag.point_e1 * &lambda_i;
             v_prime += &cfrag.point_v1 * &lambda_i;
@@ -147,7 +146,7 @@ impl Capsule {
 
         let e = self.point_e;
         let v = self.point_v;
-        let s = self.bn_sig;
+        let s = self.signature;
         let h = hash_to_scalar(&[e, v], None);
 
         let orig_pub_key = delegating_key.to_point();
@@ -229,9 +228,9 @@ struct LambdaCoeffHeap(Vec<CurveScalar>);
 impl LambdaCoeff for LambdaCoeffHeap {
     fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
         let mut result = Vec::<CurveScalar>::with_capacity(cfrags.len());
-        for i in 0..cfrags.len() {
+        for cfrag in cfrags {
             let customization_string =
-                const_x_coordinate().concat(scalar_to_bytes(&cfrags[i].kfrag_id));
+                const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
             result.push(hash_to_scalar(points, Some(&customization_string)));
         }
         Self(result)
@@ -278,10 +277,8 @@ impl PreparedCapsule {
         //if not prepared_capsule.verify():
         //    raise Capsule.NotValid
 
-        if verify_kfrag {
-            if !self.verify_kfrag(&kfrag) {
-                return None;
-            }
+        if verify_kfrag && !self.verify_kfrag(&kfrag) {
+            return None;
         }
 
         Some(CapsuleFrag::from_kfrag(&self.capsule, &kfrag, metadata))
