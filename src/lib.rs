@@ -13,7 +13,6 @@ mod kfrags;
 mod params;
 mod pre;
 mod random_oracles;
-mod utils;
 
 #[cfg(feature = "std")]
 pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};

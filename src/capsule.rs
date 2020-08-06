@@ -8,7 +8,6 @@ use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
 use crate::kfrags::KFrag;
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
-use crate::utils::lambda_coeff;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -186,6 +185,16 @@ impl Capsule {
     }
 }
 
+fn lambda_coeff(xs: &[CurveScalar], i: usize) -> CurveScalar {
+    let mut res = CurveScalar::one();
+    for j in 0..xs.len() {
+        if j != i {
+            res = &res * &xs[j] * &(&xs[j] - &xs[i]).invert().unwrap();
+        }
+    }
+    res
+}
+
 trait LambdaCoeff {
     fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self;
     fn lambda_coeff(&self, i: usize) -> CurveScalar;
@@ -209,7 +218,7 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> LambdaCoeff
     }
 
     fn lambda_coeff(&self, i: usize) -> CurveScalar {
-        lambda_coeff(&self.0[i], &self.0)
+        lambda_coeff(&self.0, i)
     }
 }
 
@@ -229,7 +238,7 @@ impl LambdaCoeff for LambdaCoeffHeap {
     }
 
     fn lambda_coeff(&self, i: usize) -> CurveScalar {
-        lambda_coeff(&self.0[i], &self.0)
+        lambda_coeff(&self.0, i)
     }
 }
 
