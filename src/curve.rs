@@ -1,5 +1,5 @@
 use elliptic_curve::weierstrass::point::CompressedPointSize;
-use elliptic_curve::weierstrass::FromPublicKey;
+use elliptic_curve::weierstrass::public_key::FromPublicKey;
 use elliptic_curve::Curve;
 use generic_array::GenericArray;
 use k256::AffinePoint;

@@ -239,7 +239,7 @@ impl KeyFragFactoryBase {
         let coefficient0 = &delegating_privkey.to_scalar() * &(d.invert().unwrap());
 
         Self {
-            signing_privkey: *signing_privkey,
+            signing_privkey: signing_privkey.clone(),
             precursor,
             bob_pubkey_point,
             dh_point,
