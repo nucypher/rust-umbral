@@ -12,19 +12,11 @@ hkdf = "0.9"
 sha2 = "0.9"
 chacha20poly1305 = "0.5"
 aead = { version = "0.3", features = ["heapless"] }
-digest = "0.9"
-elliptic-curve = { version = "= 0.5.0-pre", path = "/Users/bogdan/wb/repos/traits/elliptic-curve" }
-ecdsa = { version = "= 0.7.0-pre", path = "/Users/bogdan/wb/repos/signatures/ecdsa" }
-signature = { path = "/Users/bogdan/wb/repos/traits/signature", features = ["digest-preview", "rand-preview"] }
-
-[dependencies.rand_core]
-version = "0.5"
-features = ["getrandom"]
-
-[dependencies.k256]
-features = ["arithmetic", "rand", "digest", "ecdsa"]
-version = "0.3.0"
-path = "/Users/bogdan/wb/github/elliptic-curves/k256"
+elliptic-curve = "0.5"
+ecdsa = "0.7"
+signature = "1.2"
+k256 = { version = "0.4", features = ["ecdsa"] }
+rand_core = { version = "0.5", features = ["getrandom"] }
 
 [dev-dependencies]
 heapless = "0.5"
