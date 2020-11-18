@@ -1,6 +1,7 @@
 use blake2::{Blake2b, Digest};
 use generic_array::typenum::Unsigned;
 use sha3::Sha3_256;
+use elliptic_curve::FromDigest;
 
 use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
 
