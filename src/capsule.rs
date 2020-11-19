@@ -1,7 +1,8 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{
-    point_to_bytes, random_scalar, CompressedPointSize, CurvePoint, CurveScalar, CurveScalarSize,
+    point_to_bytes, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
+    CurveScalarSize,
 };
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
@@ -61,10 +62,10 @@ impl Capsule {
     ) -> (Capsule, GenericArray<u8, CompressedPointSize>) {
         let g = CurvePoint::generator();
 
-        let priv_r = random_scalar();
+        let priv_r = random_nonzero_scalar();
         let pub_r = &g * &priv_r;
 
-        let priv_u = random_scalar();
+        let priv_u = random_nonzero_scalar();
         let pub_u = &g * &priv_u;
 
         let h = hash_to_scalar(&[pub_r, pub_u], None);

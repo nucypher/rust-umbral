@@ -1,5 +1,5 @@
 use crate::capsule::Capsule;
-use crate::curve::{point_to_bytes, random_scalar, CurvePoint, CurveScalar};
+use crate::curve::{point_to_bytes, random_nonzero_scalar, CurvePoint, CurveScalar};
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::random_oracles::hash_to_scalar;
@@ -32,7 +32,7 @@ impl CapsuleFragProof {
         let params = capsule.params;
 
         let rk = kfrag.key;
-        let t = random_scalar();
+        let t = random_nonzero_scalar();
 
         // Here are the formulaic constituents shared with `verify_correctness`.
 

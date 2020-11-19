@@ -1,5 +1,7 @@
 use crate::constants::{const_non_interactive, const_x_coordinate};
-use crate::curve::{point_to_bytes, random_scalar, CompressedPointSize, CurvePoint, CurveScalar};
+use crate::curve::{
+    point_to_bytes, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
+};
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey, UmbralSignature};
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
@@ -99,7 +101,7 @@ impl KeyFrag {
         sign_receiving_key: bool,
     ) -> Self {
         // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
-        let kfrag_id = random_scalar();
+        let kfrag_id = random_nonzero_scalar();
 
         // The index of the re-encryption key share (which in Shamir's Secret
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
@@ -224,7 +226,7 @@ impl KeyFragFactoryBase {
 
         // The precursor point is used as an ephemeral public key in a DH key exchange,
         // and the resulting shared secret 'dh_point' is used to derive other secret values
-        let private_precursor = random_scalar();
+        let private_precursor = random_nonzero_scalar();
         let precursor = &g * &private_precursor;
 
         let dh_point = &bob_pubkey_point * &private_precursor;
@@ -274,7 +276,7 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragCoefficientsHeapless
         let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
         coefficients[0] = *coeff0;
         for i in 1..<Threshold as Unsigned>::to_usize() {
-            coefficients[i] = random_scalar();
+            coefficients[i] = random_nonzero_scalar();
         }
         Self(coefficients)
     }
@@ -297,7 +299,7 @@ impl KeyFragCoefficientsHeap {
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold - 1);
         coefficients.push(*coeff0);
         for _i in 1..threshold {
-            coefficients.push(random_scalar());
+            coefficients.push(random_nonzero_scalar());
         }
         Self(coefficients)
     }

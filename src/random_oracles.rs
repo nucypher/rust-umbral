@@ -1,20 +1,34 @@
 use blake2::{Blake2b, Digest};
+use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint};
 use elliptic_curve::FromDigest;
 use generic_array::typenum::Unsigned;
+use generic_array::GenericArray;
 use sha3::Sha3_256;
 
-use crate::curve::{bytes_to_point, point_to_bytes, CompressedPointSize, CurvePoint, CurveScalar};
+use crate::curve::{point_to_bytes, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
 
-/*
-Hashes arbitrary data into a valid EC point of the specified curve,
-using the try-and-increment method.
-It admits an optional label as an additional input to the hash function.
-It uses BLAKE2b (with a digest size of 64 bytes) as the internal hash function.
+/// Attempts to convert a serialized compressed point to a curve point.
+fn bytes_to_compressed_point(bytes: &GenericArray<u8, CompressedPointSize>) -> Option<CurvePoint> {
+    let ep = EncodedPoint::<CurveType>::from_bytes(bytes);
+    if ep.is_err() {
+        return None;
+    }
 
-WARNING: Do not use when the input data is secret, as this implementation is not
-in constant time, and hence, it is not safe with respect to timing attacks.
-*/
+    let pp = CurvePoint::from_encoded_point(&ep.unwrap());
+    if pp.is_some().into() {
+        Some(pp.unwrap())
+    } else {
+        None
+    }
+}
 
+/// Hashes arbitrary data into a valid EC point of the specified curve,
+/// using the try-and-increment method.
+/// It admits an optional label as an additional input to the hash function.
+/// It uses BLAKE2b (with a digest size of 64 bytes) as the internal hash function.
+///
+/// WARNING: Do not use when the input data is secret, as this implementation is not
+/// in constant time, and hence, it is not safe with respect to timing attacks.
 pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
@@ -34,14 +48,17 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
         hash_function.update(&len_data);
         hash_function.update(data);
         hash_function.update(&ibytes);
-        let mut hash_digest_full = hash_function.finalize();
+        let hash_digest_full = hash_function.finalize();
         // TODO: check that the digest is long enough?
-        let compressed_point = &mut hash_digest_full[0..curve_key_size_bytes];
+        let mut arr = *GenericArray::<u8, CompressedPointSize>::from_slice(
+            &hash_digest_full[0..curve_key_size_bytes],
+        );
 
         // Set the sign byte
-        compressed_point[0] = if compressed_point[0] & 1 == 0 { 2 } else { 3 };
+        let arr_data = arr.as_mut_slice();
+        arr_data[0] = if arr_data[0] & 1 == 0 { 2 } else { 3 };
 
-        let maybe_point = bytes_to_point(compressed_point);
+        let maybe_point = bytes_to_compressed_point(&arr);
         if maybe_point.is_some() {
             return maybe_point;
         }
@@ -50,6 +67,8 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
     }
 
     // Only happens with probability 2^(-32)
+    // TODO: increment the whole scalar to reduce the fail probability?
+    // And how exactly was this probability calculated?
     None
 }
 
