@@ -1,4 +1,4 @@
-use crate::curve::{curve_generator, point_to_bytes, CurvePoint};
+use crate::curve::{point_to_bytes, CurvePoint};
 use crate::random_oracles::unsafe_hash_to_point;
 
 use core::default::Default;
@@ -10,7 +10,7 @@ pub struct UmbralParameters {
 
 impl UmbralParameters {
     pub fn new() -> Self {
-        let g = curve_generator();
+        let g = CurvePoint::generator();
         let g_bytes = point_to_bytes(&g);
 
         let parameters_seed = b"NuCypher/UmbralParameters/u";

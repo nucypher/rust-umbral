@@ -1,8 +1,7 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{
-    curve_generator, point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurvePointSize,
-    CurveScalar, CurveScalarSize,
+    point_to_bytes, random_scalar, CompressedPointSize, CurvePoint, CurveScalar, CurveScalarSize,
 };
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
@@ -26,13 +25,13 @@ pub struct Capsule {
 }
 
 type CapsuleSize =
-    <<CurvePointSize as Add<CurvePointSize>>::Output as Add<CurveScalarSize>>::Output;
+    <<CompressedPointSize as Add<CompressedPointSize>>::Output as Add<CurveScalarSize>>::Output;
 
 impl Capsule {
     pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
         point_to_bytes(&self.point_e)
             .concat(point_to_bytes(&self.point_v))
-            .concat(scalar_to_bytes(&self.signature))
+            .concat(self.signature.to_bytes())
     }
 
     pub fn with_correctness_keys(
@@ -50,7 +49,7 @@ impl Capsule {
     }
 
     pub fn verify(&self) -> bool {
-        let g = curve_generator();
+        let g = CurvePoint::generator();
         let h = hash_to_scalar(&[self.point_e, self.point_v], None);
         &g * &self.signature == &self.point_v + &(&self.point_e * &h)
     }
@@ -59,8 +58,8 @@ impl Capsule {
     pub fn from_pubkey(
         params: &UmbralParameters,
         alice_pubkey: &UmbralPublicKey,
-    ) -> (Capsule, GenericArray<u8, CurvePointSize>) {
-        let g = curve_generator();
+    ) -> (Capsule, GenericArray<u8, CompressedPointSize>) {
+        let g = CurvePoint::generator();
 
         let priv_r = random_scalar();
         let pub_r = &g * &priv_r;
@@ -88,7 +87,7 @@ impl Capsule {
     pub fn open_original(
         &self,
         private_key: &UmbralPrivateKey,
-    ) -> GenericArray<u8, CurvePointSize> {
+    ) -> GenericArray<u8, CompressedPointSize> {
         let shared_key = (&self.point_e + &self.point_v) * &private_key.to_scalar();
         point_to_bytes(&shared_key)
     }
@@ -98,7 +97,7 @@ impl Capsule {
         receiving_privkey: &UmbralPrivateKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, CurvePointSize> {
+    ) -> GenericArray<u8, CompressedPointSize> {
         let pub_key = receiving_privkey.public_key().to_point();
         let priv_key = receiving_privkey.to_scalar();
 
@@ -144,7 +143,7 @@ impl Capsule {
         receiving_privkey: &UmbralPrivateKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, CurvePointSize> {
+    ) -> GenericArray<u8, CompressedPointSize> {
         self.open_reencrypted_generic::<LambdaCoeffHeap>(receiving_privkey, delegating_key, cfrags)
     }
 
@@ -154,7 +153,7 @@ impl Capsule {
         receiving_privkey: &UmbralPrivateKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, CurvePointSize> {
+    ) -> GenericArray<u8, CompressedPointSize> {
         self.open_reencrypted_generic::<LambdaCoeffHeapless<Threshold>>(
             receiving_privkey,
             delegating_key,
@@ -188,8 +187,7 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> LambdaCoeff
     fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
         let mut result = GenericArray::<CurveScalar, Threshold>::default();
         for i in 0..<Threshold as Unsigned>::to_usize() {
-            let customization_string =
-                const_x_coordinate().concat(scalar_to_bytes(&cfrags[i].kfrag_id));
+            let customization_string = const_x_coordinate().concat(cfrags[i].kfrag_id.to_bytes());
             result[i] = hash_to_scalar(points, Some(&customization_string));
         }
         Self(result)
@@ -208,8 +206,7 @@ impl LambdaCoeff for LambdaCoeffHeap {
     fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
         let mut result = Vec::<CurveScalar>::with_capacity(cfrags.len());
         for cfrag in cfrags {
-            let customization_string =
-                const_x_coordinate().concat(scalar_to_bytes(&cfrag.kfrag_id));
+            let customization_string = const_x_coordinate().concat(cfrag.kfrag_id.to_bytes());
             result.push(hash_to_scalar(points, Some(&customization_string)));
         }
         Self(result)
@@ -265,7 +262,7 @@ impl PreparedCapsule {
         cfrags: &[CapsuleFrag],
         receiving_privkey: &UmbralPrivateKey,
         check_proof: bool,
-    ) -> GenericArray<u8, CurvePointSize> {
+    ) -> GenericArray<u8, CompressedPointSize> {
         if check_proof {
             // TODO: return Result with Error set to offending cfrag indices or something
             for cfrag in cfrags {
@@ -288,7 +285,7 @@ impl PreparedCapsule {
         cfrags: &[CapsuleFrag],
         receiving_privkey: &UmbralPrivateKey,
         check_proof: bool,
-    ) -> GenericArray<u8, CurvePointSize> {
+    ) -> GenericArray<u8, CompressedPointSize> {
         if check_proof {
             // TODO: return Result with Error set to offending cfrag indices or something
             for cfrag in cfrags {

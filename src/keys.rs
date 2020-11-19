@@ -1,26 +1,24 @@
-use ecdsa::{SecretKey, VerifyKey, Signature, EncodedPoint, SigningKey};
-use elliptic_curve::sec1::{FromEncodedPoint};
+use ecdsa::{SecretKey, Signature, SigningKey, VerifyKey};
+use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint};
 use generic_array::GenericArray;
-use k256::Secp256k1;
 use rand_core::OsRng;
-use signature::{Verifier, RandomizedSigner};
+use signature::{RandomizedSigner, Verifier};
 
-use crate::curve::{point_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
+use crate::curve::{point_to_bytes, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
 
 #[derive(Clone, Debug)]
-pub struct UmbralSignature(Signature<Secp256k1>);
+pub struct UmbralSignature(Signature<CurveType>);
 
 #[derive(Clone, Debug)]
 pub struct UmbralPrivateKey {
-    secret_key: SecretKey<Secp256k1>,
+    secret_key: SecretKey<CurveType>,
     public_key: UmbralPublicKey,
 }
 
 impl UmbralPrivateKey {
     /// Generates a private key and returns it.
     pub fn generate() -> Self {
-
-        let secret_key = SecretKey::<Secp256k1>::random(&mut OsRng);
+        let secret_key = SecretKey::<CurveType>::random(&mut OsRng);
         let public_key = EncodedPoint::from_secret_key(&secret_key, true);
 
         Self {
@@ -38,19 +36,19 @@ impl UmbralPrivateKey {
     }
 
     pub(crate) fn sign(&self, message: &[u8]) -> UmbralSignature {
-        let signer = SigningKey::<Secp256k1>::from(&self.secret_key);
-        let signature: Signature<Secp256k1> = signer.sign_with_rng(&mut OsRng, message);
+        let signer = SigningKey::<CurveType>::from(&self.secret_key);
+        let signature: Signature<CurveType> = signer.sign_with_rng(&mut OsRng, message);
         UmbralSignature(signature)
     }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPublicKey {
-    public_key: EncodedPoint<Secp256k1>,
+    public_key: EncodedPoint<CurveType>,
 }
 
 impl UmbralPublicKey {
-    pub(crate) fn new(public_key: &EncodedPoint<Secp256k1>) -> Self {
+    pub(crate) fn new(public_key: &EncodedPoint<CurveType>) -> Self {
         Self {
             public_key: *public_key,
         }
@@ -60,7 +58,7 @@ impl UmbralPublicKey {
         CurvePoint::from_encoded_point(&self.public_key).unwrap()
     }
 
-    pub fn to_bytes(&self) -> GenericArray<u8, CurvePointSize> {
+    pub fn to_bytes(&self) -> GenericArray<u8, CompressedPointSize> {
         point_to_bytes(&self.to_point())
     }
 

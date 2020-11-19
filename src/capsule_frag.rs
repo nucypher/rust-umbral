@@ -1,5 +1,5 @@
 use crate::capsule::Capsule;
-use crate::curve::{point_to_bytes, random_scalar, scalar_to_bytes, CurvePoint, CurveScalar};
+use crate::curve::{point_to_bytes, random_scalar, CurvePoint, CurveScalar};
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::random_oracles::hash_to_scalar;
@@ -52,7 +52,7 @@ impl CapsuleFragProof {
         let hash_input = [e, *e1, e2, v, *v1, v2, u, u1, u2];
 
         // TODO: original uses ExtendedKeccak here
-        let h = hash_to_scalar(&hash_input, Some(&scalar_to_bytes(metadata)));
+        let h = hash_to_scalar(&hash_input, Some(&metadata.to_bytes()));
 
         ////////
 
@@ -133,7 +133,8 @@ impl CapsuleFrag {
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        let kfrag_validity_message = scalar_to_bytes(&kfrag_id)
+        let kfrag_validity_message = kfrag_id
+            .to_bytes()
             .concat(delegating_pubkey.to_bytes())
             .concat(receiving_pubkey.to_bytes())
             .concat(point_to_bytes(&u1))

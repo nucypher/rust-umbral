@@ -1,9 +1,9 @@
 use blake2::{Blake2b, Digest};
+use elliptic_curve::FromDigest;
 use generic_array::typenum::Unsigned;
 use sha3::Sha3_256;
-use elliptic_curve::FromDigest;
 
-use crate::curve::{bytes_to_point, point_to_bytes, CurvePoint, CurvePointSize, CurveScalar};
+use crate::curve::{bytes_to_point, point_to_bytes, CompressedPointSize, CurvePoint, CurveScalar};
 
 /*
 Hashes arbitrary data into a valid EC point of the specified curve,
@@ -19,7 +19,7 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
 
-    let curve_key_size_bytes = CurvePointSize::to_usize();
+    let curve_key_size_bytes = CompressedPointSize::to_usize();
 
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
