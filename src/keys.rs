@@ -1,69 +1,65 @@
+//! Private and public keys for Umbral.
+
 use ecdsa::{SecretKey, Signature, SigningKey, VerifyKey};
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint};
 use generic_array::GenericArray;
 use rand_core::OsRng;
 use signature::{RandomizedSigner, Verifier};
 
-use crate::curve::{point_to_bytes, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
+use crate::curve::{point_to_hash_seed, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
 
 #[derive(Clone, Debug)]
 pub struct UmbralSignature(Signature<CurveType>);
 
+/// Umbral secret key.
 #[derive(Clone, Debug)]
-pub struct UmbralPrivateKey {
-    secret_key: SecretKey<CurveType>,
-    public_key: UmbralPublicKey,
-}
+pub struct UmbralSecretKey(SecretKey<CurveType>);
 
-impl UmbralPrivateKey {
-    /// Generates a private key and returns it.
+impl UmbralSecretKey {
+    /// Generates a secret key using [`OsRng`] and returns it.
     pub fn generate() -> Self {
         let secret_key = SecretKey::<CurveType>::random(&mut OsRng);
-        let public_key = EncodedPoint::from_secret_key(&secret_key, true);
-
-        Self {
-            secret_key,
-            public_key: UmbralPublicKey::new(&public_key),
-        }
+        Self(secret_key)
     }
 
-    pub(crate) fn to_scalar(&self) -> CurveScalar {
-        *self.secret_key.secret_scalar()
+    /// Returns a reference to the underlying scalar of the secret key.
+    pub(crate) fn secret_scalar(&self) -> &CurveScalar {
+        self.0.secret_scalar()
     }
 
-    pub fn public_key(&self) -> UmbralPublicKey {
-        self.public_key
-    }
-
+    /// Signs a message using [`OsRng`].
     pub(crate) fn sign(&self, message: &[u8]) -> UmbralSignature {
-        let signer = SigningKey::<CurveType>::from(&self.secret_key);
+        let signer = SigningKey::<CurveType>::from(&self.0);
         let signature: Signature<CurveType> = signer.sign_with_rng(&mut OsRng, message);
         UmbralSignature(signature)
     }
 }
 
+/// Umbral public key.
 #[derive(Clone, Copy, Debug)]
-pub struct UmbralPublicKey {
-    public_key: EncodedPoint<CurveType>,
-}
+pub struct UmbralPublicKey(EncodedPoint<CurveType>);
 
 impl UmbralPublicKey {
-    pub(crate) fn new(public_key: &EncodedPoint<CurveType>) -> Self {
-        Self {
-            public_key: *public_key,
-        }
+    /// Creates a public key from a secret key.
+    pub fn from_secret_key(secret_key: &UmbralSecretKey) -> Self {
+        Self(EncodedPoint::from_secret_key(&secret_key.0, true))
     }
 
+    /// Returns the underlying curve point of the public key.
     pub(crate) fn to_point(&self) -> CurvePoint {
-        CurvePoint::from_encoded_point(&self.public_key).unwrap()
+        // TODO: store CurvePoint instead of EncodedPoint?
+        CurvePoint::from_encoded_point(&self.0).unwrap()
     }
 
-    pub fn to_bytes(&self) -> GenericArray<u8, CompressedPointSize> {
-        point_to_bytes(&self.to_point())
+    /// Converts the public key to bytes (for hashing purposes).
+    pub fn to_hash_seed(&self) -> GenericArray<u8, CompressedPointSize> {
+        // TODO: since it is used for hashing, we can return just `&[u8]`.
+        point_to_hash_seed(&self.to_point())
     }
 
+    /// Verifies the signature.
     pub(crate) fn verify(&self, message: &[u8], signature: &UmbralSignature) -> bool {
-        let verifier = VerifyKey::from_encoded_point(&self.public_key).unwrap();
+        let verifier = VerifyKey::from_encoded_point(&self.0).unwrap();
         verifier.verify(message, &signature.0).is_ok()
     }
 }
@@ -71,14 +67,14 @@ impl UmbralPublicKey {
 #[cfg(test)]
 mod tests {
 
-    use super::UmbralPrivateKey;
+    use super::{UmbralSecretKey, UmbralPublicKey};
 
     #[test]
     fn sign_verify() {
-        let sk = UmbralPrivateKey::generate();
+        let sk = UmbralSecretKey::generate();
         let message = b"asdafdahsfdasdfasd";
         let signature = sk.sign(message);
-        let pk = sk.public_key();
+        let pk = UmbralPublicKey::from_secret_key(&sk);
         assert!(pk.verify(message, &signature));
     }
 }

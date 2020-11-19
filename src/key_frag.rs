@@ -1,8 +1,8 @@
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{
-    point_to_bytes, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
+    point_to_hash_seed, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
 };
-use crate::keys::{UmbralPrivateKey, UmbralPublicKey, UmbralSignature};
+use crate::keys::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
 
@@ -28,7 +28,7 @@ impl KeyFragProof {
         kfrag_id: &CurveScalar,
         kfrag_key: &CurveScalar,
         kfrag_precursor: &CurvePoint,
-        signing_privkey: &UmbralPrivateKey,
+        signing_privkey: &UmbralSecretKey,
         delegating_pubkey: &UmbralPublicKey,
         receiving_pubkey: &UmbralPublicKey,
         sign_delegating_key: bool,
@@ -38,16 +38,16 @@ impl KeyFragProof {
 
         let validity_message_for_bob = kfrag_id
             .to_bytes()
-            .concat(delegating_pubkey.to_bytes())
-            .concat(receiving_pubkey.to_bytes())
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&kfrag_precursor));
+            .concat(delegating_pubkey.to_hash_seed())
+            .concat(receiving_pubkey.to_hash_seed())
+            .concat(point_to_hash_seed(&commitment))
+            .concat(point_to_hash_seed(&kfrag_precursor));
         let signature_for_bob = signing_privkey.sign(&validity_message_for_bob);
 
         let validity_message_for_proxy = kfrag_id
             .to_bytes()
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&kfrag_precursor))
+            .concat(point_to_hash_seed(&commitment))
+            .concat(point_to_hash_seed(&kfrag_precursor))
             .concat([sign_delegating_key as u8].into())
             .concat([sign_receiving_key as u8].into());
 
@@ -57,13 +57,13 @@ impl KeyFragProof {
 
         let validity_message_for_proxy =
             validity_message_for_proxy.concat(if sign_delegating_key {
-                delegating_pubkey.to_bytes()
+                delegating_pubkey.to_hash_seed()
             } else {
                 GenericArray::<u8, CompressedPointSize>::default()
             });
 
         let validity_message_for_proxy = validity_message_for_proxy.concat(if sign_receiving_key {
-            receiving_pubkey.to_bytes()
+            receiving_pubkey.to_hash_seed()
         } else {
             GenericArray::<u8, CompressedPointSize>::default()
         });
@@ -170,8 +170,8 @@ impl KeyFrag {
 
         let kfrag_validity_message = kfrag_id
             .to_bytes()
-            .concat(point_to_bytes(&commitment))
-            .concat(point_to_bytes(&precursor))
+            .concat(point_to_hash_seed(&commitment))
+            .concat(point_to_hash_seed(&precursor))
             .concat([self.proof.delegating_key_signed as u8].into())
             .concat([self.proof.receiving_key_signed as u8].into());
 
@@ -181,14 +181,14 @@ impl KeyFrag {
 
         let kfrag_validity_message =
             kfrag_validity_message.concat(if self.proof.delegating_key_signed {
-                delegating_pubkey.unwrap().to_bytes()
+                delegating_pubkey.unwrap().to_hash_seed()
             } else {
                 GenericArray::<u8, CompressedPointSize>::default()
             });
 
         let kfrag_validity_message =
             kfrag_validity_message.concat(if self.proof.receiving_key_signed {
-                receiving_pubkey.unwrap().to_bytes()
+                receiving_pubkey.unwrap().to_hash_seed()
             } else {
                 GenericArray::<u8, CompressedPointSize>::default()
             });
@@ -201,7 +201,7 @@ impl KeyFrag {
 }
 
 struct KeyFragFactoryBase {
-    signing_privkey: UmbralPrivateKey,
+    signing_privkey: UmbralSecretKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
     dh_point: CurvePoint,
@@ -214,13 +214,13 @@ struct KeyFragFactoryBase {
 impl KeyFragFactoryBase {
     pub fn new(
         params: &UmbralParameters,
-        delegating_privkey: &UmbralPrivateKey,
+        delegating_privkey: &UmbralSecretKey,
         receiving_pubkey: &UmbralPublicKey,
-        signing_privkey: &UmbralPrivateKey,
+        signing_privkey: &UmbralSecretKey,
     ) -> Self {
         let g = CurvePoint::generator();
 
-        let delegating_pubkey = delegating_privkey.public_key();
+        let delegating_pubkey = UmbralPublicKey::from_secret_key(delegating_privkey);
 
         let bob_pubkey_point = receiving_pubkey.to_point();
 
@@ -238,7 +238,7 @@ impl KeyFragFactoryBase {
         );
 
         // Coefficients of the generating polynomial
-        let coefficient0 = &delegating_privkey.to_scalar() * &(d.invert().unwrap());
+        let coefficient0 = delegating_privkey.secret_scalar() * &(d.invert().unwrap());
 
         Self {
             signing_privkey: signing_privkey.clone(),
@@ -320,9 +320,9 @@ pub struct KeyFragFactoryHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned
 impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragFactoryHeapless<Threshold> {
     pub fn new(
         params: &UmbralParameters,
-        delegating_privkey: &UmbralPrivateKey,
+        delegating_privkey: &UmbralSecretKey,
         receiving_pubkey: &UmbralPublicKey,
-        signing_privkey: &UmbralPrivateKey,
+        signing_privkey: &UmbralSecretKey,
     ) -> Self {
         let base = KeyFragFactoryBase::new(
             params,
@@ -354,9 +354,9 @@ Returns a list of N KeyFrags
 #[cfg(feature = "std")]
 pub fn generate_kfrags(
     params: &UmbralParameters,
-    delegating_privkey: &UmbralPrivateKey,
+    delegating_privkey: &UmbralSecretKey,
     receiving_pubkey: &UmbralPublicKey,
-    signing_privkey: &UmbralPrivateKey,
+    signing_privkey: &UmbralSecretKey,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,

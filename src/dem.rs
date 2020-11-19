@@ -144,18 +144,18 @@ impl UmbralDEM {
 mod tests {
 
     use super::kdf;
-    use crate::curve::{point_to_bytes, CurvePoint};
+    use crate::curve::{point_to_hash_seed, CurvePoint};
 
     #[test]
     fn test_kdf() {
         let p1 = CurvePoint::generator();
         let salt = b"abcdefg";
         let info = b"sdasdasd";
-        let key = kdf(&point_to_bytes(&p1), Some(&salt[..]), Some(&info[..]));
-        let key_same = kdf(&point_to_bytes(&p1), Some(&salt[..]), Some(&info[..]));
+        let key = kdf(&point_to_hash_seed(&p1), Some(&salt[..]), Some(&info[..]));
+        let key_same = kdf(&point_to_hash_seed(&p1), Some(&salt[..]), Some(&info[..]));
         assert_eq!(key, key_same);
 
-        let key_diff = kdf(&point_to_bytes(&p1), None, Some(&info[..]));
+        let key_diff = kdf(&point_to_hash_seed(&p1), None, Some(&info[..]));
         assert_ne!(key, key_diff);
     }
 }

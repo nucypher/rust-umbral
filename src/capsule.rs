@@ -1,11 +1,11 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{const_non_interactive, const_x_coordinate};
 use crate::curve::{
-    point_to_bytes, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
+    point_to_hash_seed, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
     CurveScalarSize,
 };
 use crate::key_frag::KeyFrag;
-use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
+use crate::keys::{UmbralPublicKey, UmbralSecretKey};
 use crate::params::UmbralParameters;
 use crate::random_oracles::hash_to_scalar;
 
@@ -30,8 +30,8 @@ type CapsuleSize =
 
 impl Capsule {
     pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
-        point_to_bytes(&self.point_e)
-            .concat(point_to_bytes(&self.point_v))
+        point_to_hash_seed(&self.point_e)
+            .concat(point_to_hash_seed(&self.point_v))
             .concat(self.signature.to_bytes())
     }
 
@@ -81,29 +81,28 @@ impl Capsule {
             signature: s,
         };
 
-        (capsule, point_to_bytes(&shared_key))
+        (capsule, point_to_hash_seed(&shared_key))
     }
 
     /// Derive the same symmetric key
     pub fn open_original(
         &self,
-        private_key: &UmbralPrivateKey,
+        private_key: &UmbralSecretKey,
     ) -> GenericArray<u8, CompressedPointSize> {
-        let shared_key = (&self.point_e + &self.point_v) * &private_key.to_scalar();
-        point_to_bytes(&shared_key)
+        let shared_key = (&self.point_e + &self.point_v) * private_key.secret_scalar();
+        point_to_hash_seed(&shared_key)
     }
 
     fn open_reencrypted_generic<LC: LambdaCoeff>(
         &self,
-        receiving_privkey: &UmbralPrivateKey,
+        receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, CompressedPointSize> {
-        let pub_key = receiving_privkey.public_key().to_point();
-        let priv_key = receiving_privkey.to_scalar();
+        let pub_key = UmbralPublicKey::from_secret_key(receiving_privkey).to_point();
 
         let precursor = cfrags[0].precursor;
-        let dh_point = &precursor * &priv_key;
+        let dh_point = &precursor * receiving_privkey.secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
         let lc = LC::new(cfrags, &[precursor, pub_key, dh_point]);
@@ -134,14 +133,14 @@ impl Capsule {
         //    raise GenericUmbralError()
 
         let shared_key = (&e_prime + &v_prime) * &d;
-        point_to_bytes(&shared_key)
+        point_to_hash_seed(&shared_key)
     }
 
     /// Derive the same symmetric encapsulated_key
     #[cfg(feature = "std")]
     pub fn open_reencrypted(
         &self,
-        receiving_privkey: &UmbralPrivateKey,
+        receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, CompressedPointSize> {
@@ -151,7 +150,7 @@ impl Capsule {
     /// Derive the same symmetric encapsulated_key
     pub fn open_reencrypted_heapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
         &self,
-        receiving_privkey: &UmbralPrivateKey,
+        receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, CompressedPointSize> {
@@ -261,7 +260,7 @@ impl PreparedCapsule {
     pub fn open_reencrypted(
         &self,
         cfrags: &[CapsuleFrag],
-        receiving_privkey: &UmbralPrivateKey,
+        receiving_privkey: &UmbralSecretKey,
         check_proof: bool,
     ) -> GenericArray<u8, CompressedPointSize> {
         if check_proof {
@@ -284,7 +283,7 @@ impl PreparedCapsule {
     pub fn open_reencrypted_heapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
         &self,
         cfrags: &[CapsuleFrag],
-        receiving_privkey: &UmbralPrivateKey,
+        receiving_privkey: &UmbralSecretKey,
         check_proof: bool,
     ) -> GenericArray<u8, CompressedPointSize> {
         if check_proof {

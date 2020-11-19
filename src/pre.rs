@@ -6,7 +6,7 @@ use crate::curve::CurveScalar;
 use std::vec::Vec;
 
 use crate::dem::UmbralDEM;
-use crate::keys::{UmbralPrivateKey, UmbralPublicKey};
+use crate::keys::{UmbralPublicKey, UmbralSecretKey};
 use crate::params::UmbralParameters;
 
 use aead::Buffer;
@@ -49,7 +49,7 @@ pub fn encrypt_in_place(
 pub fn decrypt_original(
     ciphertext: &Vec<u8>,
     capsule: &Capsule,
-    decrypting_key: &UmbralPrivateKey,
+    decrypting_key: &UmbralSecretKey,
 ) -> Option<Vec<u8>> {
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
@@ -59,7 +59,7 @@ pub fn decrypt_original(
 pub fn decrypt_original_in_place(
     buffer: &mut dyn Buffer,
     capsule: &Capsule,
-    decrypting_key: &UmbralPrivateKey,
+    decrypting_key: &UmbralSecretKey,
 ) -> Option<()> {
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
@@ -71,7 +71,7 @@ pub fn decrypt_reencrypted(
     ciphertext: &Vec<u8>,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
-    decrypting_key: &UmbralPrivateKey,
+    decrypting_key: &UmbralSecretKey,
     check_proof: bool,
 ) -> Option<Vec<u8>> {
     let key_seed = capsule.open_reencrypted(cfrags, decrypting_key, check_proof);
@@ -83,7 +83,7 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
     buffer: &mut dyn Buffer,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
-    decrypting_key: &UmbralPrivateKey,
+    decrypting_key: &UmbralSecretKey,
     check_proof: bool,
 ) -> Option<()> {
     let key_seed =
@@ -107,7 +107,7 @@ mod tests {
     #[cfg(feature = "std")]
     use std::vec::Vec;
 
-    use crate::keys::UmbralPrivateKey;
+    use crate::keys::{UmbralPublicKey, UmbralSecretKey};
     use crate::params::UmbralParameters;
 
     #[cfg(feature = "std")]
@@ -132,15 +132,15 @@ mod tests {
         let params = UmbralParameters::new();
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralPrivateKey::generate();
-        let delegating_pubkey = delegating_privkey.public_key();
+        let delegating_privkey = UmbralSecretKey::generate();
+        let delegating_pubkey = UmbralPublicKey::from_secret_key(&delegating_privkey);
 
-        let signing_privkey = UmbralPrivateKey::generate();
-        let signing_pubkey = signing_privkey.public_key();
+        let signing_privkey = UmbralSecretKey::generate();
+        let signing_pubkey = UmbralPublicKey::from_secret_key(&signing_privkey);
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralPrivateKey::generate();
-        let receiving_pubkey = receiving_privkey.public_key();
+        let receiving_privkey = UmbralSecretKey::generate();
+        let receiving_pubkey = UmbralPublicKey::from_secret_key(&receiving_privkey);
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
@@ -206,15 +206,15 @@ mod tests {
         let params = UmbralParameters::new();
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralPrivateKey::generate();
-        let delegating_pubkey = delegating_privkey.public_key();
+        let delegating_privkey = UmbralSecretKey::generate();
+        let delegating_pubkey = UmbralPublicKey::from_secret_key(&delegating_privkey);
 
-        let signing_privkey = UmbralPrivateKey::generate();
-        let signing_pubkey = signing_privkey.public_key();
+        let signing_privkey = UmbralSecretKey::generate();
+        let signing_pubkey = UmbralPublicKey::from_secret_key(&signing_privkey);
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralPrivateKey::generate();
-        let receiving_pubkey = receiving_privkey.public_key();
+        let receiving_privkey = UmbralSecretKey::generate();
+        let receiving_pubkey = UmbralPublicKey::from_secret_key(&receiving_privkey);
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";

@@ -1,5 +1,5 @@
 use crate::capsule::Capsule;
-use crate::curve::{point_to_bytes, random_nonzero_scalar, CurvePoint, CurveScalar};
+use crate::curve::{point_to_hash_seed, random_nonzero_scalar, CurvePoint, CurveScalar};
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSignature};
 use crate::random_oracles::hash_to_scalar;
@@ -135,10 +135,10 @@ impl CapsuleFrag {
 
         let kfrag_validity_message = kfrag_id
             .to_bytes()
-            .concat(delegating_pubkey.to_bytes())
-            .concat(receiving_pubkey.to_bytes())
-            .concat(point_to_bytes(&u1))
-            .concat(point_to_bytes(&precursor));
+            .concat(delegating_pubkey.to_hash_seed())
+            .concat(receiving_pubkey.to_hash_seed())
+            .concat(point_to_hash_seed(&u1))
+            .concat(point_to_hash_seed(&precursor));
 
         let valid_kfrag_signature =
             signing_pubkey.verify(&kfrag_validity_message, &self.proof.kfrag_signature);

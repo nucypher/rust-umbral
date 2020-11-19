@@ -5,7 +5,7 @@ use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use sha3::Sha3_256;
 
-use crate::curve::{point_to_bytes, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
+use crate::curve::{point_to_hash_seed, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
 
 /// Attempts to convert a serialized compressed point to a curve point.
 fn bytes_to_compressed_point(bytes: &GenericArray<u8, CompressedPointSize>) -> Option<CurvePoint> {
@@ -89,7 +89,7 @@ pub(crate) fn hash_to_scalar(
     }
 
     for item in crypto_items {
-        hasher.update(point_to_bytes(item));
+        hasher.update(point_to_hash_seed(item));
     }
 
     CurveScalar::from_digest(hasher)

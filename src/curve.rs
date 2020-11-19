@@ -24,7 +24,8 @@ pub(crate) fn random_nonzero_scalar() -> CurveScalar {
 }
 
 /// Converts a curve point to bytes (for hashing purposes, so the exact format is not important).
-pub(crate) fn point_to_bytes(p: &CurvePoint) -> GenericArray<u8, CompressedPointSize> {
+pub(crate) fn point_to_hash_seed(p: &CurvePoint) -> GenericArray<u8, CompressedPointSize> {
+    // TODO: since it is used for hashing, we can return just `&[u8]`.
     *GenericArray::<u8, CompressedPointSize>::from_slice(
         p.to_affine().to_encoded_point(true).as_bytes(),
     )
