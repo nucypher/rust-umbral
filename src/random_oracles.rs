@@ -5,7 +5,9 @@ use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use sha3::Sha3_256;
 
-use crate::curve::{point_to_hash_seed, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
+use crate::curve::{
+    point_to_bytes, scalar_to_bytes, CompressedPointSize, CurvePoint, CurveScalar, CurveType,
+};
 use crate::keys::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
 
 /// Attempts to convert a serialized compressed point to a curve point.
@@ -86,11 +88,11 @@ impl ScalarDigest {
     }
 
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        Self(self.0.chain(scalar.to_bytes()))
+        Self(self.0.chain(&scalar_to_bytes(scalar)))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        Self(self.0.chain(&point_to_hash_seed(point)))
+        Self(self.0.chain(&point_to_bytes(point)))
     }
 
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {
@@ -114,15 +116,15 @@ impl SignatureDigest {
     }
 
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        Self(self.0.chain(scalar.to_bytes()))
+        Self(self.0.chain(&scalar_to_bytes(scalar)))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        Self(self.0.chain(&point_to_hash_seed(point)))
+        Self(self.0.chain(&point_to_bytes(point)))
     }
 
     pub fn chain_pubkey(self, pk: &UmbralPublicKey) -> Self {
-        Self(self.0.chain(pk.to_hash_seed()))
+        Self(self.0.chain(pk.as_bytes()))
     }
 
     pub fn chain_bool(self, val: bool) -> Self {

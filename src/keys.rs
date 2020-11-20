@@ -54,8 +54,8 @@ impl UmbralPublicKey {
         CurvePoint::from_encoded_point(&self.0).unwrap()
     }
 
-    /// Converts the public key to bytes (for hashing purposes).
-    pub fn to_hash_seed(&self) -> &[u8] {
+    /// Serialize the public key.
+    pub fn as_bytes(&self) -> &[u8] {
         self.0.as_ref()
     }
 

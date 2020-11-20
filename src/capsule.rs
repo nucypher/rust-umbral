@@ -1,8 +1,8 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{
-    point_to_hash_seed, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
-    CurveScalarSize,
+    point_to_bytes, random_nonzero_scalar, scalar_to_bytes, CompressedPointSize, CurvePoint,
+    CurveScalar, CurveScalarSize,
 };
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSecretKey};
@@ -30,9 +30,9 @@ type CapsuleSize =
 
 impl Capsule {
     pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
-        point_to_hash_seed(&self.point_e)
-            .concat(point_to_hash_seed(&self.point_v))
-            .concat(self.signature.to_bytes())
+        point_to_bytes(&self.point_e)
+            .concat(point_to_bytes(&self.point_v))
+            .concat(scalar_to_bytes(&self.signature))
     }
 
     pub fn with_correctness_keys(
@@ -84,7 +84,7 @@ impl Capsule {
             signature: s,
         };
 
-        (capsule, point_to_hash_seed(&shared_key))
+        (capsule, point_to_bytes(&shared_key))
     }
 
     /// Derive the same symmetric key
@@ -93,7 +93,7 @@ impl Capsule {
         private_key: &UmbralSecretKey,
     ) -> GenericArray<u8, CompressedPointSize> {
         let shared_key = (&self.point_e + &self.point_v) * private_key.secret_scalar();
-        point_to_hash_seed(&shared_key)
+        point_to_bytes(&shared_key)
     }
 
     fn open_reencrypted_generic<LC: LambdaCoeff>(
@@ -136,7 +136,7 @@ impl Capsule {
         //    raise GenericUmbralError()
 
         let shared_key = (&e_prime + &v_prime) * &d;
-        point_to_hash_seed(&shared_key)
+        point_to_bytes(&shared_key)
     }
 
     /// Derive the same symmetric encapsulated_key
