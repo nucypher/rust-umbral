@@ -1,8 +1,8 @@
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{random_nonzero_scalar, CurvePoint, CurveScalar};
-use crate::keys::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
+use crate::curve::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
+use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::params::UmbralParameters;
-use crate::random_oracles::{ScalarDigest, SignatureDigest};
 
 #[cfg(feature = "std")]
 use std::vec::Vec;

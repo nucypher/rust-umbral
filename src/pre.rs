@@ -5,8 +5,8 @@ use crate::curve::CurveScalar;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
+use crate::curve::{UmbralPublicKey, UmbralSecretKey};
 use crate::dem::UmbralDEM;
-use crate::keys::{UmbralPublicKey, UmbralSecretKey};
 use crate::params::UmbralParameters;
 
 use aead::Buffer;
@@ -107,8 +107,7 @@ mod tests {
     #[cfg(feature = "std")]
     use std::vec::Vec;
 
-    use crate::keys::{UmbralPublicKey, UmbralSecretKey};
-    use crate::params::UmbralParameters;
+    use crate::{UmbralParameters, UmbralPublicKey, UmbralSecretKey};
 
     #[cfg(feature = "std")]
     #[test]
@@ -132,14 +131,14 @@ mod tests {
         let params = UmbralParameters::new();
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralSecretKey::generate();
+        let delegating_privkey = UmbralSecretKey::random();
         let delegating_pubkey = UmbralPublicKey::from_secret_key(&delegating_privkey);
 
-        let signing_privkey = UmbralSecretKey::generate();
+        let signing_privkey = UmbralSecretKey::random();
         let signing_pubkey = UmbralPublicKey::from_secret_key(&signing_privkey);
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralSecretKey::generate();
+        let receiving_privkey = UmbralSecretKey::random();
         let receiving_pubkey = UmbralPublicKey::from_secret_key(&receiving_privkey);
 
         // Encryption by an unnamed data source
@@ -206,14 +205,14 @@ mod tests {
         let params = UmbralParameters::new();
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralSecretKey::generate();
+        let delegating_privkey = UmbralSecretKey::random();
         let delegating_pubkey = UmbralPublicKey::from_secret_key(&delegating_privkey);
 
-        let signing_privkey = UmbralSecretKey::generate();
+        let signing_privkey = UmbralSecretKey::random();
         let signing_pubkey = UmbralPublicKey::from_secret_key(&signing_privkey);
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralSecretKey::generate();
+        let receiving_privkey = UmbralSecretKey::random();
         let receiving_pubkey = UmbralPublicKey::from_secret_key(&receiving_privkey);
 
         // Encryption by an unnamed data source

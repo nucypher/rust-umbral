@@ -1,29 +1,14 @@
-use blake2::{Blake2b, Digest};
-use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint};
-use elliptic_curve::FromDigest;
+use blake2::Blake2b;
+use digest::Digest;
 use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use sha3::Sha3_256;
 
 use crate::curve::{
-    point_to_bytes, scalar_to_bytes, CompressedPointSize, CurvePoint, CurveScalar, CurveType,
+    bytes_to_compressed_point, point_to_bytes, scalar_from_digest, scalar_to_bytes,
+    CurveCompressedPointSize, CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey,
+    UmbralSignature,
 };
-use crate::keys::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
-
-/// Attempts to convert a serialized compressed point to a curve point.
-fn bytes_to_compressed_point(bytes: &GenericArray<u8, CompressedPointSize>) -> Option<CurvePoint> {
-    let ep = EncodedPoint::<CurveType>::from_bytes(bytes);
-    if ep.is_err() {
-        return None;
-    }
-
-    let pp = CurvePoint::from_encoded_point(&ep.unwrap());
-    if pp.is_some().into() {
-        Some(pp.unwrap())
-    } else {
-        None
-    }
-}
 
 /// Hashes arbitrary data into a valid EC point of the specified curve,
 /// using the try-and-increment method.
@@ -36,7 +21,7 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
 
-    let curve_key_size_bytes = CompressedPointSize::to_usize();
+    let curve_key_size_bytes = CurveCompressedPointSize::to_usize();
 
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
@@ -53,7 +38,7 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
         hash_function.update(&ibytes);
         let hash_digest_full = hash_function.finalize();
         // TODO: check that the digest is long enough?
-        let mut arr = *GenericArray::<u8, CompressedPointSize>::from_slice(
+        let mut arr = *GenericArray::<u8, CurveCompressedPointSize>::from_slice(
             &hash_digest_full[0..curve_key_size_bytes],
         );
 
@@ -104,7 +89,7 @@ impl ScalarDigest {
     }
 
     pub fn finalize(self) -> CurveScalar {
-        CurveScalar::from_digest(self.0)
+        scalar_from_digest(self.0)
     }
 }
 

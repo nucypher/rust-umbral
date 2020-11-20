@@ -1,8 +1,8 @@
 use crate::capsule::Capsule;
 use crate::curve::{random_nonzero_scalar, CurvePoint, CurveScalar};
+use crate::curve::{UmbralPublicKey, UmbralSignature};
+use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::key_frag::KeyFrag;
-use crate::keys::{UmbralPublicKey, UmbralSignature};
-use crate::random_oracles::{ScalarDigest, SignatureDigest};
 
 pub struct CapsuleFragProof {
     point_e2: CurvePoint,

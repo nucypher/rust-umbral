@@ -1,5 +1,5 @@
 use crate::curve::{point_to_bytes, CurvePoint};
-use crate::random_oracles::unsafe_hash_to_point;
+use crate::hashing::unsafe_hash_to_point;
 
 use core::default::Default;
 
