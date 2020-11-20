@@ -1,10 +1,8 @@
 use crate::capsule::Capsule;
-use crate::curve::{point_to_hash_seed, random_nonzero_scalar, CurvePoint, CurveScalar};
+use crate::curve::{random_nonzero_scalar, CurvePoint, CurveScalar};
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSignature};
-use crate::random_oracles::hash_to_scalar;
-
-use generic_array::sequence::Concat;
+use crate::random_oracles::{ScalarDigest, SignatureDigest};
 
 pub struct CapsuleFragProof {
     point_e2: CurvePoint,
@@ -49,10 +47,10 @@ impl CapsuleFragProof {
         let v2 = &v * &t;
         let u2 = &u * &t;
 
-        let hash_input = [e, *e1, e2, v, *v1, v2, u, u1, u2];
-
-        // TODO: original uses ExtendedKeccak here
-        let h = hash_to_scalar(&hash_input, Some(&metadata.to_bytes()));
+        let h = ScalarDigest::new()
+            .chain_points(&[e, *e1, e2, v, *v1, v2, u, u1, u2])
+            .chain_scalar(metadata)
+            .finalize();
 
         ////////
 
@@ -84,7 +82,8 @@ impl CapsuleFrag {
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
         let metadata_scalar = match metadata {
-            Some(s) => hash_to_scalar(&[], Some(s)),
+            // TODO: why do we hash scalar to a scalar here?
+            Some(s) => ScalarDigest::new().chain_bytes(s).finalize(),
             None => CurveScalar::default(),
         };
         let proof =
@@ -123,25 +122,24 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        let hash_input = [e, e1, e2, v, v1, v2, u, u1, u2];
-
         // TODO: original uses ExtendedKeccak here
-        let h = hash_to_scalar(&hash_input, Some(&self.proof.metadata.to_bytes()));
+        let h = ScalarDigest::new()
+            .chain_points(&[e, e1, e2, v, v1, v2, u, u1, u2])
+            .chain_scalar(&self.proof.metadata)
+            .finalize();
 
         ///////
 
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        let kfrag_validity_message = kfrag_id
-            .to_bytes()
-            .concat(delegating_pubkey.to_hash_seed())
-            .concat(receiving_pubkey.to_hash_seed())
-            .concat(point_to_hash_seed(&u1))
-            .concat(point_to_hash_seed(&precursor));
-
-        let valid_kfrag_signature =
-            signing_pubkey.verify(&kfrag_validity_message, &self.proof.kfrag_signature);
+        let valid_kfrag_signature = SignatureDigest::new()
+            .chain_scalar(&kfrag_id)
+            .chain_pubkey(delegating_pubkey)
+            .chain_pubkey(receiving_pubkey)
+            .chain_point(&u1)
+            .chain_point(&precursor)
+            .verify(signing_pubkey, &self.proof.kfrag_signature);
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);

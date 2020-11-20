@@ -6,6 +6,7 @@ use generic_array::GenericArray;
 use sha3::Sha3_256;
 
 use crate::curve::{point_to_hash_seed, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
+use crate::keys::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
 
 /// Attempts to convert a serialized compressed point to a curve point.
 fn bytes_to_compressed_point(bytes: &GenericArray<u8, CompressedPointSize>) -> Option<CurvePoint> {
@@ -72,33 +73,75 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
     None
 }
 
-// TODO: would be more convenient to take anything implementing `to_bytes()` in some form,
-// since `customization_string` is used in the same way as `crypto_items`.
-pub(crate) fn hash_to_scalar(
-    crypto_items: &[CurvePoint],
-    customization_string: Option<&[u8]>,
-) -> CurveScalar {
-    // TODO: make generic in hash algorithm (use Digest trait)
-    // TODO: the original uses Blake here, but it has
-    // the output size not supported by `from_digest()`
-    let mut hasher = Sha3_256::new();
+pub(crate) struct ScalarDigest(Sha3_256);
 
-    hasher.update(&"hash_to_curvebn");
-    if let Some(s) = customization_string {
-        hasher.update(s)
+// TODO: original uses ExtendedKeccak here
+impl ScalarDigest {
+    pub fn new() -> Self {
+        Self(Sha3_256::new()).chain_bytes(b"hash_to_curvebn")
     }
 
-    for item in crypto_items {
-        hasher.update(point_to_hash_seed(item));
+    pub fn chain_bytes(self, bytes: &[u8]) -> Self {
+        Self(self.0.chain(bytes))
     }
 
-    CurveScalar::from_digest(hasher)
+    pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
+        Self(self.0.chain(scalar.to_bytes()))
+    }
+
+    pub fn chain_point(self, point: &CurvePoint) -> Self {
+        Self(self.0.chain(&point_to_hash_seed(point)))
+    }
+
+    pub fn chain_points(self, points: &[CurvePoint]) -> Self {
+        let mut digest = self;
+        for point in points {
+            digest = digest.chain_point(&point);
+        }
+        digest
+    }
+
+    pub fn finalize(self) -> CurveScalar {
+        CurveScalar::from_digest(self.0)
+    }
+}
+
+pub(crate) struct SignatureDigest(Sha3_256);
+
+impl SignatureDigest {
+    pub fn new() -> Self {
+        Self(Sha3_256::new())
+    }
+
+    pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
+        Self(self.0.chain(scalar.to_bytes()))
+    }
+
+    pub fn chain_point(self, point: &CurvePoint) -> Self {
+        Self(self.0.chain(&point_to_hash_seed(point)))
+    }
+
+    pub fn chain_pubkey(self, pk: &UmbralPublicKey) -> Self {
+        Self(self.0.chain(pk.to_hash_seed()))
+    }
+
+    pub fn chain_bool(self, val: bool) -> Self {
+        Self(self.0.chain(&[val as u8]))
+    }
+
+    pub fn sign(self, sk: &UmbralSecretKey) -> UmbralSignature {
+        sk.sign_digest(self.0)
+    }
+
+    pub fn verify(self, pk: &UmbralPublicKey, signature: &UmbralSignature) -> bool {
+        pk.verify_digest(self.0, signature)
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::{hash_to_scalar, unsafe_hash_to_point};
+    use super::{unsafe_hash_to_point, ScalarDigest};
     use crate::curve::CurvePoint;
 
     #[test]
@@ -122,11 +165,11 @@ mod tests {
     fn test_hash_to_scalar() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let s = hash_to_scalar(&[p1, p2], None);
-        let s_same = hash_to_scalar(&[p1, p2], None);
+        let s = ScalarDigest::new().chain_points(&[p1, p2]).finalize();
+        let s_same = ScalarDigest::new().chain_points(&[p1, p2]).finalize();
         assert_eq!(s, s_same);
 
-        let s_diff = hash_to_scalar(&[p2, p1], None);
+        let s_diff = ScalarDigest::new().chain_points(&[p2, p1]).finalize();
         assert_ne!(s, s_diff);
     }
 }

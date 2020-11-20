@@ -1,12 +1,3 @@
-// TODO: in the original these were constants from ConstantSorrow.
+pub(crate) const NON_INTERACTIVE: &[u8] = b"NON_INTERACTIVE";
 
-use generic_array::typenum::{U12, U15};
-use generic_array::GenericArray;
-
-pub(crate) fn const_non_interactive() -> GenericArray<u8, U15> {
-    GenericArray::<u8, U15>::clone_from_slice(b"NON_INTERACTIVE")
-}
-
-pub(crate) fn const_x_coordinate() -> GenericArray<u8, U12> {
-    GenericArray::<u8, U12>::clone_from_slice(b"X_COORDINATE")
-}
+pub(crate) const X_COORDINATE: &[u8] = b"X_COORDINATE";

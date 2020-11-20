@@ -1,5 +1,5 @@
 use crate::capsule_frag::CapsuleFrag;
-use crate::constants::{const_non_interactive, const_x_coordinate};
+use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{
     point_to_hash_seed, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
     CurveScalarSize,
@@ -7,7 +7,7 @@ use crate::curve::{
 use crate::key_frag::KeyFrag;
 use crate::keys::{UmbralPublicKey, UmbralSecretKey};
 use crate::params::UmbralParameters;
-use crate::random_oracles::hash_to_scalar;
+use crate::random_oracles::ScalarDigest;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -51,7 +51,10 @@ impl Capsule {
 
     pub fn verify(&self) -> bool {
         let g = CurvePoint::generator();
-        let h = hash_to_scalar(&[self.point_e, self.point_v], None);
+        let h = ScalarDigest::new()
+            .chain_point(&self.point_e)
+            .chain_point(&self.point_v)
+            .finalize();
         &g * &self.signature == &self.point_v + &(&self.point_e * &h)
     }
 
@@ -68,7 +71,7 @@ impl Capsule {
         let priv_u = random_nonzero_scalar();
         let pub_u = &g * &priv_u;
 
-        let h = hash_to_scalar(&[pub_r, pub_u], None);
+        let h = ScalarDigest::new().chain_points(&[pub_r, pub_u]).finalize();
 
         let s = &priv_u + (&priv_r * &h);
 
@@ -117,15 +120,15 @@ impl Capsule {
         }
 
         // Secret value 'd' allows to make Umbral non-interactive
-        let d = hash_to_scalar(
-            &[precursor, pub_key, dh_point],
-            Some(&const_non_interactive()),
-        );
+        let d = ScalarDigest::new()
+            .chain_points(&[precursor, pub_key, dh_point])
+            .chain_bytes(NON_INTERACTIVE)
+            .finalize();
 
         let e = self.point_e;
         let v = self.point_v;
         let s = self.signature;
-        let h = hash_to_scalar(&[e, v], None);
+        let h = ScalarDigest::new().chain_points(&[e, v]).finalize();
 
         let orig_pub_key = delegating_key.to_point();
 
@@ -187,8 +190,11 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> LambdaCoeff
     fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
         let mut result = GenericArray::<CurveScalar, Threshold>::default();
         for i in 0..<Threshold as Unsigned>::to_usize() {
-            let customization_string = const_x_coordinate().concat(cfrags[i].kfrag_id.to_bytes());
-            result[i] = hash_to_scalar(points, Some(&customization_string));
+            result[i] = ScalarDigest::new()
+                .chain_points(points)
+                .chain_bytes(X_COORDINATE)
+                .chain_scalar(&cfrags[i].kfrag_id)
+                .finalize();
         }
         Self(result)
     }
@@ -206,8 +212,12 @@ impl LambdaCoeff for LambdaCoeffHeap {
     fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
         let mut result = Vec::<CurveScalar>::with_capacity(cfrags.len());
         for cfrag in cfrags {
-            let customization_string = const_x_coordinate().concat(cfrag.kfrag_id.to_bytes());
-            result.push(hash_to_scalar(points, Some(&customization_string)));
+            let coeff = ScalarDigest::new()
+                .chain_points(points)
+                .chain_bytes(X_COORDINATE)
+                .chain_scalar(&cfrag.kfrag_id)
+                .finalize();
+            result.push(coeff);
         }
         Self(result)
     }

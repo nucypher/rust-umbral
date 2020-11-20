@@ -2,11 +2,12 @@
 
 use ecdsa::{SecretKey, Signature, SigningKey, VerifyKey};
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint};
-use generic_array::GenericArray;
+use generic_array::typenum::U32;
 use rand_core::OsRng;
-use signature::{RandomizedSigner, Verifier};
+use signature::digest::{BlockInput, Digest, FixedOutput, Reset, Update};
+use signature::{DigestVerifier, RandomizedDigestSigner};
 
-use crate::curve::{point_to_hash_seed, CompressedPointSize, CurvePoint, CurveScalar, CurveType};
+use crate::curve::{CurvePoint, CurveScalar, CurveType};
 
 #[derive(Clone, Debug)]
 pub struct UmbralSignature(Signature<CurveType>);
@@ -28,10 +29,12 @@ impl UmbralSecretKey {
     }
 
     /// Signs a message using [`OsRng`].
-    pub(crate) fn sign(&self, message: &[u8]) -> UmbralSignature {
+    pub(crate) fn sign_digest(
+        &self,
+        digest: impl BlockInput + FixedOutput<OutputSize = U32> + Clone + Default + Reset + Update,
+    ) -> UmbralSignature {
         let signer = SigningKey::<CurveType>::from(&self.0);
-        let signature: Signature<CurveType> = signer.sign_with_rng(&mut OsRng, message);
-        UmbralSignature(signature)
+        UmbralSignature(signer.sign_digest_with_rng(OsRng, digest))
     }
 }
 
@@ -52,29 +55,37 @@ impl UmbralPublicKey {
     }
 
     /// Converts the public key to bytes (for hashing purposes).
-    pub fn to_hash_seed(&self) -> GenericArray<u8, CompressedPointSize> {
-        // TODO: since it is used for hashing, we can return just `&[u8]`.
-        point_to_hash_seed(&self.to_point())
+    pub fn to_hash_seed(&self) -> &[u8] {
+        self.0.as_ref()
     }
 
     /// Verifies the signature.
-    pub(crate) fn verify(&self, message: &[u8], signature: &UmbralSignature) -> bool {
+    pub(crate) fn verify_digest(
+        &self,
+        digest: impl Digest<OutputSize = U32>,
+        signature: &UmbralSignature,
+    ) -> bool {
         let verifier = VerifyKey::from_encoded_point(&self.0).unwrap();
-        verifier.verify(message, &signature.0).is_ok()
+        verifier.verify_digest(digest, &signature.0).is_ok()
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::{UmbralSecretKey, UmbralPublicKey};
+    use super::{UmbralPublicKey, UmbralSecretKey};
+    use sha3::Sha3_256;
+    use signature::digest::Digest;
 
     #[test]
     fn sign_verify() {
         let sk = UmbralSecretKey::generate();
         let message = b"asdafdahsfdasdfasd";
-        let signature = sk.sign(message);
+        let digest = Sha3_256::new().chain(message);
+        let signature = sk.sign_digest(digest);
+
         let pk = UmbralPublicKey::from_secret_key(&sk);
-        assert!(pk.verify(message, &signature));
+        let digest = Sha3_256::new().chain(message);
+        assert!(pk.verify_digest(digest, &signature));
     }
 }

@@ -1,15 +1,12 @@
-use crate::constants::{const_non_interactive, const_x_coordinate};
-use crate::curve::{
-    point_to_hash_seed, random_nonzero_scalar, CompressedPointSize, CurvePoint, CurveScalar,
-};
+use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
+use crate::curve::{random_nonzero_scalar, CurvePoint, CurveScalar};
 use crate::keys::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
 use crate::params::UmbralParameters;
-use crate::random_oracles::hash_to_scalar;
+use crate::random_oracles::{ScalarDigest, SignatureDigest};
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use generic_array::sequence::Concat;
 use generic_array::typenum::Unsigned;
 use generic_array::{ArrayLength, GenericArray};
 
@@ -36,39 +33,30 @@ impl KeyFragProof {
     ) -> Self {
         let commitment = params.u * kfrag_key;
 
-        let validity_message_for_bob = kfrag_id
-            .to_bytes()
-            .concat(delegating_pubkey.to_hash_seed())
-            .concat(receiving_pubkey.to_hash_seed())
-            .concat(point_to_hash_seed(&commitment))
-            .concat(point_to_hash_seed(&kfrag_precursor));
-        let signature_for_bob = signing_privkey.sign(&validity_message_for_bob);
+        let signature_for_bob = SignatureDigest::new()
+            .chain_scalar(kfrag_id)
+            .chain_pubkey(delegating_pubkey)
+            .chain_pubkey(receiving_pubkey)
+            .chain_point(&commitment)
+            .chain_point(kfrag_precursor)
+            .sign(signing_privkey);
 
-        let validity_message_for_proxy = kfrag_id
-            .to_bytes()
-            .concat(point_to_hash_seed(&commitment))
-            .concat(point_to_hash_seed(&kfrag_precursor))
-            .concat([sign_delegating_key as u8].into())
-            .concat([sign_receiving_key as u8].into());
+        let mut digest_for_proxy = SignatureDigest::new()
+            .chain_scalar(kfrag_id)
+            .chain_point(&commitment)
+            .chain_point(kfrag_precursor)
+            .chain_bool(sign_delegating_key)
+            .chain_bool(sign_receiving_key);
 
-        // `validity_message_for_proxy` needs to have a static type and
-        // (since it's a GenericArray) a static size.
-        // So we have to concat the same number of bytes regardless of any runtime state.
+        if sign_delegating_key {
+            digest_for_proxy = digest_for_proxy.chain_pubkey(delegating_pubkey);
+        }
 
-        let validity_message_for_proxy =
-            validity_message_for_proxy.concat(if sign_delegating_key {
-                delegating_pubkey.to_hash_seed()
-            } else {
-                GenericArray::<u8, CompressedPointSize>::default()
-            });
+        if sign_receiving_key {
+            digest_for_proxy = digest_for_proxy.chain_pubkey(receiving_pubkey);
+        }
 
-        let validity_message_for_proxy = validity_message_for_proxy.concat(if sign_receiving_key {
-            receiving_pubkey.to_hash_seed()
-        } else {
-            GenericArray::<u8, CompressedPointSize>::default()
-        });
-
-        let signature_for_proxy = signing_privkey.sign(&validity_message_for_proxy);
+        let signature_for_proxy = digest_for_proxy.sign(&signing_privkey);
 
         Self {
             commitment,
@@ -107,15 +95,15 @@ impl KeyFrag {
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
         // generating polynomial), is used to prevent reconstruction of the
         // re-encryption key without Bob's intervention
-        let customization_string = const_x_coordinate().concat(kfrag_id.to_bytes());
-        let share_index = hash_to_scalar(
-            &[
+        let share_index = ScalarDigest::new()
+            .chain_points(&[
                 factory_base.precursor,
                 factory_base.bob_pubkey_point,
                 factory_base.dh_point,
-            ],
-            Some(&customization_string),
-        );
+            ])
+            .chain_bytes(X_COORDINATE)
+            .chain_scalar(&kfrag_id)
+            .finalize();
 
         // The re-encryption key share is the result of evaluating the generating
         // polynomial for the index value
@@ -168,33 +156,19 @@ impl KeyFrag {
         // We check that the commitment is well-formed
         let correct_commitment = commitment == &u * &key;
 
-        let kfrag_validity_message = kfrag_id
-            .to_bytes()
-            .concat(point_to_hash_seed(&commitment))
-            .concat(point_to_hash_seed(&precursor))
-            .concat([self.proof.delegating_key_signed as u8].into())
-            .concat([self.proof.receiving_key_signed as u8].into());
-
-        // `validity_message_for_proxy` needs to have a static type and
-        // (since it's a GenericArray) a static size.
-        // So we have to concat the same number of bytes regardless of any runtime state.
-
-        let kfrag_validity_message =
-            kfrag_validity_message.concat(if self.proof.delegating_key_signed {
-                delegating_pubkey.unwrap().to_hash_seed()
-            } else {
-                GenericArray::<u8, CompressedPointSize>::default()
-            });
-
-        let kfrag_validity_message =
-            kfrag_validity_message.concat(if self.proof.receiving_key_signed {
-                receiving_pubkey.unwrap().to_hash_seed()
-            } else {
-                GenericArray::<u8, CompressedPointSize>::default()
-            });
-
-        let valid_kfrag_signature =
-            signing_pubkey.verify(&kfrag_validity_message, &self.proof.signature_for_proxy);
+        let mut digest = SignatureDigest::new()
+            .chain_scalar(&kfrag_id)
+            .chain_point(&commitment)
+            .chain_point(&precursor)
+            .chain_bool(self.proof.delegating_key_signed)
+            .chain_bool(self.proof.receiving_key_signed);
+        if self.proof.delegating_key_signed {
+            digest = digest.chain_pubkey(&delegating_pubkey.unwrap());
+        }
+        if self.proof.receiving_key_signed {
+            digest = digest.chain_pubkey(&receiving_pubkey.unwrap());
+        }
+        let valid_kfrag_signature = digest.verify(&signing_pubkey, &self.proof.signature_for_proxy);
 
         correct_commitment & valid_kfrag_signature
     }
@@ -232,10 +206,10 @@ impl KeyFragFactoryBase {
         let dh_point = &bob_pubkey_point * &private_precursor;
 
         // Secret value 'd' allows to make Umbral non-interactive
-        let d = hash_to_scalar(
-            &[precursor, bob_pubkey_point, dh_point],
-            Some(&const_non_interactive()),
-        );
+        let d = ScalarDigest::new()
+            .chain_points(&[precursor, bob_pubkey_point, dh_point])
+            .chain_bytes(NON_INTERACTIVE)
+            .finalize();
 
         // Coefficients of the generating polynomial
         let coefficient0 = delegating_privkey.secret_scalar() * &(d.invert().unwrap());
