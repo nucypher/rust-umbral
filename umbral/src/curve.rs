@@ -2,65 +2,171 @@
 //! `elliptic_curves` has a somewhat unstable API,
 //! and we isolate all the related logic here.
 
+use core::default::Default;
+use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
 use ecdsa::{SecretKey, Signature, SigningKey, VerifyKey};
 use elliptic_curve::ff::PrimeField;
+use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
 use elliptic_curve::{Curve, FromDigest, ProjectiveArithmetic, Scalar};
 use generic_array::typenum::U32;
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
 use signature::{DigestVerifier, RandomizedDigestSigner};
+use subtle::CtOption;
 
-pub(crate) type CurveType = Secp256k1;
-pub(crate) type CurvePoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
-pub(crate) type CurveScalar = Scalar<CurveType>;
-pub(crate) type CurveCompressedPointSize = CompressedPointSize<CurveType>;
-// FIXME: currently it's the only size available.
-// A separate scalar size may appear in later versions of `elliptic_curve`.
-pub(crate) type CurveScalarSize = <CurveType as Curve>::FieldSize;
+use crate::traits::SerializableToArray;
 
-/// Generates a random non-zero scalar (in nearly constant-time).
-pub(crate) fn random_nonzero_scalar() -> CurveScalar {
-    let sk = SecretKey::<CurveType>::random(&mut OsRng);
-    *sk.secret_scalar()
-}
+type CurveType = Secp256k1;
 
-/// Serializes a point
-pub(crate) fn point_to_bytes(p: &CurvePoint) -> GenericArray<u8, CurveCompressedPointSize> {
-    *GenericArray::<u8, CurveCompressedPointSize>::from_slice(
-        p.to_affine().to_encoded_point(true).as_bytes(),
-    )
-}
+type BackendScalar = Scalar<CurveType>;
+type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 
-/// Attempts to convert a serialized compressed point to a curve point.
-pub(crate) fn bytes_to_compressed_point(bytes: impl AsRef<[u8]>) -> Option<CurvePoint> {
-    let ep = EncodedPoint::<CurveType>::from_bytes(bytes);
-    if ep.is_err() {
-        return None;
+// FIXME: we have to define newtypes for scalar and point here because the compiler
+// is not currently smart enough to resolve `BackendScalar` and `BackendPoint`
+// as specific types, so we cannot implement local traits for them.
+
+// FIXME: only needed to be `pub` and not `pub(crate)` because it leaks through ArrayLength traits
+// in the heapless implementation.
+#[derive(Clone, Copy, Debug)]
+pub struct CurveScalar(BackendScalar);
+
+impl CurveScalar {
+    pub(crate) fn invert(&self) -> CtOption<Self> {
+        self.0.invert().map(|x| Self(x))
     }
 
-    let pp = CurvePoint::from_encoded_point(&ep.unwrap());
-    if pp.is_some().into() {
-        Some(pp.unwrap())
-    } else {
-        None
+    pub(crate) fn one() -> Self {
+        Self(BackendScalar::one())
+    }
+
+    /// Generates a random non-zero scalar (in nearly constant-time).
+    pub(crate) fn random_nonzero() -> CurveScalar {
+        Self(*BackendNonZeroScalar::random(&mut OsRng))
+    }
+
+    pub(crate) fn from_digest(
+        d: impl Digest<OutputSize = <CurveScalar as SerializableToArray>::Size>,
+    ) -> Self {
+        Self(BackendScalar::from_digest(d))
     }
 }
 
-pub(crate) fn scalar_from_digest(d: impl Digest<OutputSize = CurveScalarSize>) -> CurveScalar {
-    CurveScalar::from_digest(d)
+impl Default for CurveScalar {
+    fn default() -> Self {
+        Self(BackendScalar::default())
+    }
 }
 
-pub(crate) fn scalar_to_bytes(s: &CurveScalar) -> GenericArray<u8, CurveScalarSize> {
-    s.to_bytes()
+impl SerializableToArray for CurveScalar {
+    // FIXME: currently it's the only size available.
+    // A separate scalar size may appear in later versions of `elliptic_curve`.
+    type Size = <CurveType as Curve>::FieldSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.0.to_bytes()
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        // TODO: what happens if the length of `bytes` is wrong?
+        let sized_bytes = GenericArray::<u8, Self::Size>::from_slice(bytes.as_ref());
+        Scalar::<CurveType>::from_repr(*sized_bytes).map(Self)
+    }
 }
 
-pub(crate) fn bytes_to_scalar(bytes: impl AsRef<[u8]>) -> Option<CurveScalar> {
-    // TODO: can fail here
-    let sized_bytes = GenericArray::<u8, CurveScalarSize>::from_slice(bytes.as_ref());
-    CurveScalar::from_repr(*sized_bytes)
+type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
+
+// FIXME: only needed to be `pub` and not `pub(crate)` because it leaks through ArrayLength traits
+// in the heapless implementation.
+#[derive(Clone, Copy, Debug)]
+pub struct CurvePoint(BackendPoint);
+
+impl CurvePoint {
+    pub(crate) fn generator() -> Self {
+        Self(BackendPoint::generator())
+    }
+
+    pub(crate) fn identity() -> Self {
+        Self(BackendPoint::identity())
+    }
+}
+
+impl Add<&CurveScalar> for &CurveScalar {
+    type Output = CurveScalar;
+
+    fn add(self, other: &CurveScalar) -> CurveScalar {
+        CurveScalar(self.0.add(&(other.0)))
+    }
+}
+
+impl Add<&CurvePoint> for &CurvePoint {
+    type Output = CurvePoint;
+
+    fn add(self, other: &CurvePoint) -> CurvePoint {
+        CurvePoint(self.0.add(&(other.0)))
+    }
+}
+
+impl Sub<&CurveScalar> for &CurveScalar {
+    type Output = CurveScalar;
+
+    fn sub(self, other: &CurveScalar) -> CurveScalar {
+        CurveScalar(self.0.sub(&(other.0)))
+    }
+}
+
+impl Mul<&CurveScalar> for &CurvePoint {
+    type Output = CurvePoint;
+
+    fn mul(self, other: &CurveScalar) -> CurvePoint {
+        CurvePoint(self.0.mul(&(other.0)))
+    }
+}
+
+impl Mul<&CurveScalar> for &CurveScalar {
+    type Output = CurveScalar;
+
+    fn mul(self, other: &CurveScalar) -> CurveScalar {
+        CurveScalar(self.0.mul(&(other.0)))
+    }
+}
+
+impl PartialEq for CurveScalar {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
+impl PartialEq for CurvePoint {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
+impl SerializableToArray for CurvePoint {
+    type Size = CompressedPointSize<CurveType>;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        *GenericArray::<u8, Self::Size>::from_slice(
+            self.0.to_affine().to_encoded_point(true).as_bytes(),
+        )
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        let ep = EncodedPoint::<CurveType>::from_bytes(bytes);
+        if ep.is_err() {
+            return None;
+        }
+
+        let cp = BackendPoint::from_encoded_point(&ep.unwrap());
+        if cp.is_some().into() {
+            Some(Self(cp.unwrap()))
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -78,8 +184,13 @@ impl UmbralSecretKey {
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
-    pub(crate) fn secret_scalar(&self) -> &CurveScalar {
-        self.0.secret_scalar()
+    pub(crate) fn to_secret_scalar(&self) -> CurveScalar {
+        // TODO: `SecretKey` only returns a reference, but how important is this safety measure?
+        // We could return a wrapped reference, and define arithmetic operations for it.
+        // But we use this secret scalar to multiply not only points, but other scalars too.
+        // So there's no point in hiding the actual value here as long as
+        // it is going to be effectively dereferenced in other places.
+        CurveScalar(*self.0.secret_scalar())
     }
 
     /// Signs a message using the default RNG.
@@ -92,21 +203,10 @@ impl UmbralSecretKey {
     }
 }
 
-pub trait Serializable
-where
-    Self: Sized,
-{
-    type Size: ArrayLength<u8>;
+impl SerializableToArray for UmbralSecretKey {
+    type Size = <CurveScalar as SerializableToArray>::Size;
 
-    fn to_bytes(&self) -> GenericArray<u8, Self::Size>;
-
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self>;
-}
-
-impl Serializable for UmbralSecretKey {
-    type Size = CurveScalarSize;
-
-    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.0.to_bytes()
     }
 
@@ -130,12 +230,7 @@ impl UmbralPublicKey {
     /// Returns the underlying curve point of the public key.
     pub(crate) fn to_point(&self) -> CurvePoint {
         // TODO: store CurvePoint instead of EncodedPoint?
-        CurvePoint::from_encoded_point(&self.0).unwrap()
-    }
-
-    /// Serialize the public key.
-    pub(crate) fn as_bytes(&self) -> &[u8] {
-        self.0.as_ref()
+        CurvePoint(BackendPoint::from_encoded_point(&self.0).unwrap())
     }
 
     /// Verifies the signature.
@@ -149,15 +244,15 @@ impl UmbralPublicKey {
     }
 }
 
-impl Serializable for UmbralPublicKey {
-    type Size = CurveCompressedPointSize;
+impl SerializableToArray for UmbralPublicKey {
+    type Size = <CurvePoint as SerializableToArray>::Size;
 
-    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
         // EncodedPoint can be compressed or uncompressed,
         // so `to_bytes()` does not have a compile-time size,
         // and we have to do this conversion
         // (we know that in our case it is always compressed).
-        *GenericArray::<u8, <Self as Serializable>::Size>::from_slice(&self.0.to_bytes())
+        *GenericArray::<u8, Self::Size>::from_slice(&self.0.to_bytes())
     }
 
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {

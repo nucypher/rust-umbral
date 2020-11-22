@@ -1,7 +1,6 @@
-use crate::curve::{
-    bytes_to_compressed_point, point_to_bytes, CurveCompressedPointSize, CurvePoint, Serializable,
-};
+use crate::curve::CurvePoint;
 use crate::hashing::unsafe_hash_to_point;
+use crate::traits::SerializableToArray;
 
 use core::default::Default;
 use generic_array::GenericArray;
@@ -14,7 +13,7 @@ pub struct UmbralParameters {
 impl UmbralParameters {
     pub fn new() -> Self {
         let g = CurvePoint::generator();
-        let g_bytes = point_to_bytes(&g);
+        let g_bytes = g.to_array();
 
         let parameters_seed = b"NuCypher/UmbralParameters/u";
         let u = unsafe_hash_to_point(&g_bytes, parameters_seed).unwrap();
@@ -23,15 +22,15 @@ impl UmbralParameters {
     }
 }
 
-impl Serializable for UmbralParameters {
-    type Size = CurveCompressedPointSize;
+impl SerializableToArray for UmbralParameters {
+    type Size = <CurvePoint as SerializableToArray>::Size;
 
-    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
-        point_to_bytes(&self.u)
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.u.to_array()
     }
 
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        bytes_to_compressed_point(bytes).map(|u| Self { u })
+        CurvePoint::from_bytes(bytes).map(|u| Self { u })
     }
 }
 

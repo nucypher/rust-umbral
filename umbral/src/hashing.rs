@@ -4,11 +4,8 @@ use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use sha3::Sha3_256;
 
-use crate::curve::{
-    bytes_to_compressed_point, point_to_bytes, scalar_from_digest, scalar_to_bytes,
-    CurveCompressedPointSize, CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey,
-    UmbralSignature,
-};
+use crate::curve::{CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey, UmbralSignature};
+use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data into a valid EC point of the specified curve,
 /// using the try-and-increment method.
@@ -21,7 +18,8 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
 
-    let curve_key_size_bytes = CurveCompressedPointSize::to_usize();
+    type PointSize = <CurvePoint as SerializableToArray>::Size;
+    let curve_key_size_bytes = PointSize::to_usize();
 
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
@@ -38,15 +36,14 @@ pub(crate) fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoi
         hash_function.update(&ibytes);
         let hash_digest_full = hash_function.finalize();
         // TODO: check that the digest is long enough?
-        let mut arr = *GenericArray::<u8, CurveCompressedPointSize>::from_slice(
-            &hash_digest_full[0..curve_key_size_bytes],
-        );
+        let mut arr =
+            *GenericArray::<u8, PointSize>::from_slice(&hash_digest_full[0..curve_key_size_bytes]);
 
         // Set the sign byte
         let arr_data = arr.as_mut_slice();
         arr_data[0] = if arr_data[0] & 1 == 0 { 2 } else { 3 };
 
-        let maybe_point = bytes_to_compressed_point(&arr);
+        let maybe_point = CurvePoint::from_bytes(&arr);
         if maybe_point.is_some() {
             return maybe_point;
         }
@@ -73,11 +70,11 @@ impl ScalarDigest {
     }
 
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        Self(self.0.chain(&scalar_to_bytes(scalar)))
+        Self(self.0.chain(&scalar.to_array()))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        Self(self.0.chain(&point_to_bytes(point)))
+        Self(self.0.chain(&point.to_array()))
     }
 
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {
@@ -89,7 +86,7 @@ impl ScalarDigest {
     }
 
     pub fn finalize(self) -> CurveScalar {
-        scalar_from_digest(self.0)
+        CurveScalar::from_digest(self.0)
     }
 }
 
@@ -101,15 +98,15 @@ impl SignatureDigest {
     }
 
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        Self(self.0.chain(&scalar_to_bytes(scalar)))
+        Self(self.0.chain(&scalar.to_array()))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        Self(self.0.chain(&point_to_bytes(point)))
+        Self(self.0.chain(&point.to_array()))
     }
 
     pub fn chain_pubkey(self, pk: &UmbralPublicKey) -> Self {
-        Self(self.0.chain(pk.as_bytes()))
+        Self(self.0.chain(&pk.to_array()))
     }
 
     pub fn chain_bool(self, val: bool) -> Self {

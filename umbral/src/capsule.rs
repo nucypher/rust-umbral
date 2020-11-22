@@ -1,13 +1,10 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
-use crate::curve::{
-    bytes_to_compressed_point, bytes_to_scalar, point_to_bytes, random_nonzero_scalar,
-    scalar_to_bytes, CurveCompressedPointSize, CurvePoint, CurveScalar, CurveScalarSize,
-};
-use crate::curve::{Serializable, UmbralPublicKey, UmbralSecretKey};
+use crate::curve::{CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey};
 use crate::hashing::ScalarDigest;
 use crate::key_frag::KeyFrag;
 use crate::params::UmbralParameters;
+use crate::traits::SerializableToArray;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -24,21 +21,20 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-type UmbralParametersSize = <UmbralParameters as Serializable>::Size;
-type CapsuleSize = op!(UmbralParametersSize
-    + CurveCompressedPointSize
-    + CurveCompressedPointSize
-    + CurveScalarSize);
+type UmbralParametersSize = <UmbralParameters as SerializableToArray>::Size;
+type PointSize = <CurvePoint as SerializableToArray>::Size;
+type ScalarSize = <CurveScalar as SerializableToArray>::Size;
+type CapsuleSize = op!(UmbralParametersSize + PointSize + PointSize + ScalarSize);
 
-impl Serializable for Capsule {
+impl SerializableToArray for Capsule {
     type Size = CapsuleSize;
 
-    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.params
-            .to_bytes()
-            .concat(point_to_bytes(&self.point_e))
-            .concat(point_to_bytes(&self.point_v))
-            .concat(scalar_to_bytes(&self.signature))
+            .to_array()
+            .concat(self.point_e.to_array())
+            .concat(self.point_v.to_array())
+            .concat(self.signature.to_array())
     }
 
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
@@ -49,20 +45,15 @@ impl Serializable for Capsule {
             &GenericArray<u8, UmbralParametersSize>,
             &GenericArray<u8, _>,
         ) = sized_bytes.split();
-        let (e_bytes, rest): (
-            &GenericArray<u8, CurveCompressedPointSize>,
-            &GenericArray<u8, _>,
-        ) = rest.split();
-        let (v_bytes, signature): (
-            &GenericArray<u8, CurveCompressedPointSize>,
-            &GenericArray<u8, _>,
-        ) = rest.split();
+        let (e_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
+        let (v_bytes, signature): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) =
+            rest.split();
 
         // TODO: propagate error properly
         let params = UmbralParameters::from_bytes(&params_bytes).unwrap();
-        let e = bytes_to_compressed_point(&e_bytes).unwrap();
-        let v = bytes_to_compressed_point(&v_bytes).unwrap();
-        let signature = bytes_to_scalar(&signature).unwrap();
+        let e = CurvePoint::from_bytes(&e_bytes).unwrap();
+        let v = CurvePoint::from_bytes(&v_bytes).unwrap();
+        let signature = CurveScalar::from_bytes(&signature).unwrap();
 
         Some(Capsule::new(&params, &e, &v, &signature))
     }
@@ -110,18 +101,21 @@ impl Capsule {
     pub fn from_pubkey(
         params: &UmbralParameters,
         alice_pubkey: &UmbralPublicKey,
-    ) -> (Capsule, GenericArray<u8, CurveCompressedPointSize>) {
+    ) -> (
+        Capsule,
+        GenericArray<u8, <CurvePoint as SerializableToArray>::Size>,
+    ) {
         let g = CurvePoint::generator();
 
-        let priv_r = random_nonzero_scalar();
+        let priv_r = CurveScalar::random_nonzero();
         let pub_r = &g * &priv_r;
 
-        let priv_u = random_nonzero_scalar();
+        let priv_u = CurveScalar::random_nonzero();
         let pub_u = &g * &priv_u;
 
         let h = ScalarDigest::new().chain_points(&[pub_r, pub_u]).finalize();
 
-        let s = &priv_u + (&priv_r * &h);
+        let s = &priv_u + &(&priv_r * &h);
 
         let shared_key = &alice_pubkey.to_point() * &(&priv_r + &priv_u);
 
@@ -132,16 +126,13 @@ impl Capsule {
             signature: s,
         };
 
-        (capsule, point_to_bytes(&shared_key))
+        (capsule, shared_key.to_array())
     }
 
     /// Derive the same symmetric key
-    pub fn open_original(
-        &self,
-        private_key: &UmbralSecretKey,
-    ) -> GenericArray<u8, CurveCompressedPointSize> {
-        let shared_key = (&self.point_e + &self.point_v) * private_key.secret_scalar();
-        point_to_bytes(&shared_key)
+    pub fn open_original(&self, private_key: &UmbralSecretKey) -> GenericArray<u8, PointSize> {
+        let shared_key = &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar();
+        shared_key.to_array()
     }
 
     fn open_reencrypted_generic<LC: LambdaCoeff>(
@@ -149,11 +140,11 @@ impl Capsule {
         receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, CurveCompressedPointSize> {
+    ) -> GenericArray<u8, PointSize> {
         let pub_key = UmbralPublicKey::from_secret_key(receiving_privkey).to_point();
 
         let precursor = cfrags[0].precursor;
-        let dh_point = &precursor * receiving_privkey.secret_scalar();
+        let dh_point = &precursor * &receiving_privkey.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
         let lc = LC::new(cfrags, &[precursor, pub_key, dh_point]);
@@ -163,8 +154,8 @@ impl Capsule {
         for (i, cfrag) in (&cfrags).iter().enumerate() {
             assert!(precursor == cfrag.precursor);
             let lambda_i = lc.lambda_coeff(i);
-            e_prime += &cfrag.point_e1 * &lambda_i;
-            v_prime += &cfrag.point_v1 * &lambda_i;
+            e_prime = &e_prime + &(&cfrag.point_e1 * &lambda_i);
+            v_prime = &v_prime + &(&cfrag.point_v1 * &lambda_i);
         }
 
         // Secret value 'd' allows to make Umbral non-interactive
@@ -183,8 +174,8 @@ impl Capsule {
         assert!(&orig_pub_key * &(&s * &d.invert().unwrap()) == &(&e_prime * &h) + &v_prime);
         //    raise GenericUmbralError()
 
-        let shared_key = (&e_prime + &v_prime) * &d;
-        point_to_bytes(&shared_key)
+        let shared_key = &(&e_prime + &v_prime) * &d;
+        shared_key.to_array()
     }
 
     /// Derive the same symmetric encapsulated_key
@@ -194,7 +185,7 @@ impl Capsule {
         receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, CurveCompressedPointSize> {
+    ) -> GenericArray<u8, PointSize> {
         self.open_reencrypted_generic::<LambdaCoeffHeap>(receiving_privkey, delegating_key, cfrags)
     }
 
@@ -204,7 +195,7 @@ impl Capsule {
         receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, CurveCompressedPointSize> {
+    ) -> GenericArray<u8, PointSize> {
         self.open_reencrypted_generic::<LambdaCoeffHeapless<Threshold>>(
             receiving_privkey,
             delegating_key,
@@ -217,7 +208,7 @@ fn lambda_coeff(xs: &[CurveScalar], i: usize) -> CurveScalar {
     let mut res = CurveScalar::one();
     for j in 0..xs.len() {
         if j != i {
-            res = &res * &xs[j] * &(&xs[j] - &xs[i]).invert().unwrap();
+            res = &(&res * &xs[j]) * &(&xs[j] - &xs[i]).invert().unwrap();
         }
     }
     res
@@ -320,7 +311,7 @@ impl PreparedCapsule {
         cfrags: &[CapsuleFrag],
         receiving_privkey: &UmbralSecretKey,
         check_proof: bool,
-    ) -> GenericArray<u8, CurveCompressedPointSize> {
+    ) -> GenericArray<u8, PointSize> {
         if check_proof {
             // TODO: return Result with Error set to offending cfrag indices or something
             for cfrag in cfrags {
@@ -343,7 +334,7 @@ impl PreparedCapsule {
         cfrags: &[CapsuleFrag],
         receiving_privkey: &UmbralSecretKey,
         check_proof: bool,
-    ) -> GenericArray<u8, CurveCompressedPointSize> {
+    ) -> GenericArray<u8, PointSize> {
         if check_proof {
             // TODO: return Result with Error set to offending cfrag indices or something
             for cfrag in cfrags {

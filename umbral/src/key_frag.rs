@@ -1,5 +1,5 @@
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
-use crate::curve::{random_nonzero_scalar, CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::params::UmbralParameters;
@@ -31,7 +31,7 @@ impl KeyFragProof {
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
-        let commitment = params.u * kfrag_key;
+        let commitment = &params.u * kfrag_key;
 
         let signature_for_bob = SignatureDigest::new()
             .chain_scalar(kfrag_id)
@@ -89,7 +89,7 @@ impl KeyFrag {
         sign_receiving_key: bool,
     ) -> Self {
         // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
-        let kfrag_id = random_nonzero_scalar();
+        let kfrag_id = CurveScalar::random_nonzero();
 
         // The index of the re-encryption key share (which in Shamir's Secret
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
@@ -200,7 +200,7 @@ impl KeyFragFactoryBase {
 
         // The precursor point is used as an ephemeral public key in a DH key exchange,
         // and the resulting shared secret 'dh_point' is used to derive other secret values
-        let private_precursor = random_nonzero_scalar();
+        let private_precursor = CurveScalar::random_nonzero();
         let precursor = &g * &private_precursor;
 
         let dh_point = &bob_pubkey_point * &private_precursor;
@@ -212,7 +212,7 @@ impl KeyFragFactoryBase {
             .finalize();
 
         // Coefficients of the generating polynomial
-        let coefficient0 = delegating_privkey.secret_scalar() * &(d.invert().unwrap());
+        let coefficient0 = &delegating_privkey.to_secret_scalar() * &(d.invert().unwrap());
 
         Self {
             signing_privkey: signing_privkey.clone(),
@@ -235,7 +235,7 @@ trait KeyFragCoefficients {
         let coeffs = self.coefficients();
         let mut result: CurveScalar = coeffs[coeffs.len() - 1];
         for i in (0..coeffs.len() - 1).rev() {
-            result = (result * x) + &coeffs[i];
+            result = &(&result * x) + &coeffs[i];
         }
         result
     }
@@ -250,7 +250,7 @@ impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragCoefficientsHeapless
         let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
         coefficients[0] = *coeff0;
         for i in 1..<Threshold as Unsigned>::to_usize() {
-            coefficients[i] = random_nonzero_scalar();
+            coefficients[i] = CurveScalar::random_nonzero();
         }
         Self(coefficients)
     }
@@ -273,7 +273,7 @@ impl KeyFragCoefficientsHeap {
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold - 1);
         coefficients.push(*coeff0);
         for _i in 1..threshold {
-            coefficients.push(random_nonzero_scalar());
+            coefficients.push(CurveScalar::random_nonzero());
         }
         Self(coefficients)
     }

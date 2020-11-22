@@ -15,6 +15,7 @@ mod hashing;
 mod key_frag;
 mod params;
 mod pre;
+mod traits;
 
 #[cfg(feature = "std")]
 pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
@@ -23,7 +24,8 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
 pub use key_frag::generate_kfrags;
 
 pub use capsule::Capsule;
-pub use curve::{Serializable, UmbralPublicKey, UmbralSecretKey};
+pub use curve::{UmbralPublicKey, UmbralSecretKey};
 pub use key_frag::KeyFragFactoryHeapless;
 pub use params::UmbralParameters;
 pub use pre::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};
+pub use traits::SerializableToArray;

@@ -1,13 +1,12 @@
 use crate::capsule::{Capsule, PreparedCapsule};
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{CurveScalar, Serializable};
+use crate::curve::{CurveScalar, UmbralPublicKey, UmbralSecretKey};
+use crate::dem::UmbralDEM;
+use crate::params::UmbralParameters;
+use crate::traits::SerializableToArray;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
-
-use crate::curve::{UmbralPublicKey, UmbralSecretKey};
-use crate::dem::UmbralDEM;
-use crate::params::UmbralParameters;
 
 use aead::Buffer;
 use generic_array::typenum::Unsigned;
@@ -25,7 +24,7 @@ pub fn encrypt(
 ) -> (Vec<u8>, Capsule) {
     let (capsule, key_seed) = Capsule::from_pubkey(params, alice_pubkey);
     let dem = UmbralDEM::new(&key_seed);
-    let capsule_bytes = capsule.to_bytes();
+    let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
     (ciphertext, capsule)
 }
@@ -37,7 +36,7 @@ pub fn encrypt_in_place(
 ) -> Option<Capsule> {
     let (capsule, key_seed) = Capsule::from_pubkey(params, alice_pubkey);
     let dem = UmbralDEM::new(&key_seed);
-    let capsule_bytes = capsule.to_bytes();
+    let capsule_bytes = capsule.to_array();
     let result = dem.encrypt_in_place(buffer, &capsule_bytes);
     match result {
         Some(_) => Some(capsule),
@@ -53,7 +52,7 @@ pub fn decrypt_original(
 ) -> Option<Vec<u8>> {
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
-    dem.decrypt(ciphertext, &capsule.to_bytes())
+    dem.decrypt(ciphertext, &capsule.to_array())
 }
 
 pub fn decrypt_original_in_place(
@@ -63,7 +62,7 @@ pub fn decrypt_original_in_place(
 ) -> Option<()> {
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
-    dem.decrypt_in_place(buffer, &capsule.to_bytes())
+    dem.decrypt_in_place(buffer, &capsule.to_array())
 }
 
 #[cfg(feature = "std")]
@@ -76,7 +75,7 @@ pub fn decrypt_reencrypted(
 ) -> Option<Vec<u8>> {
     let key_seed = capsule.open_reencrypted(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
-    dem.decrypt(&ciphertext, &capsule.capsule.to_bytes())
+    dem.decrypt(&ciphertext, &capsule.capsule.to_array())
 }
 
 pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsigned>(
@@ -89,7 +88,7 @@ pub fn decrypt_reencrypted_in_place<Threshold: ArrayLength<CurveScalar> + Unsign
     let key_seed =
         capsule.open_reencrypted_heapless::<Threshold>(cfrags, decrypting_key, check_proof);
     let dem = UmbralDEM::new(&key_seed);
-    dem.decrypt_in_place(buffer, &capsule.capsule.to_bytes())
+    dem.decrypt_in_place(buffer, &capsule.capsule.to_array())
 }
 
 #[cfg(test)]
