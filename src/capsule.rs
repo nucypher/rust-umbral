@@ -1,10 +1,10 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{
-    point_to_bytes, random_nonzero_scalar, scalar_to_bytes, CurveCompressedPointSize, CurvePoint,
-    CurveScalar, CurveScalarSize,
+    bytes_to_compressed_point, bytes_to_scalar, point_to_bytes, random_nonzero_scalar,
+    scalar_to_bytes, CurveCompressedPointSize, CurvePoint, CurveScalar, CurveScalarSize,
 };
-use crate::curve::{UmbralPublicKey, UmbralSecretKey};
+use crate::curve::{Serializable, UmbralPublicKey, UmbralSecretKey};
 use crate::hashing::ScalarDigest;
 use crate::key_frag::KeyFrag;
 use crate::params::UmbralParameters;
@@ -12,10 +12,9 @@ use crate::params::UmbralParameters;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use core::ops::Add;
 use generic_array::sequence::Concat;
-use generic_array::typenum::Unsigned;
-use generic_array::{ArrayLength, GenericArray};
+use generic_array::typenum::{op, Unsigned};
+use generic_array::{sequence::Split, ArrayLength, GenericArray};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
@@ -25,15 +24,63 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-type CapsuleSize = <<CurveCompressedPointSize as Add<CurveCompressedPointSize>>::Output as Add<
-    CurveScalarSize,
->>::Output;
+type UmbralParametersSize = <UmbralParameters as Serializable>::Size;
+type CapsuleSize = op!(UmbralParametersSize
+    + CurveCompressedPointSize
+    + CurveCompressedPointSize
+    + CurveScalarSize);
 
-impl Capsule {
-    pub fn to_bytes(&self) -> GenericArray<u8, CapsuleSize> {
-        point_to_bytes(&self.point_e)
+impl Serializable for Capsule {
+    type Size = CapsuleSize;
+
+    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
+        self.params
+            .to_bytes()
+            .concat(point_to_bytes(&self.point_e))
             .concat(point_to_bytes(&self.point_v))
             .concat(scalar_to_bytes(&self.signature))
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        // TODO: can fail here; return None in this case
+        let sized_bytes = GenericArray::<u8, CapsuleSize>::from_slice(bytes.as_ref());
+
+        let (params_bytes, rest): (
+            &GenericArray<u8, UmbralParametersSize>,
+            &GenericArray<u8, _>,
+        ) = sized_bytes.split();
+        let (e_bytes, rest): (
+            &GenericArray<u8, CurveCompressedPointSize>,
+            &GenericArray<u8, _>,
+        ) = rest.split();
+        let (v_bytes, signature): (
+            &GenericArray<u8, CurveCompressedPointSize>,
+            &GenericArray<u8, _>,
+        ) = rest.split();
+
+        // TODO: propagate error properly
+        let params = UmbralParameters::from_bytes(&params_bytes).unwrap();
+        let e = bytes_to_compressed_point(&e_bytes).unwrap();
+        let v = bytes_to_compressed_point(&v_bytes).unwrap();
+        let signature = bytes_to_scalar(&signature).unwrap();
+
+        Some(Capsule::new(&params, &e, &v, &signature))
+    }
+}
+
+impl Capsule {
+    fn new(
+        params: &UmbralParameters,
+        e: &CurvePoint,
+        v: &CurvePoint,
+        signature: &CurveScalar,
+    ) -> Self {
+        Self {
+            params: *params,
+            point_e: *e,
+            point_v: *v,
+            signature: *signature,
+        }
     }
 
     pub fn with_correctness_keys(

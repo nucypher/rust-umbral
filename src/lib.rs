@@ -3,6 +3,9 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+#[macro_use]
+extern crate typenum;
+
 mod capsule;
 mod capsule_frag;
 mod constants;

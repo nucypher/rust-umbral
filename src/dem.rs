@@ -123,7 +123,7 @@ impl UmbralDEM {
     }
 
     #[cfg(feature = "std")]
-    pub fn decrypt(&self, ciphertext: &Vec<u8>, authenticated_data: &[u8]) -> Option<Vec<u8>> {
+    pub fn decrypt(&self, ciphertext: &[u8], authenticated_data: &[u8]) -> Option<Vec<u8>> {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         let buf_size = ciphertext.len();
 

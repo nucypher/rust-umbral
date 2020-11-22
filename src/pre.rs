@@ -1,6 +1,6 @@
 use crate::capsule::{Capsule, PreparedCapsule};
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::CurveScalar;
+use crate::curve::{CurveScalar, Serializable};
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -47,13 +47,13 @@ pub fn encrypt_in_place(
 
 #[cfg(feature = "std")]
 pub fn decrypt_original(
-    ciphertext: &Vec<u8>,
+    ciphertext: &[u8],
     capsule: &Capsule,
     decrypting_key: &UmbralSecretKey,
 ) -> Option<Vec<u8>> {
     let key_seed = capsule.open_original(decrypting_key);
     let dem = UmbralDEM::new(&key_seed);
-    dem.decrypt(&ciphertext, &capsule.to_bytes())
+    dem.decrypt(ciphertext, &capsule.to_bytes())
 }
 
 pub fn decrypt_original_in_place(

@@ -4,10 +4,11 @@
 
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
 use ecdsa::{SecretKey, Signature, SigningKey, VerifyKey};
+use elliptic_curve::ff::PrimeField;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
 use elliptic_curve::{Curve, FromDigest, ProjectiveArithmetic, Scalar};
 use generic_array::typenum::U32;
-use generic_array::GenericArray;
+use generic_array::{ArrayLength, GenericArray};
 use k256::Secp256k1;
 use rand_core::OsRng;
 use signature::{DigestVerifier, RandomizedDigestSigner};
@@ -34,9 +35,7 @@ pub(crate) fn point_to_bytes(p: &CurvePoint) -> GenericArray<u8, CurveCompressed
 }
 
 /// Attempts to convert a serialized compressed point to a curve point.
-pub(crate) fn bytes_to_compressed_point(
-    bytes: &GenericArray<u8, CurveCompressedPointSize>,
-) -> Option<CurvePoint> {
+pub(crate) fn bytes_to_compressed_point(bytes: impl AsRef<[u8]>) -> Option<CurvePoint> {
     let ep = EncodedPoint::<CurveType>::from_bytes(bytes);
     if ep.is_err() {
         return None;
@@ -56,6 +55,12 @@ pub(crate) fn scalar_from_digest(d: impl Digest<OutputSize = CurveScalarSize>) -
 
 pub(crate) fn scalar_to_bytes(s: &CurveScalar) -> GenericArray<u8, CurveScalarSize> {
     s.to_bytes()
+}
+
+pub(crate) fn bytes_to_scalar(bytes: impl AsRef<[u8]>) -> Option<CurveScalar> {
+    // TODO: can fail here
+    let sized_bytes = GenericArray::<u8, CurveScalarSize>::from_slice(bytes.as_ref());
+    CurveScalar::from_repr(*sized_bytes)
 }
 
 #[derive(Clone, Debug)]
@@ -84,6 +89,31 @@ impl UmbralSecretKey {
     ) -> UmbralSignature {
         let signer = SigningKey::<CurveType>::from(&self.0);
         UmbralSignature(signer.sign_digest_with_rng(OsRng, digest))
+    }
+}
+
+pub trait Serializable
+where
+    Self: Sized,
+{
+    type Size: ArrayLength<u8>;
+
+    fn to_bytes(&self) -> GenericArray<u8, Self::Size>;
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self>;
+}
+
+impl Serializable for UmbralSecretKey {
+    type Size = CurveScalarSize;
+
+    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
+        self.0.to_bytes()
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        SecretKey::<CurveType>::from_bytes(bytes)
+            .ok()
+            .map(|sk| Self(sk))
     }
 }
 
@@ -116,6 +146,24 @@ impl UmbralPublicKey {
     ) -> bool {
         let verifier = VerifyKey::from_encoded_point(&self.0).unwrap();
         verifier.verify_digest(digest, &signature.0).is_ok()
+    }
+}
+
+impl Serializable for UmbralPublicKey {
+    type Size = CurveCompressedPointSize;
+
+    fn to_bytes(&self) -> GenericArray<u8, <Self as Serializable>::Size> {
+        // EncodedPoint can be compressed or uncompressed,
+        // so `to_bytes()` does not have a compile-time size,
+        // and we have to do this conversion
+        // (we know that in our case it is always compressed).
+        *GenericArray::<u8, <Self as Serializable>::Size>::from_slice(&self.0.to_bytes())
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        EncodedPoint::<CurveType>::from_bytes(bytes)
+            .ok()
+            .map(|sk| Self(sk))
     }
 }
 

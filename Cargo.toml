@@ -18,6 +18,7 @@ ecdsa = "0.8"
 signature = "1.2"
 k256 = { version = "0.5", features = ["ecdsa", "arithmetic", "sha256"] }
 rand_core = { version = "0.5", features = ["getrandom"] }
+typenum = "1.12"
 
 [dev-dependencies]
 heapless = "0.5"
