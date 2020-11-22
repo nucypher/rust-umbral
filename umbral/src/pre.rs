@@ -46,7 +46,7 @@ pub fn encrypt_in_place(
 
 #[cfg(feature = "std")]
 pub fn decrypt_original(
-    ciphertext: &[u8],
+    ciphertext: impl AsRef<[u8]>,
     capsule: &Capsule,
     decrypting_key: &UmbralSecretKey,
 ) -> Option<Vec<u8>> {
@@ -67,7 +67,7 @@ pub fn decrypt_original_in_place(
 
 #[cfg(feature = "std")]
 pub fn decrypt_reencrypted(
-    ciphertext: &Vec<u8>,
+    ciphertext: impl AsRef<[u8]>,
     capsule: &PreparedCapsule,
     cfrags: &[CapsuleFrag],
     decrypting_key: &UmbralSecretKey,

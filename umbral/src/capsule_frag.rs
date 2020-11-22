@@ -20,6 +20,7 @@ pub struct CapsuleFragProof {
 }
 
 impl CapsuleFragProof {
+    #[allow(clippy::many_single_char_names)]
     fn from_kfrag_and_cfrag(
         capsule: &Capsule,
         kfrag: &KeyFrag,

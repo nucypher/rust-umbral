@@ -20,6 +20,7 @@ pub struct KeyFragProof {
 }
 
 impl KeyFragProof {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         params: &UmbralParameters,
         kfrag_id: &CurveScalar,
@@ -326,6 +327,7 @@ Requires a threshold number of KeyFrags out of N.
 Returns a list of N KeyFrags
 */
 #[cfg(feature = "std")]
+#[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     params: &UmbralParameters,
     delegating_privkey: &UmbralSecretKey,

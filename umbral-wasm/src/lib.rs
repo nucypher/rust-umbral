@@ -1,22 +1,21 @@
 use generic_array::GenericArray;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use umbral;
-use umbral::Serializable;
+use umbral::SerializableToArray;
 
 use std::vec::Vec;
 
-use console_error_panic_hook;
-
 #[wasm_bindgen]
-pub struct UmbralSecretKey(GenericArray<u8, <umbral::UmbralSecretKey as Serializable>::Size>);
+pub struct UmbralSecretKey(
+    GenericArray<u8, <umbral::UmbralSecretKey as SerializableToArray>::Size>,
+);
 
 #[wasm_bindgen]
 impl UmbralSecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
         console_error_panic_hook::set_once(); // TODO: find a better place to initialize it
-        Self(umbral::UmbralSecretKey::random().to_bytes())
+        Self(umbral::UmbralSecretKey::random().to_array())
     }
 
     pub(crate) fn to_backend(&self) -> umbral::UmbralSecretKey {
@@ -25,14 +24,16 @@ impl UmbralSecretKey {
 }
 
 #[wasm_bindgen]
-pub struct UmbralPublicKey(GenericArray<u8, <umbral::UmbralPublicKey as Serializable>::Size>);
+pub struct UmbralPublicKey(
+    GenericArray<u8, <umbral::UmbralPublicKey as SerializableToArray>::Size>,
+);
 
 #[wasm_bindgen]
 impl UmbralPublicKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn from_secret_key(secret_key: &UmbralSecretKey) -> Self {
         let sk = secret_key.to_backend();
-        Self(umbral::UmbralPublicKey::from_secret_key(&sk).to_bytes())
+        Self(umbral::UmbralPublicKey::from_secret_key(&sk).to_array())
     }
 
     pub(crate) fn to_backend(&self) -> umbral::UmbralPublicKey {
@@ -41,13 +42,15 @@ impl UmbralPublicKey {
 }
 
 #[wasm_bindgen]
-pub struct UmbralParameters(GenericArray<u8, <umbral::UmbralParameters as Serializable>::Size>);
+pub struct UmbralParameters(
+    GenericArray<u8, <umbral::UmbralParameters as SerializableToArray>::Size>,
+);
 
 #[wasm_bindgen]
 impl UmbralParameters {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self(umbral::UmbralParameters::new().to_bytes())
+        Self(umbral::UmbralParameters::new().to_array())
     }
 
     pub(crate) fn to_backend(&self) -> umbral::UmbralParameters {
@@ -55,13 +58,19 @@ impl UmbralParameters {
     }
 }
 
+impl Default for UmbralParameters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
-pub struct Capsule(GenericArray<u8, <umbral::Capsule as Serializable>::Size>);
+pub struct Capsule(GenericArray<u8, <umbral::Capsule as SerializableToArray>::Size>);
 
 impl Capsule {
     fn from_backend(capsule: &umbral::Capsule) -> Self {
-        Self(capsule.to_bytes())
+        Self(capsule.to_array())
     }
 
     fn to_backend(&self) -> umbral::Capsule {
@@ -79,8 +88,8 @@ pub struct EncryptionResult {
 impl EncryptionResult {
     fn new(ciphertext: Vec<u8>, capsule: Capsule) -> Self {
         Self {
-            ciphertext: ciphertext,
-            capsule: capsule,
+            ciphertext,
+            capsule,
         }
     }
 

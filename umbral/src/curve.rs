@@ -35,7 +35,7 @@ pub struct CurveScalar(BackendScalar);
 
 impl CurveScalar {
     pub(crate) fn invert(&self) -> CtOption<Self> {
-        self.0.invert().map(|x| Self(x))
+        self.0.invert().map(Self)
     }
 
     pub(crate) fn one() -> Self {
@@ -211,9 +211,7 @@ impl SerializableToArray for UmbralSecretKey {
     }
 
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        SecretKey::<CurveType>::from_bytes(bytes)
-            .ok()
-            .map(|sk| Self(sk))
+        SecretKey::<CurveType>::from_bytes(bytes).ok().map(Self)
     }
 }
 
@@ -256,9 +254,7 @@ impl SerializableToArray for UmbralPublicKey {
     }
 
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        EncodedPoint::<CurveType>::from_bytes(bytes)
-            .ok()
-            .map(|sk| Self(sk))
+        EncodedPoint::<CurveType>::from_bytes(bytes).ok().map(Self)
     }
 }
 

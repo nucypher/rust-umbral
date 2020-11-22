@@ -135,6 +135,7 @@ impl Capsule {
         shared_key.to_array()
     }
 
+    #[allow(clippy::many_single_char_names)]
     fn open_reencrypted_generic<LC: LambdaCoeff>(
         &self,
         receiving_privkey: &UmbralSecretKey,
