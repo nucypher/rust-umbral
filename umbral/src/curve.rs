@@ -250,7 +250,7 @@ impl SerializableToArray for UmbralPublicKey {
         // so `to_bytes()` does not have a compile-time size,
         // and we have to do this conversion
         // (we know that in our case it is always compressed).
-        *GenericArray::<u8, Self::Size>::from_slice(&self.0.to_bytes())
+        *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
     }
 
     fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
