@@ -25,7 +25,9 @@ jobs:
           - 1.46.0 # MSRV
           - stable
         target:
-          - thumbv7em-none-eabi
+          # FIXME: there are some build problems with `getrandom` package.
+          # See if they are fixed when `k256` and its dependencies switch to `getrandom=0.2`
+          #- thumbv7em-none-eabi
           - wasm32-unknown-unknown
     steps:
       - uses: actions/checkout@v1
@@ -36,6 +38,7 @@ jobs:
           target: ${{ matrix.target }}
           override: true
       #- run: cp ../../Cargo.lock .. # Use same Cargo.lock resolution that's checked in
+      - run: cargo tree --target ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }} --features std
 
