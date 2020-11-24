@@ -9,9 +9,9 @@ use crate::traits::SerializableToArray;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use generic_array::sequence::Concat;
-use generic_array::typenum::{op, Unsigned};
-use generic_array::{sequence::Split, ArrayLength, GenericArray};
+use generic_array::sequence::{Concat, Split};
+use generic_array::{ArrayLength, GenericArray};
+use typenum::{op, Unsigned};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {

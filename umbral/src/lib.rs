@@ -25,7 +25,7 @@ pub use key_frag::generate_kfrags;
 
 pub use capsule::Capsule;
 pub use curve::{UmbralPublicKey, UmbralSecretKey};
-pub use key_frag::KeyFragFactoryHeapless;
+pub use key_frag::{KeyFrag, KeyFragFactoryHeapless};
 pub use params::UmbralParameters;
 pub use pre::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};
 pub use traits::SerializableToArray;

@@ -5,7 +5,7 @@
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
-use ecdsa::{SecretKey, Signature, SigningKey, VerifyKey};
+use ecdsa::{SecretKey, Signature, SignatureSize, SigningKey, VerifyKey};
 use elliptic_curve::ff::PrimeField;
 use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
@@ -14,6 +14,7 @@ use generic_array::typenum::U32;
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
+use signature::Signature as SignatureTrait;
 use signature::{DigestVerifier, RandomizedDigestSigner};
 use subtle::CtOption;
 
@@ -171,6 +172,20 @@ impl SerializableToArray for CurvePoint {
 
 #[derive(Clone, Debug)]
 pub struct UmbralSignature(Signature<CurveType>);
+
+impl SerializableToArray for UmbralSignature {
+    type Size = SignatureSize<CurveType>;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        Signature::<CurveType>::from_bytes(bytes.as_ref())
+            .ok()
+            .map(Self)
+    }
+}
 
 /// Umbral secret key.
 #[derive(Clone, Debug)]
