@@ -156,6 +156,7 @@ pub fn decrypt_original(
 #[wasm_bindgen]
 pub struct KeyFrag(GenericArray<u8, <umbral::KeyFrag as SerializableToArray>::Size>);
 
+#[wasm_bindgen]
 impl KeyFrag {
     fn from_backend(kfrag: &umbral::KeyFrag) -> Self {
         Self(kfrag.to_array())
@@ -163,6 +164,25 @@ impl KeyFrag {
 
     fn to_backend(&self) -> umbral::KeyFrag {
         umbral::KeyFrag::from_bytes(&self.0).unwrap()
+    }
+
+    // TODO: support `Option<&UmbralPublicKey> arguments.
+    // Currently in `wasm_bindgen` it requires some undocumented and `unsafe` implementations.
+    // Alternatively, change the API to eliminate the need in Optional arguments.
+    #[wasm_bindgen]
+    pub fn verify(
+            &self,
+            signing_pubkey: &UmbralPublicKey,
+            delegating_pubkey: &UmbralPublicKey,
+            receiving_pubkey: &UmbralPublicKey) -> bool {
+
+        let backend_delegating_pubkey = delegating_pubkey.to_backend();
+        let backend_receiving_pubkey = receiving_pubkey.to_backend();
+
+        self.to_backend().verify(
+            &signing_pubkey.to_backend(),
+            Some(&backend_delegating_pubkey),
+            Some(&backend_receiving_pubkey))
     }
 }
 

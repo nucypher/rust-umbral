@@ -39,13 +39,13 @@ const kfrags = wasm.generate_kfrags(
 const prepared_capsule = capsule.with_correctness_keys(
     delegating_pk, receiving_pk, signing_pk);
 
-/*
-for kfrag in kfrags {
-    if kfrag.verify(signing_pk, delegating_pk, receiving_pk) {
-        console.log("kfrag verified")
+kfrags.forEach(function (kfrag) {
+    if (kfrag.verify(signing_pk, delegating_pk, receiving_pk)) {
+        console.log("kfrag verified");
     }
-}
+});
 
+/*
 const cfrags = kfrags.map(kfrag => prepared_capsule.reencrypt(kfrag, null, true));
 
 const reenc_plaintext = wasm.decrypt_reencrypted(
