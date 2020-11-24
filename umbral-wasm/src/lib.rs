@@ -1,5 +1,5 @@
 use generic_array::GenericArray;
-use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 use umbral::SerializableToArray;
 
@@ -121,4 +121,47 @@ pub fn decrypt_original(
     let backend_capsule = capsule.to_backend();
     let backend_key = decrypting_key.to_backend();
     umbral::decrypt_original(ciphertext, &backend_capsule, &backend_key).unwrap()
+}
+
+#[wasm_bindgen]
+pub struct KeyFrag(GenericArray<u8, <umbral::KeyFrag as SerializableToArray>::Size>);
+
+impl KeyFrag {
+    fn from_backend(kfrag: &umbral::KeyFrag) -> Self {
+        Self(kfrag.to_array())
+    }
+
+    fn to_backend(&self) -> umbral::KeyFrag {
+        umbral::KeyFrag::from_bytes(&self.0).unwrap()
+    }
+}
+
+#[wasm_bindgen]
+pub fn generate_kfrags(
+    params: &UmbralParameters,
+    delegating_privkey: &UmbralSecretKey,
+    receiving_pubkey: &UmbralPublicKey,
+    signing_privkey: &UmbralSecretKey,
+    threshold: usize,
+    num_kfrags: usize,
+    sign_delegating_key: bool,
+    sign_receiving_key: bool,
+) -> Vec<JsValue> {
+    let backend_params = params.to_backend();
+    let backend_delegating_privkey = delegating_privkey.to_backend();
+    let backend_receiving_pubkey = receiving_pubkey.to_backend();
+    let backend_signing_privkey = signing_privkey.to_backend();
+    let backend_kfrags = umbral::generate_kfrags(
+        &backend_params,
+        &backend_delegating_privkey,
+        &backend_receiving_pubkey,
+        &backend_signing_privkey,
+        threshold,
+        num_kfrags,
+        sign_delegating_key,
+        sign_receiving_key);
+
+    // Apparently we cannot just return a vector of things,
+    // so we have to convert them to JsValues manually.
+    backend_kfrags.iter().map(|kfrag| KeyFrag::from_backend(&kfrag)).map(JsValue::from).collect()
 }
