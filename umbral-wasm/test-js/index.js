@@ -36,12 +36,10 @@ const kfrags = wasm.generate_kfrags(
     true,
     true);
 
-console.log(kfrags);
-
-/*
 const prepared_capsule = capsule.with_correctness_keys(
     delegating_pk, receiving_pk, signing_pk);
 
+/*
 for kfrag in kfrags {
     if kfrag.verify(signing_pk, delegating_pk, receiving_pk) {
         console.log("kfrag verified")

@@ -24,6 +24,7 @@ pub struct Capsule {
 type UmbralParametersSize = <UmbralParameters as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
+type PublicKeySize = <UmbralPublicKey as SerializableToArray>::Size;
 type CapsuleSize = op!(UmbralParametersSize + PointSize + PointSize + ScalarSize);
 
 impl SerializableToArray for Capsule {
@@ -273,6 +274,41 @@ pub struct PreparedCapsule {
     pub(crate) delegating_key: UmbralPublicKey,
     pub(crate) receiving_key: UmbralPublicKey,
     pub(crate) verifying_key: UmbralPublicKey,
+}
+
+type PreparedCapsuleSize = op!(CapsuleSize + PublicKeySize + PublicKeySize + PublicKeySize);
+
+impl SerializableToArray for PreparedCapsule {
+    type Size = PreparedCapsuleSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.capsule
+            .to_array()
+            .concat(self.delegating_key.to_array())
+            .concat(self.receiving_key.to_array())
+            .concat(self.verifying_key.to_array())
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        // TODO: can fail here; return None in this case
+        let sized_bytes = GenericArray::<u8, PreparedCapsuleSize>::from_slice(bytes.as_ref());
+
+        let (capsule_bytes, rest): (
+            &GenericArray<u8, CapsuleSize>,
+            &GenericArray<u8, _>,
+        ) = sized_bytes.split();
+        let (delegating_key_bytes, rest): (&GenericArray<u8, PublicKeySize>, &GenericArray<u8, _>) = rest.split();
+        let (receiving_key_bytes, verifying_key_bytes): (&GenericArray<u8, PublicKeySize>, &GenericArray<u8, _>) =
+            rest.split();
+
+        // TODO: propagate error properly
+        let capsule = Capsule::from_bytes(&capsule_bytes).unwrap();
+        let delegating_key = UmbralPublicKey::from_bytes(&delegating_key_bytes).unwrap();
+        let receiving_key = UmbralPublicKey::from_bytes(&receiving_key_bytes).unwrap();
+        let verifying_key = UmbralPublicKey::from_bytes(&verifying_key_bytes).unwrap();
+
+        Some(PreparedCapsule { capsule, delegating_key, receiving_key, verifying_key })
+    }
 }
 
 impl PreparedCapsule {

@@ -68,6 +68,7 @@ impl Default for UmbralParameters {
 #[derive(Clone, Copy)]
 pub struct Capsule(GenericArray<u8, <umbral::Capsule as SerializableToArray>::Size>);
 
+#[wasm_bindgen]
 impl Capsule {
     fn from_backend(capsule: &umbral::Capsule) -> Self {
         Self(capsule.to_array())
@@ -75,6 +76,35 @@ impl Capsule {
 
     fn to_backend(&self) -> umbral::Capsule {
         umbral::Capsule::from_bytes(&self.0).unwrap()
+    }
+
+    #[wasm_bindgen]
+    pub fn with_correctness_keys(
+        &self,
+        delegating: &UmbralPublicKey,
+        receiving: &UmbralPublicKey,
+        verifying: &UmbralPublicKey,
+    ) -> PreparedCapsule {
+        let pc = umbral::Capsule::with_correctness_keys(
+            &self.to_backend(),
+            &delegating.to_backend(),
+            &receiving.to_backend(),
+            &verifying.to_backend());
+
+        PreparedCapsule::from_backend(&pc)
+    }
+}
+
+#[wasm_bindgen]
+pub struct PreparedCapsule(GenericArray<u8, <umbral::PreparedCapsule as SerializableToArray>::Size>);
+
+impl PreparedCapsule {
+    fn from_backend(capsule: &umbral::PreparedCapsule) -> Self {
+        Self(capsule.to_array())
+    }
+
+    fn to_backend(&self) -> umbral::PreparedCapsule {
+        umbral::PreparedCapsule::from_bytes(&self.0).unwrap()
     }
 }
 
