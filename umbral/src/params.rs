@@ -29,8 +29,9 @@ impl SerializableToArray for UmbralParameters {
         self.u.to_array()
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        CurvePoint::from_bytes(bytes).map(|u| Self { u })
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        let u = CurvePoint::take_last(*arr)?;
+        Some(Self { u })
     }
 }
 

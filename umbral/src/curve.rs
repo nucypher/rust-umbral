@@ -70,10 +70,8 @@ impl SerializableToArray for CurveScalar {
         self.0.to_bytes()
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        // TODO: what happens if the length of `bytes` is wrong?
-        let sized_bytes = GenericArray::<u8, Self::Size>::from_slice(bytes.as_ref());
-        Scalar::<CurveType>::from_repr(*sized_bytes).map(Self)
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        Scalar::<CurveType>::from_repr(*arr).map(Self)
     }
 }
 
@@ -155,8 +153,8 @@ impl SerializableToArray for CurvePoint {
         )
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(bytes);
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice());
         if ep.is_err() {
             return None;
         }
@@ -180,8 +178,8 @@ impl SerializableToArray for UmbralSignature {
         *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        Signature::<CurveType>::from_bytes(bytes.as_ref())
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        Signature::<CurveType>::from_bytes(arr.as_slice())
             .ok()
             .map(Self)
     }
@@ -225,8 +223,10 @@ impl SerializableToArray for UmbralSecretKey {
         self.0.to_bytes()
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        SecretKey::<CurveType>::from_bytes(bytes).ok().map(Self)
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        SecretKey::<CurveType>::from_bytes(arr.as_slice())
+            .ok()
+            .map(Self)
     }
 }
 
@@ -268,8 +268,10 @@ impl SerializableToArray for UmbralPublicKey {
         *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        EncodedPoint::<CurveType>::from_bytes(bytes).ok().map(Self)
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        EncodedPoint::<CurveType>::from_bytes(arr.as_slice())
+            .ok()
+            .map(Self)
     }
 }
 

@@ -8,7 +8,7 @@ use crate::traits::SerializableToArray;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use generic_array::sequence::{Concat, Split};
+use generic_array::sequence::Concat;
 use generic_array::{ArrayLength, GenericArray};
 use typenum::{op, Unsigned, U1};
 
@@ -39,33 +39,13 @@ impl SerializableToArray for KeyFragProof {
             .concat(self.receiving_key_signed.to_array())
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        // TODO: can fail here; return None in this case
-        let sized_bytes = GenericArray::<u8, KeyFragProofSize>::from_slice(bytes.as_ref());
-
-        let (commitment_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) =
-            sized_bytes.split();
-        let (signature_for_proxy_bytes, rest): (
-            &GenericArray<u8, SignatureSize>,
-            &GenericArray<u8, _>,
-        ) = rest.split();
-        let (signature_for_bob_bytes, rest): (
-            &GenericArray<u8, SignatureSize>,
-            &GenericArray<u8, _>,
-        ) = rest.split();
-        let (delegating_key_signed_bytes, receiving_key_signed_bytes): (
-            &GenericArray<u8, U1>,
-            &GenericArray<u8, _>,
-        ) = rest.split();
-
-        // TODO: propagate error properly
-        let commitment = CurvePoint::from_bytes(&commitment_bytes).unwrap();
-        let signature_for_proxy = UmbralSignature::from_bytes(&signature_for_proxy_bytes).unwrap();
-        let signature_for_bob = UmbralSignature::from_bytes(&signature_for_bob_bytes).unwrap();
-        let delegating_key_signed = bool::from_bytes(&delegating_key_signed_bytes).unwrap();
-        let receiving_key_signed = bool::from_bytes(&receiving_key_signed_bytes).unwrap();
-
-        Some(KeyFragProof {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        let (commitment, rest) = CurvePoint::take(*arr)?;
+        let (signature_for_proxy, rest) = UmbralSignature::take(rest)?;
+        let (signature_for_bob, rest) = UmbralSignature::take(rest)?;
+        let (delegating_key_signed, rest) = bool::take(rest)?;
+        let receiving_key_signed = bool::take_last(rest)?;
+        Some(Self {
             commitment,
             signature_for_proxy,
             signature_for_bob,
@@ -152,25 +132,13 @@ impl SerializableToArray for KeyFrag {
             .concat(self.proof.to_array())
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        // TODO: can fail here; return None in this case
-        let sized_bytes = GenericArray::<u8, KeyFragSize>::from_slice(bytes.as_ref());
-
-        let (params_bytes, rest): (&GenericArray<u8, ParametersSize>, &GenericArray<u8, _>) =
-            sized_bytes.split();
-        let (id_bytes, rest): (&GenericArray<u8, ScalarSize>, &GenericArray<u8, _>) = rest.split();
-        let (key_bytes, rest): (&GenericArray<u8, ScalarSize>, &GenericArray<u8, _>) = rest.split();
-        let (precursor_bytes, proof_bytes): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) =
-            rest.split();
-
-        // TODO: propagate error properly
-        let params = UmbralParameters::from_bytes(&params_bytes).unwrap();
-        let id = CurveScalar::from_bytes(&id_bytes).unwrap();
-        let key = CurveScalar::from_bytes(&key_bytes).unwrap();
-        let precursor = CurvePoint::from_bytes(&precursor_bytes).unwrap();
-        let proof = KeyFragProof::from_bytes(&proof_bytes).unwrap();
-
-        Some(KeyFrag {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        let (params, rest) = UmbralParameters::take(*arr)?;
+        let (id, rest) = CurveScalar::take(rest)?;
+        let (key, rest) = CurveScalar::take(rest)?;
+        let (precursor, rest) = CurvePoint::take(rest)?;
+        let proof = KeyFragProof::take_last(rest)?;
+        Some(Self {
             params,
             id,
             key,

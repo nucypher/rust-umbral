@@ -9,7 +9,7 @@ use crate::traits::SerializableToArray;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use generic_array::sequence::{Concat, Split};
+use generic_array::sequence::Concat;
 use generic_array::{ArrayLength, GenericArray};
 use typenum::{op, Unsigned};
 
@@ -38,43 +38,21 @@ impl SerializableToArray for Capsule {
             .concat(self.signature.to_array())
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        // TODO: can fail here; return None in this case
-        let sized_bytes = GenericArray::<u8, CapsuleSize>::from_slice(bytes.as_ref());
-
-        let (params_bytes, rest): (
-            &GenericArray<u8, UmbralParametersSize>,
-            &GenericArray<u8, _>,
-        ) = sized_bytes.split();
-        let (e_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
-        let (v_bytes, signature): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) =
-            rest.split();
-
-        // TODO: propagate error properly
-        let params = UmbralParameters::from_bytes(&params_bytes).unwrap();
-        let e = CurvePoint::from_bytes(&e_bytes).unwrap();
-        let v = CurvePoint::from_bytes(&v_bytes).unwrap();
-        let signature = CurveScalar::from_bytes(&signature).unwrap();
-
-        Some(Capsule::new(&params, &e, &v, &signature))
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        let (params, rest) = UmbralParameters::take(*arr)?;
+        let (point_e, rest) = CurvePoint::take(rest)?;
+        let (point_v, rest) = CurvePoint::take(rest)?;
+        let signature = CurveScalar::take_last(rest)?;
+        Some(Self {
+            params,
+            point_e,
+            point_v,
+            signature,
+        })
     }
 }
 
 impl Capsule {
-    fn new(
-        params: &UmbralParameters,
-        e: &CurvePoint,
-        v: &CurvePoint,
-        signature: &CurveScalar,
-    ) -> Self {
-        Self {
-            params: *params,
-            point_e: *e,
-            point_v: *v,
-            signature: *signature,
-        }
-    }
-
     pub fn with_correctness_keys(
         &self,
         delegating: &UmbralPublicKey,
@@ -289,26 +267,12 @@ impl SerializableToArray for PreparedCapsule {
             .concat(self.verifying_key.to_array())
     }
 
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
-        // TODO: can fail here; return None in this case
-        let sized_bytes = GenericArray::<u8, PreparedCapsuleSize>::from_slice(bytes.as_ref());
-
-        let (capsule_bytes, rest): (&GenericArray<u8, CapsuleSize>, &GenericArray<u8, _>) =
-            sized_bytes.split();
-        let (delegating_key_bytes, rest): (&GenericArray<u8, PublicKeySize>, &GenericArray<u8, _>) =
-            rest.split();
-        let (receiving_key_bytes, verifying_key_bytes): (
-            &GenericArray<u8, PublicKeySize>,
-            &GenericArray<u8, _>,
-        ) = rest.split();
-
-        // TODO: propagate error properly
-        let capsule = Capsule::from_bytes(&capsule_bytes).unwrap();
-        let delegating_key = UmbralPublicKey::from_bytes(&delegating_key_bytes).unwrap();
-        let receiving_key = UmbralPublicKey::from_bytes(&receiving_key_bytes).unwrap();
-        let verifying_key = UmbralPublicKey::from_bytes(&verifying_key_bytes).unwrap();
-
-        Some(PreparedCapsule {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        let (capsule, rest) = Capsule::take(*arr)?;
+        let (delegating_key, rest) = UmbralPublicKey::take(rest)?;
+        let (receiving_key, rest) = UmbralPublicKey::take(rest)?;
+        let verifying_key = UmbralPublicKey::take_last(rest)?;
+        Some(Self {
             capsule,
             delegating_key,
             receiving_key,
