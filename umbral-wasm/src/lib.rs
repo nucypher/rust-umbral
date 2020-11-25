@@ -89,13 +89,15 @@ impl Capsule {
             &self.to_backend(),
             &delegating.to_backend(),
             &receiving.to_backend(),
-            &verifying.to_backend());
+            &verifying.to_backend(),
+        );
 
         PreparedCapsule::from_backend(&pc)
     }
 }
 
 #[wasm_bindgen]
+#[derive(Clone, Copy)]
 pub struct CapsuleFrag(GenericArray<u8, <umbral::CapsuleFrag as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
@@ -110,7 +112,10 @@ impl CapsuleFrag {
 }
 
 #[wasm_bindgen]
-pub struct PreparedCapsule(GenericArray<u8, <umbral::PreparedCapsule as SerializableToArray>::Size>);
+#[derive(Clone, Copy)]
+pub struct PreparedCapsule(
+    GenericArray<u8, <umbral::PreparedCapsule as SerializableToArray>::Size>,
+);
 
 #[wasm_bindgen]
 impl PreparedCapsule {
@@ -136,7 +141,56 @@ impl PreparedCapsule {
         }
         let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
 
-        backend_self.reencrypt(&backend_kfrag, metadata_slice, verify_kfrag).map(|x| CapsuleFrag::from_backend(&x))
+        backend_self
+            .reencrypt(&backend_kfrag, metadata_slice, verify_kfrag)
+            .map(|x| CapsuleFrag::from_backend(&x))
+    }
+
+    // TODO: have to add cfrags one by one since `wasm_bindgen` currently does not support
+    // Vec<CustomStruct> as a parameter.
+    #[wasm_bindgen]
+    pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
+        CapsuleWithFrags {
+            capsule: *self,
+            cfrags: vec![*cfrag],
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub struct CapsuleWithFrags {
+    capsule: PreparedCapsule,
+    cfrags: Vec<CapsuleFrag>,
+}
+
+#[wasm_bindgen]
+impl CapsuleWithFrags {
+    #[wasm_bindgen]
+    pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
+        let mut new_cfrags = self.cfrags.clone();
+        new_cfrags.push(*cfrag);
+        Self {
+            capsule: self.capsule,
+            cfrags: new_cfrags,
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn decrypt_reencrypted(
+        &self,
+        ciphertext: &[u8],
+        decrypting_key: &UmbralSecretKey,
+        check_proof: bool,
+    ) -> Option<Vec<u8>> {
+        let backend_cfrags: Vec<umbral::CapsuleFrag> =
+            self.cfrags.iter().map(CapsuleFrag::to_backend).collect();
+        umbral::decrypt_reencrypted(
+            ciphertext,
+            &self.capsule.to_backend(),
+            backend_cfrags.as_slice(),
+            &decrypting_key.to_backend(),
+            check_proof,
+        )
     }
 }
 
@@ -203,18 +257,19 @@ impl KeyFrag {
     // Alternatively, change the API to eliminate the need in Optional arguments.
     #[wasm_bindgen]
     pub fn verify(
-            &self,
-            signing_pubkey: &UmbralPublicKey,
-            delegating_pubkey: &UmbralPublicKey,
-            receiving_pubkey: &UmbralPublicKey) -> bool {
-
+        &self,
+        signing_pubkey: &UmbralPublicKey,
+        delegating_pubkey: &UmbralPublicKey,
+        receiving_pubkey: &UmbralPublicKey,
+    ) -> bool {
         let backend_delegating_pubkey = delegating_pubkey.to_backend();
         let backend_receiving_pubkey = receiving_pubkey.to_backend();
 
         self.to_backend().verify(
             &signing_pubkey.to_backend(),
             Some(&backend_delegating_pubkey),
-            Some(&backend_receiving_pubkey))
+            Some(&backend_receiving_pubkey),
+        )
     }
 }
 
@@ -241,9 +296,14 @@ pub fn generate_kfrags(
         threshold,
         num_kfrags,
         sign_delegating_key,
-        sign_receiving_key);
+        sign_receiving_key,
+    );
 
     // Apparently we cannot just return a vector of things,
     // so we have to convert them to JsValues manually.
-    backend_kfrags.iter().map(|kfrag| KeyFrag::from_backend(&kfrag)).map(JsValue::from).collect()
+    backend_kfrags
+        .iter()
+        .map(|kfrag| KeyFrag::from_backend(&kfrag))
+        .map(JsValue::from)
+        .collect()
 }

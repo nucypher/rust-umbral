@@ -293,13 +293,14 @@ impl SerializableToArray for PreparedCapsule {
         // TODO: can fail here; return None in this case
         let sized_bytes = GenericArray::<u8, PreparedCapsuleSize>::from_slice(bytes.as_ref());
 
-        let (capsule_bytes, rest): (
-            &GenericArray<u8, CapsuleSize>,
-            &GenericArray<u8, _>,
-        ) = sized_bytes.split();
-        let (delegating_key_bytes, rest): (&GenericArray<u8, PublicKeySize>, &GenericArray<u8, _>) = rest.split();
-        let (receiving_key_bytes, verifying_key_bytes): (&GenericArray<u8, PublicKeySize>, &GenericArray<u8, _>) =
+        let (capsule_bytes, rest): (&GenericArray<u8, CapsuleSize>, &GenericArray<u8, _>) =
+            sized_bytes.split();
+        let (delegating_key_bytes, rest): (&GenericArray<u8, PublicKeySize>, &GenericArray<u8, _>) =
             rest.split();
+        let (receiving_key_bytes, verifying_key_bytes): (
+            &GenericArray<u8, PublicKeySize>,
+            &GenericArray<u8, _>,
+        ) = rest.split();
 
         // TODO: propagate error properly
         let capsule = Capsule::from_bytes(&capsule_bytes).unwrap();
@@ -307,7 +308,12 @@ impl SerializableToArray for PreparedCapsule {
         let receiving_key = UmbralPublicKey::from_bytes(&receiving_key_bytes).unwrap();
         let verifying_key = UmbralPublicKey::from_bytes(&verifying_key_bytes).unwrap();
 
-        Some(PreparedCapsule { capsule, delegating_key, receiving_key, verifying_key })
+        Some(PreparedCapsule {
+            capsule,
+            delegating_key,
+            receiving_key,
+            verifying_key,
+        })
     }
 }
 

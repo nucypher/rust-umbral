@@ -48,15 +48,12 @@ kfrags.forEach(function (kfrag) {
 let metadata = "asbdasdasd";
 const cfrags = kfrags.map(kfrag => prepared_capsule.reencrypt(kfrag, enc.encode(metadata), true));
 
-/*
-const reenc_plaintext = wasm.decrypt_reencrypted(
-    ciphertext,
-    prepared_capsule,
-    cfrags.slice(0, 2),
-    receiving_privkey,
-    true);
 
-if reenc_plaintext == msg {
+const reenc_plaintext = prepared_capsule
+    .with_cfrag(cfrags[0])
+    .with_cfrag(cfrags[1])
+    .decrypt_reencrypted(ciphertext, receiving_sk, true);
+
+if (dec.decode(reenc_plaintext) == msg) {
     console.log("decrypt_reencrypted() passed.")
 }
-*/
