@@ -24,6 +24,7 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
 pub use key_frag::generate_kfrags;
 
 pub use capsule::{Capsule, PreparedCapsule};
+pub use capsule_frag::CapsuleFrag;
 pub use curve::{UmbralPublicKey, UmbralSecretKey};
 pub use key_frag::{KeyFrag, KeyFragFactoryHeapless};
 pub use params::UmbralParameters;

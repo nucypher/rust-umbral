@@ -96,8 +96,23 @@ impl Capsule {
 }
 
 #[wasm_bindgen]
+pub struct CapsuleFrag(GenericArray<u8, <umbral::CapsuleFrag as SerializableToArray>::Size>);
+
+#[wasm_bindgen]
+impl CapsuleFrag {
+    fn from_backend(cfrag: &umbral::CapsuleFrag) -> Self {
+        Self(cfrag.to_array())
+    }
+
+    fn to_backend(&self) -> umbral::CapsuleFrag {
+        umbral::CapsuleFrag::from_bytes(&self.0).unwrap()
+    }
+}
+
+#[wasm_bindgen]
 pub struct PreparedCapsule(GenericArray<u8, <umbral::PreparedCapsule as SerializableToArray>::Size>);
 
+#[wasm_bindgen]
 impl PreparedCapsule {
     fn from_backend(capsule: &umbral::PreparedCapsule) -> Self {
         Self(capsule.to_array())
@@ -105,6 +120,23 @@ impl PreparedCapsule {
 
     fn to_backend(&self) -> umbral::PreparedCapsule {
         umbral::PreparedCapsule::from_bytes(&self.0).unwrap()
+    }
+
+    #[wasm_bindgen]
+    pub fn reencrypt(
+        &self,
+        kfrag: &KeyFrag,
+        metadata: Option<Box<[u8]>>,
+        verify_kfrag: bool,
+    ) -> Option<CapsuleFrag> {
+        let backend_self = self.to_backend();
+        let backend_kfrag = kfrag.to_backend();
+        if verify_kfrag && !backend_self.verify_kfrag(&backend_kfrag) {
+            return None;
+        }
+        let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
+
+        backend_self.reencrypt(&backend_kfrag, metadata_slice, verify_kfrag).map(|x| CapsuleFrag::from_backend(&x))
     }
 }
 

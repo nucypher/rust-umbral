@@ -45,9 +45,10 @@ kfrags.forEach(function (kfrag) {
     }
 });
 
-/*
-const cfrags = kfrags.map(kfrag => prepared_capsule.reencrypt(kfrag, null, true));
+let metadata = "asbdasdasd";
+const cfrags = kfrags.map(kfrag => prepared_capsule.reencrypt(kfrag, enc.encode(metadata), true));
 
+/*
 const reenc_plaintext = wasm.decrypt_reencrypted(
     ciphertext,
     prepared_capsule,

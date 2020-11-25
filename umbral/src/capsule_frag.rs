@@ -3,6 +3,11 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{UmbralPublicKey, UmbralSignature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::key_frag::KeyFrag;
+use crate::traits::SerializableToArray;
+
+use generic_array::sequence::{Concat, Split};
+use generic_array::GenericArray;
+use typenum::op;
 
 pub struct CapsuleFragProof {
     point_e2: CurvePoint,
@@ -17,6 +22,48 @@ pub struct CapsuleFragProof {
     // generic on the metadata size, and that's just too cumbersome.
     // Instead I'm hashing it to a scalar. Hope it's ok.
     metadata: CurveScalar,
+}
+
+type PointSize = <CurvePoint as SerializableToArray>::Size;
+type ScalarSize = <CurveScalar as SerializableToArray>::Size;
+type SignatureSize = <UmbralSignature as SerializableToArray>::Size;
+type CapsuleFragProofSize = op!(PointSize + PointSize + PointSize + PointSize + ScalarSize + SignatureSize + ScalarSize);
+
+impl SerializableToArray for CapsuleFragProof {
+    type Size = CapsuleFragProofSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.point_e2.to_array()
+            .concat(self.point_v2.to_array())
+            .concat(self.kfrag_commitment.to_array())
+            .concat(self.kfrag_pok.to_array())
+            .concat(self.signature.to_array())
+            .concat(self.kfrag_signature.to_array())
+            .concat(self.metadata.to_array())
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        // TODO: can fail here; return None in this case
+        let sized_bytes = GenericArray::<u8, CapsuleFragProofSize>::from_slice(bytes.as_ref());
+
+        let (point_e2_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = sized_bytes.split();
+        let (point_v2_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
+        let (kfrag_commitment_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
+        let (kfrag_pok_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
+        let (signature_bytes, rest): (&GenericArray<u8, ScalarSize>, &GenericArray<u8, _>) = rest.split();
+        let (kfrag_signature_bytes, metadata_bytes): (&GenericArray<u8, SignatureSize>, &GenericArray<u8, _>) = rest.split();
+
+        // TODO: propagate error properly
+        let point_e2 = CurvePoint::from_bytes(&point_e2_bytes).unwrap();
+        let point_v2 = CurvePoint::from_bytes(&point_v2_bytes).unwrap();
+        let kfrag_commitment = CurvePoint::from_bytes(&kfrag_commitment_bytes).unwrap();
+        let kfrag_pok = CurvePoint::from_bytes(&kfrag_pok_bytes).unwrap();
+        let signature = CurveScalar::from_bytes(&signature_bytes).unwrap();
+        let kfrag_signature = UmbralSignature::from_bytes(&kfrag_signature_bytes).unwrap();
+        let metadata = CurveScalar::from_bytes(&metadata_bytes).unwrap();
+
+        Some(CapsuleFragProof { point_e2, point_v2, kfrag_commitment, kfrag_pok, signature, kfrag_signature, metadata })
+    }
 }
 
 impl CapsuleFragProof {
@@ -75,6 +122,39 @@ pub struct CapsuleFrag {
     pub(crate) kfrag_id: CurveScalar,
     pub(crate) precursor: CurvePoint,
     pub(crate) proof: CapsuleFragProof,
+}
+
+type CapsuleFragSize = op!(PointSize + PointSize + ScalarSize + PointSize + CapsuleFragProofSize);
+
+impl SerializableToArray for CapsuleFrag {
+    type Size = CapsuleFragSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.point_e1.to_array()
+            .concat(self.point_v1.to_array())
+            .concat(self.kfrag_id.to_array())
+            .concat(self.precursor.to_array())
+            .concat(self.proof.to_array())
+    }
+
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+        // TODO: can fail here; return None in this case
+        let sized_bytes = GenericArray::<u8, CapsuleFragSize>::from_slice(bytes.as_ref());
+
+        let (point_e1_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = sized_bytes.split();
+        let (point_v1_bytes, rest): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
+        let (kfrag_id_bytes, rest): (&GenericArray<u8, ScalarSize>, &GenericArray<u8, _>) = rest.split();
+        let (precursor_bytes, proof_bytes): (&GenericArray<u8, PointSize>, &GenericArray<u8, _>) = rest.split();
+
+        // TODO: propagate error properly
+        let point_e1 = CurvePoint::from_bytes(&point_e1_bytes).unwrap();
+        let point_v1 = CurvePoint::from_bytes(&point_v1_bytes).unwrap();
+        let kfrag_id = CurveScalar::from_bytes(&kfrag_id_bytes).unwrap();
+        let precursor = CurvePoint::from_bytes(&precursor_bytes).unwrap();
+        let proof = CapsuleFragProof::from_bytes(&proof_bytes).unwrap();
+
+        Some(CapsuleFrag { point_e1, point_v1, kfrag_id, precursor, proof })
+    }
 }
 
 impl CapsuleFrag {
