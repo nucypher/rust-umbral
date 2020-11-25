@@ -146,8 +146,9 @@ impl PreparedCapsule {
             .map(|x| CapsuleFrag::from_backend(&x))
     }
 
-    // TODO: have to add cfrags one by one since `wasm_bindgen` currently does not support
+    // FIXME: have to add cfrags one by one since `wasm_bindgen` currently does not support
     // Vec<CustomStruct> as a parameter.
+    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
     #[wasm_bindgen]
     pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
         CapsuleWithFrags {
@@ -209,7 +210,8 @@ impl EncryptionResult {
         }
     }
 
-    // Can't just make the field public because `Vec` doesn't implement `Copy`.
+    // FIXME: currently can't just make the field public because `Vec` doesn't implement `Copy`.
+    // See https://github.com/rustwasm/wasm-bindgen/issues/439
     #[wasm_bindgen(getter)]
     pub fn ciphertext(&self) -> Vec<u8> {
         self.ciphertext.clone()
@@ -252,9 +254,8 @@ impl KeyFrag {
         umbral::KeyFrag::from_bytes(&self.0).unwrap()
     }
 
-    // TODO: support `Option<&UmbralPublicKey> arguments.
-    // Currently in `wasm_bindgen` it requires some undocumented and `unsafe` implementations.
-    // Alternatively, change the API to eliminate the need in Optional arguments.
+    // FIXME: `Option<&UmbralPublicKey> are currently not supported.
+    // See https://github.com/rustwasm/wasm-bindgen/issues/2370
     #[wasm_bindgen]
     pub fn verify(
         &self,
@@ -300,8 +301,9 @@ pub fn generate_kfrags(
         sign_receiving_key,
     );
 
-    // Apparently we cannot just return a vector of things,
+    // FIXME: Apparently we cannot just return a vector of things,
     // so we have to convert them to JsValues manually.
+    // See https://github.com/rustwasm/wasm-bindgen/issues/111
     backend_kfrags
         .iter()
         .map(|kfrag| KeyFrag::from_backend(&kfrag))
