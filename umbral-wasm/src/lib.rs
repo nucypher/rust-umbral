@@ -273,6 +273,7 @@ impl KeyFrag {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn generate_kfrags(
     params: &UmbralParameters,
