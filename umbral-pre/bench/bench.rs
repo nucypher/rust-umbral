@@ -1,7 +1,7 @@
 use criterion::measurement::Measurement;
 use criterion::{criterion_group, criterion_main, BenchmarkGroup, Criterion};
 
-use umbral_pre::hashing::unsafe_hash_to_point;
+use umbral_pre::bench::unsafe_hash_to_point;
 
 fn bench_unsafe_hash_to_point<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let data = b"abcdefg";
@@ -12,7 +12,7 @@ fn bench_unsafe_hash_to_point<'a, M: Measurement>(group: &mut BenchmarkGroup<'a,
 }
 
 fn bench_all(c: &mut Criterion) {
-    let mut group = c.benchmark_group("group name");
+    let mut group = c.benchmark_group("internals");
     bench_unsafe_hash_to_point(&mut group);
     group.finish();
 }
