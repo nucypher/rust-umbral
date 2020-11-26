@@ -1,7 +1,6 @@
 #![no_std]
 
-#[cfg(feature = "std")]
-extern crate std;
+extern crate alloc;
 
 #[macro_use]
 extern crate typenum;
@@ -17,16 +16,12 @@ mod params;
 mod pre;
 mod traits;
 
-#[cfg(feature = "std")]
-pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
-
-#[cfg(feature = "std")]
 pub use key_frag::generate_kfrags;
+pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
 
 pub use capsule::{Capsule, PreparedCapsule};
 pub use capsule_frag::CapsuleFrag;
 pub use curve::{UmbralPublicKey, UmbralSecretKey};
-pub use key_frag::{KeyFrag, KeyFragFactoryHeapless};
+pub use key_frag::KeyFrag;
 pub use params::UmbralParameters;
-pub use pre::{decrypt_original_in_place, decrypt_reencrypted_in_place, encrypt_in_place};
 pub use traits::SerializableToArray;

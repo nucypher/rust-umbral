@@ -30,11 +30,7 @@ getrandom = { version = "0.1", default-features = false, features = ["wasm-bindg
 subtle = { version = "2.3", default-features = false }
 
 [dev-dependencies]
-heapless = "0.5"
 criterion = "0.3"
-
-[features]
-std = ["k256/std"]
 
 [[bench]]
 name = "bench"

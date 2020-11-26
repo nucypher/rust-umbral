@@ -1,10 +1,6 @@
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::vec::Vec;
 
-#[cfg(feature = "std")]
-use aead::{Aead, Payload};
-
-use aead::{AeadInPlace, Buffer};
+use aead::{Aead, AeadInPlace, Payload};
 use blake2::Blake2b;
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
@@ -54,56 +50,6 @@ impl UmbralDEM {
     }
     */
 
-    pub fn encrypt_in_place(
-        &self,
-        buffer: &mut dyn Buffer,
-        authenticated_data: &[u8],
-    ) -> Option<()> {
-        type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
-        let mut nonce = GenericArray::<u8, NonceSize>::default();
-        OsRng.fill_bytes(&mut nonce);
-        let nonce = Nonce::from_slice(&nonce);
-        let result = self
-            .cipher
-            .encrypt_in_place(&nonce, authenticated_data, buffer);
-        match result {
-            // It would be better to add the nonce in front,
-            // but `Buffer` can only be extended from the end.
-            Ok(_) => {
-                let res2 = buffer.extend_from_slice(&nonce);
-                match res2 {
-                    Ok(_) => Some(()),
-                    Err(_) => None,
-                }
-            }
-            Err(_) => None,
-        }
-    }
-
-    pub fn decrypt_in_place(
-        &self,
-        buffer: &mut dyn Buffer,
-        authenticated_data: &[u8],
-    ) -> Option<()> {
-        let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
-        let buf_size = buffer.len();
-
-        if buf_size < nonce_size {
-            return None;
-        }
-
-        let nonce = Nonce::clone_from_slice(&buffer.as_ref()[buf_size - nonce_size..buf_size]);
-        buffer.truncate(buf_size - nonce_size);
-        let result = self
-            .cipher
-            .decrypt_in_place(&nonce, authenticated_data, buffer);
-        match result {
-            Ok(_) => Some(()),
-            Err(_) => None,
-        }
-    }
-
-    #[cfg(feature = "std")]
     pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Vec<u8> {
         type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
@@ -122,7 +68,6 @@ impl UmbralDEM {
         enc_data
     }
 
-    #[cfg(feature = "std")]
     pub fn decrypt(
         &self,
         ciphertext: impl AsRef<[u8]>,

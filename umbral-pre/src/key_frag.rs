@@ -5,12 +5,11 @@ use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::params::UmbralParameters;
 use crate::traits::SerializableToArray;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::vec::Vec;
 
 use generic_array::sequence::Concat;
-use generic_array::{ArrayLength, GenericArray};
-use typenum::{op, Unsigned, U1};
+use generic_array::GenericArray;
+use typenum::{op, U1};
 
 #[derive(Clone, Debug)]
 pub struct KeyFragProof {
@@ -149,12 +148,7 @@ impl SerializableToArray for KeyFrag {
 }
 
 impl KeyFrag {
-    fn new(
-        factory_base: &KeyFragFactoryBase,
-        coefficients: &dyn KeyFragCoefficients,
-        sign_delegating_key: bool,
-        sign_receiving_key: bool,
-    ) -> Self {
+    fn new(factory: &KeyFragFactory, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
         // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
         let kfrag_id = CurveScalar::random_nonzero();
 
@@ -164,9 +158,9 @@ impl KeyFrag {
         // re-encryption key without Bob's intervention
         let share_index = ScalarDigest::new()
             .chain_points(&[
-                factory_base.precursor,
-                factory_base.bob_pubkey_point,
-                factory_base.dh_point,
+                factory.precursor,
+                factory.bob_pubkey_point,
+                factory.dh_point,
             ])
             .chain_bytes(X_COORDINATE)
             .chain_scalar(&kfrag_id)
@@ -174,25 +168,25 @@ impl KeyFrag {
 
         // The re-encryption key share is the result of evaluating the generating
         // polynomial for the index value
-        let rk = coefficients.poly_eval(&share_index);
+        let rk = poly_eval(&factory.coefficients, &share_index);
 
         let proof = KeyFragProof::new(
-            &factory_base.params,
+            &factory.params,
             &kfrag_id,
             &rk,
-            &factory_base.precursor,
-            &factory_base.signing_privkey,
-            &factory_base.delegating_pubkey,
-            &factory_base.receiving_pubkey,
+            &factory.precursor,
+            &factory.signing_privkey,
+            &factory.delegating_pubkey,
+            &factory.receiving_pubkey,
             sign_delegating_key,
             sign_receiving_key,
         );
 
         Self {
-            params: factory_base.params,
+            params: factory.params,
             id: kfrag_id,
             key: rk,
-            precursor: factory_base.precursor,
+            precursor: factory.precursor,
             proof,
         }
     }
@@ -241,7 +235,7 @@ impl KeyFrag {
     }
 }
 
-struct KeyFragFactoryBase {
+struct KeyFragFactory {
     signing_privkey: UmbralSecretKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
@@ -249,15 +243,16 @@ struct KeyFragFactoryBase {
     params: UmbralParameters,
     delegating_pubkey: UmbralPublicKey,
     receiving_pubkey: UmbralPublicKey,
-    coefficient0: CurveScalar,
+    coefficients: Vec<CurveScalar>,
 }
 
-impl KeyFragFactoryBase {
+impl KeyFragFactory {
     pub fn new(
         params: &UmbralParameters,
         delegating_privkey: &UmbralSecretKey,
         receiving_pubkey: &UmbralPublicKey,
         signing_privkey: &UmbralSecretKey,
+        threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
 
@@ -281,6 +276,12 @@ impl KeyFragFactoryBase {
         // Coefficients of the generating polynomial
         let coefficient0 = &delegating_privkey.to_secret_scalar() * &(d.invert().unwrap());
 
+        let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
+        coefficients.push(coefficient0);
+        for _i in 1..threshold {
+            coefficients.push(CurveScalar::random_nonzero());
+        }
+
         Self {
             signing_privkey: signing_privkey.clone(),
             precursor,
@@ -289,100 +290,18 @@ impl KeyFragFactoryBase {
             params: *params,
             delegating_pubkey,
             receiving_pubkey: *receiving_pubkey,
-            coefficient0,
+            coefficients,
         }
     }
 }
 
 // Coefficients of the generating polynomial
-trait KeyFragCoefficients {
-    fn coefficients(&self) -> &[CurveScalar];
-
-    fn poly_eval(&self, x: &CurveScalar) -> CurveScalar {
-        let coeffs = self.coefficients();
-        let mut result: CurveScalar = coeffs[coeffs.len() - 1];
-        for i in (0..coeffs.len() - 1).rev() {
-            result = &(&result * x) + &coeffs[i];
-        }
-        result
+fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
+    let mut result: CurveScalar = coeffs[coeffs.len() - 1];
+    for i in (0..coeffs.len() - 1).rev() {
+        result = &(&result * x) + &coeffs[i];
     }
-}
-
-struct KeyFragCoefficientsHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
-    GenericArray<CurveScalar, Threshold>,
-);
-
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragCoefficientsHeapless<Threshold> {
-    fn new(coeff0: &CurveScalar) -> Self {
-        let mut coefficients = GenericArray::<CurveScalar, Threshold>::default();
-        coefficients[0] = *coeff0;
-        for i in 1..<Threshold as Unsigned>::to_usize() {
-            coefficients[i] = CurveScalar::random_nonzero();
-        }
-        Self(coefficients)
-    }
-}
-
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragCoefficients
-    for KeyFragCoefficientsHeapless<Threshold>
-{
-    fn coefficients(&self) -> &[CurveScalar] {
-        &self.0
-    }
-}
-
-#[cfg(feature = "std")]
-struct KeyFragCoefficientsHeap(Vec<CurveScalar>);
-
-#[cfg(feature = "std")]
-impl KeyFragCoefficientsHeap {
-    fn new(coeff0: &CurveScalar, threshold: usize) -> Self {
-        let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold - 1);
-        coefficients.push(*coeff0);
-        for _i in 1..threshold {
-            coefficients.push(CurveScalar::random_nonzero());
-        }
-        Self(coefficients)
-    }
-}
-
-#[cfg(feature = "std")]
-impl KeyFragCoefficients for KeyFragCoefficientsHeap {
-    fn coefficients(&self) -> &[CurveScalar] {
-        &self.0
-    }
-}
-
-pub struct KeyFragFactoryHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned> {
-    base: KeyFragFactoryBase,
-    coefficients: KeyFragCoefficientsHeapless<Threshold>,
-}
-
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> KeyFragFactoryHeapless<Threshold> {
-    pub fn new(
-        params: &UmbralParameters,
-        delegating_privkey: &UmbralSecretKey,
-        receiving_pubkey: &UmbralPublicKey,
-        signing_privkey: &UmbralSecretKey,
-    ) -> Self {
-        let base = KeyFragFactoryBase::new(
-            params,
-            delegating_privkey,
-            receiving_pubkey,
-            signing_privkey,
-        );
-        let coefficients = KeyFragCoefficientsHeapless::<Threshold>::new(&base.coefficient0);
-        Self { base, coefficients }
-    }
-
-    pub fn make(&self, sign_delegating_key: bool, sign_receiving_key: bool) -> KeyFrag {
-        KeyFrag::new(
-            &self.base,
-            &self.coefficients,
-            sign_delegating_key,
-            sign_receiving_key,
-        )
-    }
+    result
 }
 
 /*
@@ -392,7 +311,6 @@ Requires a threshold number of KeyFrags out of N.
 
 Returns a list of N KeyFrags
 */
-#[cfg(feature = "std")]
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     params: &UmbralParameters,
@@ -409,23 +327,17 @@ pub fn generate_kfrags(
     // Technically we can do threshold > num_kfrags, but the result will be useless
     assert!(threshold <= num_kfrags);
 
-    let base = KeyFragFactoryBase::new(
+    let base = KeyFragFactory::new(
         params,
         delegating_privkey,
         receiving_pubkey,
         signing_privkey,
+        threshold,
     );
-
-    let coefficients = KeyFragCoefficientsHeap::new(&base.coefficient0, threshold);
 
     let mut result = Vec::<KeyFrag>::new();
     for _ in 0..num_kfrags {
-        result.push(KeyFrag::new(
-            &base,
-            &coefficients,
-            sign_delegating_key,
-            sign_receiving_key,
-        ));
+        result.push(KeyFrag::new(&base, sign_delegating_key, sign_receiving_key));
     }
 
     result

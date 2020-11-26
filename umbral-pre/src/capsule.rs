@@ -6,12 +6,11 @@ use crate::key_frag::KeyFrag;
 use crate::params::UmbralParameters;
 use crate::traits::SerializableToArray;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::vec::Vec;
 
 use generic_array::sequence::Concat;
-use generic_array::{ArrayLength, GenericArray};
-use typenum::{op, Unsigned};
+use generic_array::GenericArray;
+use typenum::op;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
@@ -115,7 +114,7 @@ impl Capsule {
     }
 
     #[allow(clippy::many_single_char_names)]
-    fn open_reencrypted_generic<LC: LambdaCoeff>(
+    fn open_reencrypted(
         &self,
         receiving_privkey: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
@@ -127,13 +126,22 @@ impl Capsule {
         let dh_point = &precursor * &receiving_privkey.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
-        let lc = LC::new(cfrags, &[precursor, pub_key, dh_point]);
+        let points = [precursor, pub_key, dh_point];
+        let mut lc = Vec::<CurveScalar>::with_capacity(cfrags.len());
+        for cfrag in cfrags {
+            let coeff = ScalarDigest::new()
+                .chain_points(&points)
+                .chain_bytes(X_COORDINATE)
+                .chain_scalar(&cfrag.kfrag_id)
+                .finalize();
+            lc.push(coeff);
+        }
 
         let mut e_prime = CurvePoint::identity();
         let mut v_prime = CurvePoint::identity();
         for (i, cfrag) in (&cfrags).iter().enumerate() {
             assert!(precursor == cfrag.precursor);
-            let lambda_i = lc.lambda_coeff(i);
+            let lambda_i = lambda_coeff(&lc, i);
             e_prime = &e_prime + &(&cfrag.point_e1 * &lambda_i);
             v_prime = &v_prime + &(&cfrag.point_v1 * &lambda_i);
         }
@@ -157,31 +165,6 @@ impl Capsule {
         let shared_key = &(&e_prime + &v_prime) * &d;
         shared_key.to_array()
     }
-
-    /// Derive the same symmetric encapsulated_key
-    #[cfg(feature = "std")]
-    pub fn open_reencrypted(
-        &self,
-        receiving_privkey: &UmbralSecretKey,
-        delegating_key: &UmbralPublicKey,
-        cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, PointSize> {
-        self.open_reencrypted_generic::<LambdaCoeffHeap>(receiving_privkey, delegating_key, cfrags)
-    }
-
-    /// Derive the same symmetric encapsulated_key
-    pub fn open_reencrypted_heapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
-        &self,
-        receiving_privkey: &UmbralSecretKey,
-        delegating_key: &UmbralPublicKey,
-        cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, PointSize> {
-        self.open_reencrypted_generic::<LambdaCoeffHeapless<Threshold>>(
-            receiving_privkey,
-            delegating_key,
-            cfrags,
-        )
-    }
 }
 
 fn lambda_coeff(xs: &[CurveScalar], i: usize) -> CurveScalar {
@@ -192,58 +175,6 @@ fn lambda_coeff(xs: &[CurveScalar], i: usize) -> CurveScalar {
         }
     }
     res
-}
-
-trait LambdaCoeff {
-    fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self;
-    fn lambda_coeff(&self, i: usize) -> CurveScalar;
-}
-
-struct LambdaCoeffHeapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
-    GenericArray<CurveScalar, Threshold>,
-);
-
-impl<Threshold: ArrayLength<CurveScalar> + Unsigned> LambdaCoeff
-    for LambdaCoeffHeapless<Threshold>
-{
-    fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
-        let mut result = GenericArray::<CurveScalar, Threshold>::default();
-        for i in 0..<Threshold as Unsigned>::to_usize() {
-            result[i] = ScalarDigest::new()
-                .chain_points(points)
-                .chain_bytes(X_COORDINATE)
-                .chain_scalar(&cfrags[i].kfrag_id)
-                .finalize();
-        }
-        Self(result)
-    }
-
-    fn lambda_coeff(&self, i: usize) -> CurveScalar {
-        lambda_coeff(&self.0, i)
-    }
-}
-
-#[cfg(feature = "std")]
-struct LambdaCoeffHeap(Vec<CurveScalar>);
-
-#[cfg(feature = "std")]
-impl LambdaCoeff for LambdaCoeffHeap {
-    fn new(cfrags: &[CapsuleFrag], points: &[CurvePoint]) -> Self {
-        let mut result = Vec::<CurveScalar>::with_capacity(cfrags.len());
-        for cfrag in cfrags {
-            let coeff = ScalarDigest::new()
-                .chain_points(points)
-                .chain_bytes(X_COORDINATE)
-                .chain_scalar(&cfrag.kfrag_id)
-                .finalize();
-            result.push(coeff);
-        }
-        Self(result)
-    }
-
-    fn lambda_coeff(&self, i: usize) -> CurveScalar {
-        lambda_coeff(&self.0, i)
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -312,7 +243,6 @@ impl PreparedCapsule {
         Some(CapsuleFrag::from_kfrag(&self.capsule, &kfrag, metadata))
     }
 
-    #[cfg(feature = "std")]
     pub fn open_reencrypted(
         &self,
         cfrags: &[CapsuleFrag],
@@ -328,31 +258,5 @@ impl PreparedCapsule {
 
         self.capsule
             .open_reencrypted(receiving_privkey, &self.delegating_key, cfrags)
-    }
-
-    /*
-    Activates the Capsule from the attached CFrags,
-    opens the Capsule and returns what is inside.
-
-    This will often be a symmetric key.
-    */
-    pub fn open_reencrypted_heapless<Threshold: ArrayLength<CurveScalar> + Unsigned>(
-        &self,
-        cfrags: &[CapsuleFrag],
-        receiving_privkey: &UmbralSecretKey,
-        check_proof: bool,
-    ) -> GenericArray<u8, PointSize> {
-        if check_proof {
-            // TODO: return Result with Error set to offending cfrag indices or something
-            for cfrag in cfrags {
-                assert!(self.verify_cfrag(cfrag));
-            }
-        }
-
-        self.capsule.open_reencrypted_heapless::<Threshold>(
-            receiving_privkey,
-            &self.delegating_key,
-            cfrags,
-        )
     }
 }
