@@ -1,13 +1,13 @@
 use generic_array::GenericArray;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
-use umbral::SerializableToArray;
+use umbral_pre::SerializableToArray;
 
 use std::vec::Vec;
 
 #[wasm_bindgen]
 pub struct UmbralSecretKey(
-    GenericArray<u8, <umbral::UmbralSecretKey as SerializableToArray>::Size>,
+    GenericArray<u8, <umbral_pre::UmbralSecretKey as SerializableToArray>::Size>,
 );
 
 #[wasm_bindgen]
@@ -15,17 +15,17 @@ impl UmbralSecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
         console_error_panic_hook::set_once(); // TODO: find a better place to initialize it
-        Self(umbral::UmbralSecretKey::random().to_array())
+        Self(umbral_pre::UmbralSecretKey::random().to_array())
     }
 
-    pub(crate) fn to_backend(&self) -> umbral::UmbralSecretKey {
-        umbral::UmbralSecretKey::from_bytes(&self.0).unwrap()
+    pub(crate) fn to_backend(&self) -> umbral_pre::UmbralSecretKey {
+        umbral_pre::UmbralSecretKey::from_bytes(&self.0).unwrap()
     }
 }
 
 #[wasm_bindgen]
 pub struct UmbralPublicKey(
-    GenericArray<u8, <umbral::UmbralPublicKey as SerializableToArray>::Size>,
+    GenericArray<u8, <umbral_pre::UmbralPublicKey as SerializableToArray>::Size>,
 );
 
 #[wasm_bindgen]
@@ -33,28 +33,28 @@ impl UmbralPublicKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn from_secret_key(secret_key: &UmbralSecretKey) -> Self {
         let sk = secret_key.to_backend();
-        Self(umbral::UmbralPublicKey::from_secret_key(&sk).to_array())
+        Self(umbral_pre::UmbralPublicKey::from_secret_key(&sk).to_array())
     }
 
-    pub(crate) fn to_backend(&self) -> umbral::UmbralPublicKey {
-        umbral::UmbralPublicKey::from_bytes(&self.0).unwrap()
+    pub(crate) fn to_backend(&self) -> umbral_pre::UmbralPublicKey {
+        umbral_pre::UmbralPublicKey::from_bytes(&self.0).unwrap()
     }
 }
 
 #[wasm_bindgen]
 pub struct UmbralParameters(
-    GenericArray<u8, <umbral::UmbralParameters as SerializableToArray>::Size>,
+    GenericArray<u8, <umbral_pre::UmbralParameters as SerializableToArray>::Size>,
 );
 
 #[wasm_bindgen]
 impl UmbralParameters {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self(umbral::UmbralParameters::new().to_array())
+        Self(umbral_pre::UmbralParameters::new().to_array())
     }
 
-    pub(crate) fn to_backend(&self) -> umbral::UmbralParameters {
-        umbral::UmbralParameters::from_bytes(&self.0).unwrap()
+    pub(crate) fn to_backend(&self) -> umbral_pre::UmbralParameters {
+        umbral_pre::UmbralParameters::from_bytes(&self.0).unwrap()
     }
 }
 
@@ -66,16 +66,16 @@ impl Default for UmbralParameters {
 
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
-pub struct Capsule(GenericArray<u8, <umbral::Capsule as SerializableToArray>::Size>);
+pub struct Capsule(GenericArray<u8, <umbral_pre::Capsule as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
 impl Capsule {
-    fn from_backend(capsule: &umbral::Capsule) -> Self {
+    fn from_backend(capsule: &umbral_pre::Capsule) -> Self {
         Self(capsule.to_array())
     }
 
-    fn to_backend(&self) -> umbral::Capsule {
-        umbral::Capsule::from_bytes(&self.0).unwrap()
+    fn to_backend(&self) -> umbral_pre::Capsule {
+        umbral_pre::Capsule::from_bytes(&self.0).unwrap()
     }
 
     #[wasm_bindgen]
@@ -85,7 +85,7 @@ impl Capsule {
         receiving: &UmbralPublicKey,
         verifying: &UmbralPublicKey,
     ) -> PreparedCapsule {
-        let pc = umbral::Capsule::with_correctness_keys(
+        let pc = umbral_pre::Capsule::with_correctness_keys(
             &self.to_backend(),
             &delegating.to_backend(),
             &receiving.to_backend(),
@@ -98,33 +98,33 @@ impl Capsule {
 
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
-pub struct CapsuleFrag(GenericArray<u8, <umbral::CapsuleFrag as SerializableToArray>::Size>);
+pub struct CapsuleFrag(GenericArray<u8, <umbral_pre::CapsuleFrag as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
 impl CapsuleFrag {
-    fn from_backend(cfrag: &umbral::CapsuleFrag) -> Self {
+    fn from_backend(cfrag: &umbral_pre::CapsuleFrag) -> Self {
         Self(cfrag.to_array())
     }
 
-    fn to_backend(&self) -> umbral::CapsuleFrag {
-        umbral::CapsuleFrag::from_bytes(&self.0).unwrap()
+    fn to_backend(&self) -> umbral_pre::CapsuleFrag {
+        umbral_pre::CapsuleFrag::from_bytes(&self.0).unwrap()
     }
 }
 
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct PreparedCapsule(
-    GenericArray<u8, <umbral::PreparedCapsule as SerializableToArray>::Size>,
+    GenericArray<u8, <umbral_pre::PreparedCapsule as SerializableToArray>::Size>,
 );
 
 #[wasm_bindgen]
 impl PreparedCapsule {
-    fn from_backend(capsule: &umbral::PreparedCapsule) -> Self {
+    fn from_backend(capsule: &umbral_pre::PreparedCapsule) -> Self {
         Self(capsule.to_array())
     }
 
-    fn to_backend(&self) -> umbral::PreparedCapsule {
-        umbral::PreparedCapsule::from_bytes(&self.0).unwrap()
+    fn to_backend(&self) -> umbral_pre::PreparedCapsule {
+        umbral_pre::PreparedCapsule::from_bytes(&self.0).unwrap()
     }
 
     #[wasm_bindgen]
@@ -183,9 +183,9 @@ impl CapsuleWithFrags {
         decrypting_key: &UmbralSecretKey,
         check_proof: bool,
     ) -> Option<Vec<u8>> {
-        let backend_cfrags: Vec<umbral::CapsuleFrag> =
+        let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
             self.cfrags.iter().map(CapsuleFrag::to_backend).collect();
-        umbral::decrypt_reencrypted(
+        umbral_pre::decrypt_reencrypted(
             ciphertext,
             &self.capsule.to_backend(),
             backend_cfrags.as_slice(),
@@ -226,7 +226,7 @@ pub fn encrypt(
 ) -> EncryptionResult {
     let backend_params = params.to_backend();
     let backend_pubkey = alice_pubkey.to_backend();
-    let (ciphertext, capsule) = umbral::encrypt(&backend_params, &backend_pubkey, plaintext);
+    let (ciphertext, capsule) = umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext);
     EncryptionResult::new(ciphertext, Capsule::from_backend(&capsule))
 }
 
@@ -238,20 +238,20 @@ pub fn decrypt_original(
 ) -> Vec<u8> {
     let backend_capsule = capsule.to_backend();
     let backend_key = decrypting_key.to_backend();
-    umbral::decrypt_original(ciphertext, &backend_capsule, &backend_key).unwrap()
+    umbral_pre::decrypt_original(ciphertext, &backend_capsule, &backend_key).unwrap()
 }
 
 #[wasm_bindgen]
-pub struct KeyFrag(GenericArray<u8, <umbral::KeyFrag as SerializableToArray>::Size>);
+pub struct KeyFrag(GenericArray<u8, <umbral_pre::KeyFrag as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
 impl KeyFrag {
-    fn from_backend(kfrag: &umbral::KeyFrag) -> Self {
+    fn from_backend(kfrag: &umbral_pre::KeyFrag) -> Self {
         Self(kfrag.to_array())
     }
 
-    fn to_backend(&self) -> umbral::KeyFrag {
-        umbral::KeyFrag::from_bytes(&self.0).unwrap()
+    fn to_backend(&self) -> umbral_pre::KeyFrag {
+        umbral_pre::KeyFrag::from_bytes(&self.0).unwrap()
     }
 
     // FIXME: `Option<&UmbralPublicKey> are currently not supported.
@@ -290,7 +290,7 @@ pub fn generate_kfrags(
     let backend_delegating_privkey = delegating_privkey.to_backend();
     let backend_receiving_pubkey = receiving_pubkey.to_backend();
     let backend_signing_privkey = signing_privkey.to_backend();
-    let backend_kfrags = umbral::generate_kfrags(
+    let backend_kfrags = umbral_pre::generate_kfrags(
         &backend_params,
         &backend_delegating_privkey,
         &backend_receiving_pubkey,

@@ -3,14 +3,14 @@ name: umbral
 on:
   pull_request:
     paths:
-      - "umbral/**"
+      - "umbral-pre/**"
       - "Cargo.*"
   push:
     branches: master
 
 defaults:
   run:
-    working-directory: umbral
+    working-directory: umbral-pre
 
 env:
   CARGO_INCREMENTAL: 0

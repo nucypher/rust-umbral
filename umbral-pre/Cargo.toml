@@ -1,11 +1,11 @@
 [package]
-name = "umbral"
+name = "umbral-pre"
 version = "0.0.1"
 authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
 edition = "2018"
 license = "GPL-3.0-only"
 description = "Implementation of Umbral proxy reencryption algorithm"
-repository = "https://github.com/nucypher/rust-umbral/tree/master/umbral"
+repository = "https://github.com/nucypher/rust-umbral/tree/master/umbral-pre"
 readme = "README.md"
 
 [dependencies]

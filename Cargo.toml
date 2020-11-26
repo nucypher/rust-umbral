@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "umbral",
-    "umbral-wasm",
-    "umbral-python",
+    "umbral-pre",
+    "umbral-pre-wasm",
+    "umbral-pre-python",
 ]

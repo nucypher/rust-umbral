@@ -10,5 +10,5 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = { version = "0.12.3", features = ["extension-module"] }
-umbral = { path = "../umbral", features = ["std"] }
+umbral-pre = { path = "../umbral-pre", features = ["std"] }
 generic-array = "0.14"
