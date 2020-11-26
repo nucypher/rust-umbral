@@ -2,4 +2,5 @@
 members = [
     "umbral",
     "umbral-wasm",
+    "umbral-python",
 ]
