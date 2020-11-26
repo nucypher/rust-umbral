@@ -1,5 +1,5 @@
 [package]
-name = "umbral-python"
+name = "umbral-pre-python"
 authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
 version = "0.1.0"
 edition = "2018"
