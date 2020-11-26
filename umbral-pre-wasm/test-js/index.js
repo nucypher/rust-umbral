@@ -1,4 +1,4 @@
-import * as wasm from "wasm-umbral";
+import * as wasm from "umbral-pre";
 
 let delegating_sk = wasm.UmbralSecretKey.random();
 let delegating_pk = wasm.UmbralPublicKey.from_secret_key(delegating_sk);
