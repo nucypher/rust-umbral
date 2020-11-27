@@ -78,7 +78,7 @@ impl Capsule {
     /// Generates a symmetric key and its associated KEM ciphertext
     pub fn from_pubkey(
         params: &UmbralParameters,
-        alice_pubkey: &UmbralPublicKey,
+        pk: &UmbralPublicKey,
     ) -> (
         Capsule,
         GenericArray<u8, <CurvePoint as SerializableToArray>::Size>,
@@ -95,7 +95,7 @@ impl Capsule {
 
         let s = &priv_u + &(&priv_r * &h);
 
-        let shared_key = &alice_pubkey.to_point() * &(&priv_r + &priv_u);
+        let shared_key = &pk.to_point() * &(&priv_r + &priv_u);
 
         let capsule = Self {
             params: *params,
@@ -116,14 +116,14 @@ impl Capsule {
     #[allow(clippy::many_single_char_names)]
     fn open_reencrypted(
         &self,
-        receiving_privkey: &UmbralSecretKey,
+        receiving_sk: &UmbralSecretKey,
         delegating_key: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, PointSize> {
-        let pub_key = UmbralPublicKey::from_secret_key(receiving_privkey).to_point();
+        let pub_key = UmbralPublicKey::from_secret_key(receiving_sk).to_point();
 
         let precursor = cfrags[0].precursor;
-        let dh_point = &precursor * &receiving_privkey.to_secret_scalar();
+        let dh_point = &precursor * &receiving_sk.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
         let points = [precursor, pub_key, dh_point];
@@ -246,7 +246,7 @@ impl PreparedCapsule {
     pub fn open_reencrypted(
         &self,
         cfrags: &[CapsuleFrag],
-        receiving_privkey: &UmbralSecretKey,
+        receiving_sk: &UmbralSecretKey,
         check_proof: bool,
     ) -> GenericArray<u8, PointSize> {
         if check_proof {
@@ -257,6 +257,6 @@ impl PreparedCapsule {
         }
 
         self.capsule
-            .open_reencrypted(receiving_privkey, &self.delegating_key, cfrags)
+            .open_reencrypted(receiving_sk, &self.delegating_key, cfrags)
     }
 }

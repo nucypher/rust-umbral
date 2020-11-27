@@ -13,10 +13,10 @@ use alloc::vec::Vec;
 /// Returns the ciphertext and the KEM Capsule.
 pub fn encrypt(
     params: &UmbralParameters,
-    alice_pubkey: &UmbralPublicKey,
+    pk: &UmbralPublicKey,
     plaintext: &[u8],
 ) -> (Vec<u8>, Capsule) {
-    let (capsule, key_seed) = Capsule::from_pubkey(params, alice_pubkey);
+    let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
     let dem = UmbralDEM::new(&key_seed);
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
@@ -79,30 +79,30 @@ mod tests {
         let params = UmbralParameters::new();
 
         // Key Generation (Alice)
-        let delegating_privkey = UmbralSecretKey::random();
-        let delegating_pubkey = UmbralPublicKey::from_secret_key(&delegating_privkey);
+        let delegating_sk = UmbralSecretKey::random();
+        let delegating_pk = UmbralPublicKey::from_secret_key(&delegating_sk);
 
-        let signing_privkey = UmbralSecretKey::random();
-        let signing_pubkey = UmbralPublicKey::from_secret_key(&signing_privkey);
+        let signing_sk = UmbralSecretKey::random();
+        let signing_pk = UmbralPublicKey::from_secret_key(&signing_sk);
 
         // Key Generation (Bob)
-        let receiving_privkey = UmbralSecretKey::random();
-        let receiving_pubkey = UmbralPublicKey::from_secret_key(&receiving_privkey);
+        let receiving_sk = UmbralSecretKey::random();
+        let receiving_pk = UmbralPublicKey::from_secret_key(&receiving_sk);
 
         // Encryption by an unnamed data source
         let plain_data = b"peace at dawn";
-        let (ciphertext, capsule) = encrypt(&params, &delegating_pubkey, plain_data);
+        let (ciphertext, capsule) = encrypt(&params, &delegating_pk, plain_data);
 
         // Decryption by Alice
-        let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_privkey).unwrap();
+        let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_sk).unwrap();
         assert_eq!(cleartext, plain_data);
 
         // Split Re-Encryption Key Generation (aka Delegation)
         let kfrags = generate_kfrags(
             &params,
-            &delegating_privkey,
-            &receiving_pubkey,
-            &signing_privkey,
+            &delegating_sk,
+            &receiving_pk,
+            &signing_sk,
             threshold,
             num_frags,
             true,
@@ -111,13 +111,13 @@ mod tests {
 
         // Capsule preparation (necessary before re-encryotion and activation)
         let prepared_capsule =
-            capsule.with_correctness_keys(&delegating_pubkey, &receiving_pubkey, &signing_pubkey);
+            capsule.with_correctness_keys(&delegating_pk, &receiving_pk, &signing_pk);
 
         // Ursulas check that the received kfrags are valid
         assert!(kfrags.iter().all(|kfrag| kfrag.verify(
-            &signing_pubkey,
-            Some(&delegating_pubkey),
-            Some(&receiving_pubkey)
+            &signing_pk,
+            Some(&delegating_pk),
+            Some(&receiving_pk)
         )));
 
         // Bob requests re-encryption to some set of `threshold` ursulas
@@ -127,13 +127,8 @@ mod tests {
             .collect();
 
         // Decryption by Bob
-        let reenc_cleartext = decrypt_reencrypted(
-            &ciphertext,
-            &prepared_capsule,
-            &cfrags,
-            &receiving_privkey,
-            true,
-        );
+        let reenc_cleartext =
+            decrypt_reencrypted(&ciphertext, &prepared_capsule, &cfrags, &receiving_sk, true);
         assert_eq!(reenc_cleartext.unwrap(), plain_data);
     }
 }

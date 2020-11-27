@@ -177,9 +177,9 @@ impl CapsuleFrag {
     pub(crate) fn verify(
         &self,
         capsule: &Capsule,
-        delegating_pubkey: &UmbralPublicKey,
-        receiving_pubkey: &UmbralPublicKey,
-        signing_pubkey: &UmbralPublicKey,
+        delegating_pk: &UmbralPublicKey,
+        receiving_pk: &UmbralPublicKey,
+        signing_pk: &UmbralPublicKey,
     ) -> bool {
         let params = capsule.params;
 
@@ -211,11 +211,11 @@ impl CapsuleFrag {
 
         let valid_kfrag_signature = SignatureDigest::new()
             .chain_scalar(&kfrag_id)
-            .chain_pubkey(delegating_pubkey)
-            .chain_pubkey(receiving_pubkey)
+            .chain_pubkey(delegating_pk)
+            .chain_pubkey(receiving_pk)
             .chain_point(&u1)
             .chain_point(&precursor)
-            .verify(signing_pubkey, &self.proof.kfrag_signature);
+            .verify(signing_pk, &self.proof.kfrag_signature);
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);

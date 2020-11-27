@@ -61,9 +61,9 @@ impl KeyFragProof {
         kfrag_id: &CurveScalar,
         kfrag_key: &CurveScalar,
         kfrag_precursor: &CurvePoint,
-        signing_privkey: &UmbralSecretKey,
-        delegating_pubkey: &UmbralPublicKey,
-        receiving_pubkey: &UmbralPublicKey,
+        signing_sk: &UmbralSecretKey,
+        delegating_pk: &UmbralPublicKey,
+        receiving_pk: &UmbralPublicKey,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -71,11 +71,11 @@ impl KeyFragProof {
 
         let signature_for_bob = SignatureDigest::new()
             .chain_scalar(kfrag_id)
-            .chain_pubkey(delegating_pubkey)
-            .chain_pubkey(receiving_pubkey)
+            .chain_pubkey(delegating_pk)
+            .chain_pubkey(receiving_pk)
             .chain_point(&commitment)
             .chain_point(kfrag_precursor)
-            .sign(signing_privkey);
+            .sign(signing_sk);
 
         let mut digest_for_proxy = SignatureDigest::new()
             .chain_scalar(kfrag_id)
@@ -85,14 +85,14 @@ impl KeyFragProof {
             .chain_bool(sign_receiving_key);
 
         if sign_delegating_key {
-            digest_for_proxy = digest_for_proxy.chain_pubkey(delegating_pubkey);
+            digest_for_proxy = digest_for_proxy.chain_pubkey(delegating_pk);
         }
 
         if sign_receiving_key {
-            digest_for_proxy = digest_for_proxy.chain_pubkey(receiving_pubkey);
+            digest_for_proxy = digest_for_proxy.chain_pubkey(receiving_pk);
         }
 
-        let signature_for_proxy = digest_for_proxy.sign(&signing_privkey);
+        let signature_for_proxy = digest_for_proxy.sign(&signing_sk);
 
         Self {
             commitment,
@@ -175,9 +175,9 @@ impl KeyFrag {
             &kfrag_id,
             &rk,
             &factory.precursor,
-            &factory.signing_privkey,
-            &factory.delegating_pubkey,
-            &factory.receiving_pubkey,
+            &factory.signing_sk,
+            &factory.delegating_pk,
+            &factory.receiving_pk,
             sign_delegating_key,
             sign_receiving_key,
         );
@@ -193,18 +193,18 @@ impl KeyFrag {
 
     pub fn verify(
         &self,
-        signing_pubkey: &UmbralPublicKey,
-        delegating_pubkey: Option<&UmbralPublicKey>,
-        receiving_pubkey: Option<&UmbralPublicKey>,
+        signing_pk: &UmbralPublicKey,
+        delegating_pk: Option<&UmbralPublicKey>,
+        receiving_pk: Option<&UmbralPublicKey>,
     ) -> bool {
         if self.proof.delegating_key_signed {
             // TODO: how to handle it better?
-            assert!(delegating_pubkey.is_some());
+            assert!(delegating_pk.is_some());
         }
 
         if self.proof.receiving_key_signed {
             // TODO: how to handle it better?
-            assert!(receiving_pubkey.is_some());
+            assert!(receiving_pk.is_some());
         }
 
         let u = self.params.u;
@@ -224,41 +224,41 @@ impl KeyFrag {
             .chain_bool(self.proof.delegating_key_signed)
             .chain_bool(self.proof.receiving_key_signed);
         if self.proof.delegating_key_signed {
-            digest = digest.chain_pubkey(&delegating_pubkey.unwrap());
+            digest = digest.chain_pubkey(&delegating_pk.unwrap());
         }
         if self.proof.receiving_key_signed {
-            digest = digest.chain_pubkey(&receiving_pubkey.unwrap());
+            digest = digest.chain_pubkey(&receiving_pk.unwrap());
         }
-        let valid_kfrag_signature = digest.verify(&signing_pubkey, &self.proof.signature_for_proxy);
+        let valid_kfrag_signature = digest.verify(&signing_pk, &self.proof.signature_for_proxy);
 
         correct_commitment & valid_kfrag_signature
     }
 }
 
 struct KeyFragFactory {
-    signing_privkey: UmbralSecretKey,
+    signing_sk: UmbralSecretKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
     dh_point: CurvePoint,
     params: UmbralParameters,
-    delegating_pubkey: UmbralPublicKey,
-    receiving_pubkey: UmbralPublicKey,
+    delegating_pk: UmbralPublicKey,
+    receiving_pk: UmbralPublicKey,
     coefficients: Vec<CurveScalar>,
 }
 
 impl KeyFragFactory {
     pub fn new(
         params: &UmbralParameters,
-        delegating_privkey: &UmbralSecretKey,
-        receiving_pubkey: &UmbralPublicKey,
-        signing_privkey: &UmbralSecretKey,
+        delegating_sk: &UmbralSecretKey,
+        receiving_pk: &UmbralPublicKey,
+        signing_sk: &UmbralSecretKey,
         threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
 
-        let delegating_pubkey = UmbralPublicKey::from_secret_key(delegating_privkey);
+        let delegating_pk = UmbralPublicKey::from_secret_key(delegating_sk);
 
-        let bob_pubkey_point = receiving_pubkey.to_point();
+        let bob_pubkey_point = receiving_pk.to_point();
 
         // The precursor point is used as an ephemeral public key in a DH key exchange,
         // and the resulting shared secret 'dh_point' is used to derive other secret values
@@ -274,7 +274,7 @@ impl KeyFragFactory {
             .finalize();
 
         // Coefficients of the generating polynomial
-        let coefficient0 = &delegating_privkey.to_secret_scalar() * &(d.invert().unwrap());
+        let coefficient0 = &delegating_sk.to_secret_scalar() * &(d.invert().unwrap());
 
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
         coefficients.push(coefficient0);
@@ -283,13 +283,13 @@ impl KeyFragFactory {
         }
 
         Self {
-            signing_privkey: signing_privkey.clone(),
+            signing_sk: signing_sk.clone(),
             precursor,
             bob_pubkey_point,
             dh_point,
             params: *params,
-            delegating_pubkey,
-            receiving_pubkey: *receiving_pubkey,
+            delegating_pk,
+            receiving_pk: *receiving_pk,
             coefficients,
         }
     }
@@ -314,9 +314,9 @@ Returns a list of N KeyFrags
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     params: &UmbralParameters,
-    delegating_privkey: &UmbralSecretKey,
-    receiving_pubkey: &UmbralPublicKey,
-    signing_privkey: &UmbralSecretKey,
+    delegating_sk: &UmbralSecretKey,
+    receiving_pk: &UmbralPublicKey,
+    signing_sk: &UmbralSecretKey,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
@@ -327,13 +327,7 @@ pub fn generate_kfrags(
     // Technically we can do threshold > num_kfrags, but the result will be useless
     assert!(threshold <= num_kfrags);
 
-    let base = KeyFragFactory::new(
-        params,
-        delegating_privkey,
-        receiving_pubkey,
-        signing_privkey,
-        threshold,
-    );
+    let base = KeyFragFactory::new(params, delegating_sk, receiving_pk, signing_sk, threshold);
 
     let mut result = Vec::<KeyFrag>::new();
     for _ in 0..num_kfrags {

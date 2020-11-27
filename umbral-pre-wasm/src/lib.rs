@@ -278,23 +278,23 @@ impl KeyFrag {
 #[wasm_bindgen]
 pub fn generate_kfrags(
     params: &UmbralParameters,
-    delegating_privkey: &UmbralSecretKey,
+    delegating_sk: &UmbralSecretKey,
     receiving_pubkey: &UmbralPublicKey,
-    signing_privkey: &UmbralSecretKey,
+    signing_sk: &UmbralSecretKey,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Vec<JsValue> {
     let backend_params = params.to_backend();
-    let backend_delegating_privkey = delegating_privkey.to_backend();
+    let backend_delegating_sk = delegating_sk.to_backend();
     let backend_receiving_pubkey = receiving_pubkey.to_backend();
-    let backend_signing_privkey = signing_privkey.to_backend();
+    let backend_signing_sk = signing_sk.to_backend();
     let backend_kfrags = umbral_pre::generate_kfrags(
         &backend_params,
-        &backend_delegating_privkey,
+        &backend_delegating_sk,
         &backend_receiving_pubkey,
-        &backend_signing_privkey,
+        &backend_signing_sk,
         threshold,
         num_kfrags,
         sign_delegating_key,
