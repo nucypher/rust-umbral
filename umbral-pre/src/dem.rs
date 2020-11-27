@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::boxed::Box;
 
 use aead::{Aead, AeadInPlace, Payload};
 use blake2::Blake2b;
@@ -50,7 +50,7 @@ impl UmbralDEM {
     }
     */
 
-    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Vec<u8> {
+    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Box<[u8]> {
         type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
@@ -65,14 +65,14 @@ impl UmbralDEM {
         // (see the note there)
         enc_data.extend_from_slice(&nonce);
 
-        enc_data
+        enc_data.into_boxed_slice()
     }
 
     pub fn decrypt(
         &self,
         ciphertext: impl AsRef<[u8]>,
         authenticated_data: &[u8],
-    ) -> Option<Vec<u8>> {
+    ) -> Option<Box<[u8]>> {
         let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
         let buf_size = ciphertext.as_ref().len();
 
@@ -85,7 +85,10 @@ impl UmbralDEM {
             msg: &ciphertext.as_ref()[0..buf_size - nonce_size],
             aad: authenticated_data,
         };
-        self.cipher.decrypt(&nonce, payload).ok()
+        self.cipher
+            .decrypt(&nonce, payload)
+            .ok()
+            .map(|pt| pt.into_boxed_slice())
     }
 }
 

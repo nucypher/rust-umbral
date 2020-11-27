@@ -1,9 +1,14 @@
+#![no_std]
+
+extern crate alloc;
+
 use generic_array::GenericArray;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 use umbral_pre::SerializableToArray;
 
-use std::vec::Vec;
+use alloc::boxed::Box;
+use alloc::{vec, vec::Vec};
 
 #[wasm_bindgen]
 pub struct UmbralSecretKey(
@@ -78,21 +83,15 @@ impl Capsule {
         umbral_pre::Capsule::from_bytes(&self.0).unwrap()
     }
 
+    // FIXME: have to add cfrags one by one since `wasm_bindgen` currently does not support
+    // Vec<CustomStruct> as a parameter.
+    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
     #[wasm_bindgen]
-    pub fn with_correctness_keys(
-        &self,
-        delegating: &UmbralPublicKey,
-        receiving: &UmbralPublicKey,
-        verifying: &UmbralPublicKey,
-    ) -> PreparedCapsule {
-        let pc = umbral_pre::Capsule::with_correctness_keys(
-            &self.to_backend(),
-            &delegating.to_backend(),
-            &receiving.to_backend(),
-            &verifying.to_backend(),
-        );
-
-        PreparedCapsule::from_backend(&pc)
+    pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
+        CapsuleWithFrags {
+            capsule: *self,
+            cfrags: vec![*cfrag],
+        }
     }
 }
 
@@ -109,58 +108,27 @@ impl CapsuleFrag {
     fn to_backend(&self) -> umbral_pre::CapsuleFrag {
         umbral_pre::CapsuleFrag::from_bytes(&self.0).unwrap()
     }
-}
-
-#[wasm_bindgen]
-#[derive(Clone, Copy)]
-pub struct PreparedCapsule(
-    GenericArray<u8, <umbral_pre::PreparedCapsule as SerializableToArray>::Size>,
-);
-
-#[wasm_bindgen]
-impl PreparedCapsule {
-    fn from_backend(capsule: &umbral_pre::PreparedCapsule) -> Self {
-        Self(capsule.to_array())
-    }
-
-    fn to_backend(&self) -> umbral_pre::PreparedCapsule {
-        umbral_pre::PreparedCapsule::from_bytes(&self.0).unwrap()
-    }
 
     #[wasm_bindgen]
-    pub fn reencrypt(
+    pub fn verify(
         &self,
-        kfrag: &KeyFrag,
-        metadata: Option<Box<[u8]>>,
-        verify_kfrag: bool,
-    ) -> Option<CapsuleFrag> {
-        let backend_self = self.to_backend();
-        let backend_kfrag = kfrag.to_backend();
-        if verify_kfrag && !backend_self.verify_kfrag(&backend_kfrag) {
-            return None;
-        }
-        let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
-
-        backend_self
-            .reencrypt(&backend_kfrag, metadata_slice, verify_kfrag)
-            .map(|x| CapsuleFrag::from_backend(&x))
-    }
-
-    // FIXME: have to add cfrags one by one since `wasm_bindgen` currently does not support
-    // Vec<CustomStruct> as a parameter.
-    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
-    #[wasm_bindgen]
-    pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
-        CapsuleWithFrags {
-            capsule: *self,
-            cfrags: vec![*cfrag],
-        }
+        capsule: &Capsule,
+        signing_pubkey: &UmbralPublicKey,
+        delegating_pubkey: &UmbralPublicKey,
+        receiving_pubkey: &UmbralPublicKey,
+    ) -> bool {
+        self.to_backend().verify(
+            &capsule.to_backend(),
+            &signing_pubkey.to_backend(),
+            &delegating_pubkey.to_backend(),
+            &receiving_pubkey.to_backend(),
+        )
     }
 }
 
 #[wasm_bindgen]
 pub struct CapsuleWithFrags {
-    capsule: PreparedCapsule,
+    capsule: Capsule,
     cfrags: Vec<CapsuleFrag>,
 }
 
@@ -179,31 +147,31 @@ impl CapsuleWithFrags {
     #[wasm_bindgen]
     pub fn decrypt_reencrypted(
         &self,
-        ciphertext: &[u8],
         decrypting_key: &UmbralSecretKey,
-        check_proof: bool,
-    ) -> Option<Vec<u8>> {
+        delegating_pk: &UmbralPublicKey,
+        ciphertext: &[u8],
+    ) -> Option<Box<[u8]>> {
         let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
             self.cfrags.iter().map(CapsuleFrag::to_backend).collect();
         umbral_pre::decrypt_reencrypted(
-            ciphertext,
+            &decrypting_key.to_backend(),
+            &delegating_pk.to_backend(),
             &self.capsule.to_backend(),
             backend_cfrags.as_slice(),
-            &decrypting_key.to_backend(),
-            check_proof,
+            ciphertext,
         )
     }
 }
 
 #[wasm_bindgen]
 pub struct EncryptionResult {
-    ciphertext: Vec<u8>,
+    ciphertext: Box<[u8]>,
     pub capsule: Capsule,
 }
 
 #[wasm_bindgen]
 impl EncryptionResult {
-    fn new(ciphertext: Vec<u8>, capsule: Capsule) -> Self {
+    fn new(ciphertext: Box<[u8]>, capsule: Capsule) -> Self {
         Self {
             ciphertext,
             capsule,
@@ -213,7 +181,7 @@ impl EncryptionResult {
     // FIXME: currently can't just make the field public because `Vec` doesn't implement `Copy`.
     // See https://github.com/rustwasm/wasm-bindgen/issues/439
     #[wasm_bindgen(getter)]
-    pub fn ciphertext(&self) -> Vec<u8> {
+    pub fn ciphertext(&self) -> Box<[u8]> {
         self.ciphertext.clone()
     }
 }
@@ -226,19 +194,19 @@ pub fn encrypt(
 ) -> EncryptionResult {
     let backend_params = params.to_backend();
     let backend_pubkey = alice_pubkey.to_backend();
-    let (ciphertext, capsule) = umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext);
+    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext);
     EncryptionResult::new(ciphertext, Capsule::from_backend(&capsule))
 }
 
 #[wasm_bindgen]
 pub fn decrypt_original(
-    ciphertext: &[u8],
-    capsule: &Capsule,
     decrypting_key: &UmbralSecretKey,
-) -> Vec<u8> {
+    capsule: &Capsule,
+    ciphertext: &[u8],
+) -> Box<[u8]> {
     let backend_capsule = capsule.to_backend();
     let backend_key = decrypting_key.to_backend();
-    umbral_pre::decrypt_original(ciphertext, &backend_capsule, &backend_key).unwrap()
+    umbral_pre::decrypt_original(&backend_key, &backend_capsule, ciphertext).unwrap()
 }
 
 #[wasm_bindgen]
@@ -309,4 +277,13 @@ pub fn generate_kfrags(
         .map(|kfrag| KeyFrag::from_backend(&kfrag))
         .map(JsValue::from)
         .collect()
+}
+
+#[wasm_bindgen]
+pub fn reencrypt(kfrag: &KeyFrag, capsule: &Capsule, metadata: Option<Box<[u8]>>) -> CapsuleFrag {
+    let backend_kfrag = kfrag.to_backend();
+    let backend_capsule = capsule.to_backend();
+    let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
+    let backend_cfrag = umbral_pre::reencrypt(&backend_kfrag, &backend_capsule, metadata_slice);
+    CapsuleFrag::from_backend(&backend_cfrag)
 }

@@ -1,11 +1,12 @@
-use crate::capsule::{Capsule, PreparedCapsule};
+use crate::capsule::Capsule;
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{UmbralPublicKey, UmbralSecretKey};
 use crate::dem::UmbralDEM;
+use crate::key_frag::KeyFrag;
 use crate::params::UmbralParameters;
 use crate::traits::SerializableToArray;
 
-use alloc::vec::Vec;
+use alloc::boxed::Box;
 
 /// Performs an encryption using the UmbralDEM object and encapsulates a key
 /// for the sender using the public key provided.
@@ -13,42 +14,46 @@ use alloc::vec::Vec;
 /// Returns the ciphertext and the KEM Capsule.
 pub fn encrypt(
     params: &UmbralParameters,
-    pk: &UmbralPublicKey,
+    delegating_pk: &UmbralPublicKey,
     plaintext: &[u8],
-) -> (Vec<u8>, Capsule) {
-    let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
+) -> (Capsule, Box<[u8]>) {
+    let (capsule, key_seed) = Capsule::from_pubkey(params, delegating_pk);
     let dem = UmbralDEM::new(&key_seed);
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
-    (ciphertext, capsule)
+    (capsule, ciphertext)
 }
 
 pub fn decrypt_original(
-    ciphertext: impl AsRef<[u8]>,
+    decrypting_sk: &UmbralSecretKey,
     capsule: &Capsule,
-    decrypting_key: &UmbralSecretKey,
-) -> Option<Vec<u8>> {
-    let key_seed = capsule.open_original(decrypting_key);
+    ciphertext: impl AsRef<[u8]>,
+) -> Option<Box<[u8]>> {
+    let key_seed = capsule.open_original(decrypting_sk);
     let dem = UmbralDEM::new(&key_seed);
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
+pub fn reencrypt(kfrag: &KeyFrag, capsule: &Capsule, metadata: Option<&[u8]>) -> CapsuleFrag {
+    CapsuleFrag::reencrypted(kfrag, capsule, metadata)
+}
+
 pub fn decrypt_reencrypted(
-    ciphertext: impl AsRef<[u8]>,
-    capsule: &PreparedCapsule,
+    decrypting_sk: &UmbralSecretKey,
+    delegating_pk: &UmbralPublicKey,
+    capsule: &Capsule,
     cfrags: &[CapsuleFrag],
-    decrypting_key: &UmbralSecretKey,
-    check_proof: bool,
-) -> Option<Vec<u8>> {
-    let key_seed = capsule.open_reencrypted(cfrags, decrypting_key, check_proof);
+    ciphertext: impl AsRef<[u8]>,
+) -> Option<Box<[u8]>> {
+    let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags);
     let dem = UmbralDEM::new(&key_seed);
-    dem.decrypt(&ciphertext, &capsule.capsule.to_array())
+    dem.decrypt(&ciphertext, &capsule.to_array())
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::{decrypt_original, decrypt_reencrypted, encrypt};
+    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
     use crate::key_frag::generate_kfrags;
 
@@ -90,12 +95,12 @@ mod tests {
         let receiving_pk = UmbralPublicKey::from_secret_key(&receiving_sk);
 
         // Encryption by an unnamed data source
-        let plain_data = b"peace at dawn";
-        let (ciphertext, capsule) = encrypt(&params, &delegating_pk, plain_data);
+        let plaintext = b"peace at dawn";
+        let (capsule, ciphertext) = encrypt(&params, &delegating_pk, plaintext);
 
         // Decryption by Alice
-        let cleartext = decrypt_original(&ciphertext, &capsule, &delegating_sk).unwrap();
-        assert_eq!(cleartext, plain_data);
+        let plaintext_alice = decrypt_original(&delegating_sk, &capsule, &ciphertext).unwrap();
+        assert_eq!(&plaintext_alice as &[u8], plaintext);
 
         // Split Re-Encryption Key Generation (aka Delegation)
         let kfrags = generate_kfrags(
@@ -109,10 +114,6 @@ mod tests {
             true,
         );
 
-        // Capsule preparation (necessary before re-encryotion and activation)
-        let prepared_capsule =
-            capsule.with_correctness_keys(&delegating_pk, &receiving_pk, &signing_pk);
-
         // Ursulas check that the received kfrags are valid
         assert!(kfrags.iter().all(|kfrag| kfrag.verify(
             &signing_pk,
@@ -123,12 +124,26 @@ mod tests {
         // Bob requests re-encryption to some set of `threshold` ursulas
         let cfrags: Vec<CapsuleFrag> = kfrags[0..threshold]
             .iter()
-            .map(|kfrag| prepared_capsule.reencrypt(&kfrag, None, true).unwrap())
+            .map(|kfrag| reencrypt(&kfrag, &capsule, None))
             .collect();
 
+        // Bob checks that the received cfrags are valid
+        assert!(cfrags.iter().all(|cfrag| cfrag.verify(
+            &capsule,
+            &delegating_pk,
+            &receiving_pk,
+            &signing_pk,
+        )));
+
         // Decryption by Bob
-        let reenc_cleartext =
-            decrypt_reencrypted(&ciphertext, &prepared_capsule, &cfrags, &receiving_sk, true);
-        assert_eq!(reenc_cleartext.unwrap(), plain_data);
+        let plaintext_bob = decrypt_reencrypted(
+            &receiving_sk,
+            &delegating_pk,
+            &capsule,
+            &cfrags,
+            &ciphertext,
+        )
+        .unwrap();
+        assert_eq!(&plaintext_bob as &[u8], plaintext);
     }
 }

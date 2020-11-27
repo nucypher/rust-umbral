@@ -153,7 +153,7 @@ impl SerializableToArray for CapsuleFrag {
 }
 
 impl CapsuleFrag {
-    pub fn from_kfrag(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
+    pub fn reencrypted(kfrag: &KeyFrag, capsule: &Capsule, metadata: Option<&[u8]>) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
@@ -174,7 +174,7 @@ impl CapsuleFrag {
         }
     }
 
-    pub(crate) fn verify(
+    pub fn verify(
         &self,
         capsule: &Capsule,
         delegating_pk: &UmbralPublicKey,

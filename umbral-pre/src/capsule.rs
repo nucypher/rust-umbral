@@ -2,7 +2,6 @@ use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey};
 use crate::hashing::ScalarDigest;
-use crate::key_frag::KeyFrag;
 use crate::params::UmbralParameters;
 use crate::traits::SerializableToArray;
 
@@ -23,7 +22,6 @@ pub struct Capsule {
 type UmbralParametersSize = <UmbralParameters as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type PublicKeySize = <UmbralPublicKey as SerializableToArray>::Size;
 type CapsuleSize = op!(UmbralParametersSize + PointSize + PointSize + ScalarSize);
 
 impl SerializableToArray for Capsule {
@@ -52,20 +50,6 @@ impl SerializableToArray for Capsule {
 }
 
 impl Capsule {
-    pub fn with_correctness_keys(
-        &self,
-        delegating: &UmbralPublicKey,
-        receiving: &UmbralPublicKey,
-        verifying: &UmbralPublicKey,
-    ) -> PreparedCapsule {
-        PreparedCapsule {
-            capsule: *self,
-            delegating_key: *delegating,
-            receiving_key: *receiving,
-            verifying_key: *verifying,
-        }
-    }
-
     pub fn verify(&self) -> bool {
         let g = CurvePoint::generator();
         let h = ScalarDigest::new()
@@ -114,10 +98,10 @@ impl Capsule {
     }
 
     #[allow(clippy::many_single_char_names)]
-    fn open_reencrypted(
+    pub fn open_reencrypted(
         &self,
         receiving_sk: &UmbralSecretKey,
-        delegating_key: &UmbralPublicKey,
+        delegating_pk: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
     ) -> GenericArray<u8, PointSize> {
         let pub_key = UmbralPublicKey::from_secret_key(receiving_sk).to_point();
@@ -157,7 +141,7 @@ impl Capsule {
         let s = self.signature;
         let h = ScalarDigest::new().chain_points(&[e, v]).finalize();
 
-        let orig_pub_key = delegating_key.to_point();
+        let orig_pub_key = delegating_pk.to_point();
 
         assert!(&orig_pub_key * &(&s * &d.invert().unwrap()) == &(&e_prime * &h) + &v_prime);
         //    raise GenericUmbralError()
@@ -175,88 +159,4 @@ fn lambda_coeff(xs: &[CurveScalar], i: usize) -> CurveScalar {
         }
     }
     res
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct PreparedCapsule {
-    pub(crate) capsule: Capsule,
-    pub(crate) delegating_key: UmbralPublicKey,
-    pub(crate) receiving_key: UmbralPublicKey,
-    pub(crate) verifying_key: UmbralPublicKey,
-}
-
-type PreparedCapsuleSize = op!(CapsuleSize + PublicKeySize + PublicKeySize + PublicKeySize);
-
-impl SerializableToArray for PreparedCapsule {
-    type Size = PreparedCapsuleSize;
-
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.capsule
-            .to_array()
-            .concat(self.delegating_key.to_array())
-            .concat(self.receiving_key.to_array())
-            .concat(self.verifying_key.to_array())
-    }
-
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let (capsule, rest) = Capsule::take(*arr)?;
-        let (delegating_key, rest) = UmbralPublicKey::take(rest)?;
-        let (receiving_key, rest) = UmbralPublicKey::take(rest)?;
-        let verifying_key = UmbralPublicKey::take_last(rest)?;
-        Some(Self {
-            capsule,
-            delegating_key,
-            receiving_key,
-            verifying_key,
-        })
-    }
-}
-
-impl PreparedCapsule {
-    pub fn verify_cfrag(&self, cfrag: &CapsuleFrag) -> bool {
-        cfrag.verify(
-            &self.capsule,
-            &self.delegating_key,
-            &self.receiving_key,
-            &self.verifying_key,
-        )
-    }
-
-    pub fn verify_kfrag(&self, kfrag: &KeyFrag) -> bool {
-        kfrag.verify(
-            &self.verifying_key,
-            Some(&self.delegating_key),
-            Some(&self.receiving_key),
-        )
-    }
-
-    pub fn reencrypt(
-        &self,
-        kfrag: &KeyFrag,
-        metadata: Option<&[u8]>,
-        verify_kfrag: bool,
-    ) -> Option<CapsuleFrag> {
-        if verify_kfrag && !self.verify_kfrag(&kfrag) {
-            return None;
-        }
-
-        Some(CapsuleFrag::from_kfrag(&self.capsule, &kfrag, metadata))
-    }
-
-    pub fn open_reencrypted(
-        &self,
-        cfrags: &[CapsuleFrag],
-        receiving_sk: &UmbralSecretKey,
-        check_proof: bool,
-    ) -> GenericArray<u8, PointSize> {
-        if check_proof {
-            // TODO: return Result with Error set to offending cfrag indices or something
-            for cfrag in cfrags {
-                assert!(self.verify_cfrag(cfrag));
-            }
-        }
-
-        self.capsule
-            .open_reencrypted(receiving_sk, &self.delegating_key, cfrags)
-    }
 }

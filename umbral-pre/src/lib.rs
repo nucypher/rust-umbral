@@ -18,9 +18,9 @@ mod pre;
 mod traits;
 
 pub use key_frag::generate_kfrags;
-pub use pre::{decrypt_original, decrypt_reencrypted, encrypt};
+pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
-pub use capsule::{Capsule, PreparedCapsule};
+pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
 pub use curve::{UmbralPublicKey, UmbralSecretKey};
 pub use key_frag::KeyFrag;

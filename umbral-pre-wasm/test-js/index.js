@@ -13,7 +13,7 @@ let result = wasm.encrypt(params, delegating_pk, msg_bytes);
 let ciphertext = result.ciphertext;
 let capsule = result.capsule;
 
-let plaintext = wasm.decrypt_original(ciphertext, capsule, delegating_sk);
+let plaintext = wasm.decrypt_original(delegating_sk, capsule, ciphertext);
 if (dec.decode(plaintext) == msg) {
     console.log("decrypt_original() passed.")
 }
@@ -36,9 +36,6 @@ let kfrags = wasm.generate_kfrags(
     true,
     true);
 
-let prepared_capsule = capsule.with_correctness_keys(
-    delegating_pk, receiving_pk, signing_pk);
-
 kfrags.forEach(function (kfrag) {
     if (kfrag.verify(signing_pk, delegating_pk, receiving_pk)) {
         console.log("kfrag verified");
@@ -46,13 +43,18 @@ kfrags.forEach(function (kfrag) {
 });
 
 let metadata = "asbdasdasd";
-let cfrags = kfrags.map(kfrag => prepared_capsule.reencrypt(kfrag, enc.encode(metadata), true));
+let cfrags = kfrags.map(kfrag => wasm.reencrypt(kfrag, capsule, enc.encode(metadata)));
 
+cfrags.forEach(function (cfrag) {
+    if (cfrag.verify(capsule, delegating_pk, receiving_pk, signing_pk)) {
+        console.log("crag verified");
+    }
+});
 
-let reenc_plaintext = prepared_capsule
+let reenc_plaintext = capsule
     .with_cfrag(cfrags[0])
     .with_cfrag(cfrags[1])
-    .decrypt_reencrypted(ciphertext, receiving_sk, true);
+    .decrypt_reencrypted(receiving_sk, delegating_pk, ciphertext);
 
 if (dec.decode(reenc_plaintext) == msg) {
     console.log("decrypt_reencrypted() passed.")

@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/rustwasm/create-wasm-app#readme",
   "dependencies": {
-    "wasm-umbral": "file:../pkg"
+    "umbral-pre": "file:../pkg"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^5.0.0",
