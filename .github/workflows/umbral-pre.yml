@@ -1,4 +1,4 @@
-name: umbral
+name: umbral-pre
 
 on:
   pull_request:
