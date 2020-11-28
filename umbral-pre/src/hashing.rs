@@ -15,6 +15,10 @@ use crate::traits::SerializableToArray;
 /// WARNING: Do not use when the input data is secret, as this implementation is not
 /// in constant time, and hence, it is not safe with respect to timing attacks.
 pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
+    // NOTE: Yes, this function is hacky, but it is the only way
+    // to hash to a point with an *unknown* discrete log.
+    // Don't replace with hashing to scalar and multiplying by a generator!
+
     let len_data = (data.len() as u32).to_be_bytes();
     let len_label = (label.len() as u32).to_be_bytes();
 
