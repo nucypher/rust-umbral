@@ -2,6 +2,11 @@
 
 extern crate alloc;
 
+// Use `wee_alloc` as the global allocator.
+extern crate wee_alloc;
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 use generic_array::GenericArray;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
