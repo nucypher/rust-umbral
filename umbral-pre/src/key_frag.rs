@@ -6,14 +6,15 @@ use crate::params::UmbralParameters;
 use crate::traits::SerializableToArray;
 
 use alloc::vec::Vec;
+use alloc::boxed::Box;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::{op, U1};
 
 #[derive(Clone, Debug)]
-pub struct KeyFragProof {
-    pub commitment: CurvePoint,
+pub(crate) struct KeyFragProof {
+    pub(crate) commitment: CurvePoint,
     signature_for_proxy: UmbralSignature,
     signature_for_bob: UmbralSignature,
     delegating_key_signed: bool,
@@ -108,6 +109,7 @@ impl KeyFragProof {
     }
 }
 
+/// A fragment of the encrypting party's key used to create a [`CapsuleFrag`](`crate::CapsuleFrag`).
 #[derive(Clone, Debug)]
 pub struct KeyFrag {
     params: UmbralParameters,
@@ -191,6 +193,12 @@ impl KeyFrag {
         }
     }
 
+    /// Verifies the integrity of the key fragment, given the signing key,
+    /// and (optionally) the encrypting party's and decrypting party's keys.
+    ///
+    /// If [`generate_kfrags()`](`crate::generate_kfrags()`) was called with `true`
+    /// for `sign_delegating_key` or `sign_receiving_key`, and the respective key
+    /// is not provided, the verification fails.
     pub fn verify(
         &self,
         signing_pk: &UmbralPublicKey,
@@ -243,7 +251,7 @@ struct KeyFragFactory {
     params: UmbralParameters,
     delegating_pk: UmbralPublicKey,
     receiving_pk: UmbralPublicKey,
-    coefficients: Vec<CurveScalar>,
+    coefficients: Box<[CurveScalar]>,
 }
 
 impl KeyFragFactory {
@@ -290,7 +298,7 @@ impl KeyFragFactory {
             params: *params,
             delegating_pk,
             receiving_pk: *receiving_pk,
-            coefficients,
+            coefficients: coefficients.into_boxed_slice(),
         }
     }
 }
@@ -304,13 +312,23 @@ fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
     result
 }
 
-/*
-Creates a re-encryption key from Alice's delegating public key to Bob's
-receiving public key, and splits it in KeyFrags, using Shamir's Secret Sharing.
-Requires a threshold number of KeyFrags out of N.
-
-Returns a list of N KeyFrags
-*/
+/// Creates `num_kfrags` fragments of `delegating_sk`,
+/// which will be possible to reencrypt to allow the creator of `receiving_pk`
+/// decrypt the ciphertext encrypted with `delegating_sk`.
+///
+/// `threshold` sets the number of fragments necessary for decryption
+/// (that is, fragments created with `threshold > num_frags` will be useless).
+///
+/// `signing_sk` is used to sign the resulting [`KeyFrag`] and
+/// reencrypted [`CapsuleFrag`](`crate::CapsuleFrag`) objects, which can be later verified
+/// by the associated public key.
+///
+/// If `sign_delegating_key` or `sign_receiving_key` are `true`,
+/// the reencrypting party will be able to verify that a [`KeyFrag`]
+/// corresponds to given delegating or receiving public keys
+/// by supplying them to [`KeyFrag::verify()`].
+///
+/// Returns a boxed slice of `num_kfrags` KeyFrags
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     params: &UmbralParameters,
@@ -321,7 +339,7 @@ pub fn generate_kfrags(
     num_kfrags: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> Vec<KeyFrag> {
+) -> Box<[KeyFrag]> {
     assert!(threshold > 0);
 
     // Technically we can do threshold > num_kfrags, but the result will be useless
@@ -334,5 +352,5 @@ pub fn generate_kfrags(
         result.push(KeyFrag::new(&base, sign_delegating_key, sign_receiving_key));
     }
 
-    result
+    result.into_boxed_slice()
 }

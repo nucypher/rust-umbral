@@ -43,7 +43,7 @@ kfrags.forEach(function (kfrag) {
 });
 
 let metadata = "asbdasdasd";
-let cfrags = kfrags.map(kfrag => wasm.reencrypt(kfrag, capsule, enc.encode(metadata)));
+let cfrags = kfrags.map(kfrag => wasm.reencrypt(capsule, kfrag, enc.encode(metadata)));
 
 cfrags.forEach(function (cfrag) {
     if (cfrag.verify(capsule, delegating_pk, receiving_pk, signing_pk)) {

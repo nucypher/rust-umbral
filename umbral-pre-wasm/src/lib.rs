@@ -280,10 +280,10 @@ pub fn generate_kfrags(
 }
 
 #[wasm_bindgen]
-pub fn reencrypt(kfrag: &KeyFrag, capsule: &Capsule, metadata: Option<Box<[u8]>>) -> CapsuleFrag {
+pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<Box<[u8]>>) -> CapsuleFrag {
     let backend_kfrag = kfrag.to_backend();
     let backend_capsule = capsule.to_backend();
     let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
-    let backend_cfrag = umbral_pre::reencrypt(&backend_kfrag, &backend_capsule, metadata_slice);
+    let backend_cfrag = umbral_pre::reencrypt(&backend_capsule, &backend_kfrag, metadata_slice);
     CapsuleFrag::from_backend(&backend_cfrag)
 }

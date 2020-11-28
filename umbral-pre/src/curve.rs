@@ -185,7 +185,7 @@ impl SerializableToArray for UmbralSignature {
     }
 }
 
-/// Umbral secret key.
+/// A secret key.
 #[derive(Clone, Debug)]
 pub struct UmbralSecretKey(SecretKey<CurveType>);
 
@@ -230,7 +230,7 @@ impl SerializableToArray for UmbralSecretKey {
     }
 }
 
-/// Umbral public key.
+/// A public key.
 #[derive(Clone, Copy, Debug)]
 pub struct UmbralPublicKey(EncodedPoint<CurveType>);
 

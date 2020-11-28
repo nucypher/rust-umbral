@@ -11,6 +11,7 @@ use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::op;
 
+/// Encapsulated symmetric key used to encrypt the plaintext.
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
     pub(crate) params: UmbralParameters,
@@ -40,17 +41,24 @@ impl SerializableToArray for Capsule {
         let (point_e, rest) = CurvePoint::take(rest)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
         let signature = CurveScalar::take_last(rest)?;
-        Some(Self {
-            params,
-            point_e,
-            point_v,
-            signature,
-        })
+        Self::new_verified(params, point_e, point_v, signature)
     }
 }
 
 impl Capsule {
-    pub fn verify(&self) -> bool {
+
+    pub(crate) fn new_verified(
+            params: UmbralParameters, point_e: CurvePoint,
+            point_v: CurvePoint, signature: CurveScalar) -> Option<Self> {
+        let capsule = Self { params, point_e, point_v, signature };
+        match capsule.verify() {
+            false => None,
+            true => Some(capsule)
+        }
+    }
+
+    /// Verifies the integrity of the capsule.
+    fn verify(&self) -> bool {
         let g = CurvePoint::generator();
         let h = ScalarDigest::new()
             .chain_point(&self.point_e)
@@ -60,7 +68,7 @@ impl Capsule {
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    pub fn from_pubkey(
+    pub(crate) fn from_pubkey(
         params: &UmbralParameters,
         pk: &UmbralPublicKey,
     ) -> (
@@ -92,13 +100,13 @@ impl Capsule {
     }
 
     /// Derive the same symmetric key
-    pub fn open_original(&self, private_key: &UmbralSecretKey) -> GenericArray<u8, PointSize> {
+    pub(crate) fn open_original(&self, private_key: &UmbralSecretKey) -> GenericArray<u8, PointSize> {
         let shared_key = &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar();
         shared_key.to_array()
     }
 
     #[allow(clippy::many_single_char_names)]
-    pub fn open_reencrypted(
+    pub(crate) fn open_reencrypted(
         &self,
         receiving_sk: &UmbralSecretKey,
         delegating_pk: &UmbralPublicKey,

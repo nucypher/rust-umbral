@@ -7,6 +7,7 @@ license = "GPL-3.0-only"
 description = "Implementation of Umbral proxy reencryption algorithm"
 repository = "https://github.com/nucypher/rust-umbral/tree/master/umbral-pre"
 readme = "README.md"
+categories = ["cryptography", "no-std"]
 
 [dependencies]
 k256 = { version = "0.5", default-features = false, features = ["ecdsa", "arithmetic"] }

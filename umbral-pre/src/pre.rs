@@ -1,3 +1,5 @@
+//! The high-level functional reencryption API.
+
 use crate::capsule::Capsule;
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{UmbralPublicKey, UmbralSecretKey};
@@ -8,22 +10,23 @@ use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
 
-/// Performs an encryption using the UmbralDEM object and encapsulates a key
-/// for the sender using the public key provided.
-///
-/// Returns the ciphertext and the KEM Capsule.
+/// Encrypts the given plaintext message using a DEM scheme,
+/// and encapsulates the key for later reencryption.
+/// Returns the KEM [`Capsule`] and the ciphertext.
 pub fn encrypt(
     params: &UmbralParameters,
-    delegating_pk: &UmbralPublicKey,
+    pk: &UmbralPublicKey,
     plaintext: &[u8],
 ) -> (Capsule, Box<[u8]>) {
-    let (capsule, key_seed) = Capsule::from_pubkey(params, delegating_pk);
+    let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
     let dem = UmbralDEM::new(&key_seed);
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
     (capsule, ciphertext)
 }
 
+/// Attempts to decrypt the ciphertext using the original encryptor's
+/// secret key.
 pub fn decrypt_original(
     decrypting_sk: &UmbralSecretKey,
     capsule: &Capsule,
@@ -34,10 +37,26 @@ pub fn decrypt_original(
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
-pub fn reencrypt(kfrag: &KeyFrag, capsule: &Capsule, metadata: Option<&[u8]>) -> CapsuleFrag {
-    CapsuleFrag::reencrypted(kfrag, capsule, metadata)
+/// Reencrypts a [`Capsule`] object with a key fragment, creating a capsule fragment.
+///
+/// Having `threshold` (see [`generate_kfrags()`](`crate::generate_kfrags()`))
+/// distinct fragments (along with the original capsule and the corresponding secret key)
+/// allows one to decrypt the original plaintext.
+///
+/// One can call [`KeyFrag::verify()`] before reencryption to check its integrity.
+pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> CapsuleFrag {
+    CapsuleFrag::reencrypted(capsule, kfrag, metadata)
 }
 
+/// Decrypts the ciphertext using previously reencrypted capsule fragments.
+///
+/// `decrypting_sk` is the secret key whose associated public key was used in
+/// [`generate_kfrags()`](`crate::generate_kfrags()`).
+///
+/// `delegating_pk` is the public key of the encrypting party.
+/// Used to check the validity of decryption.
+///
+/// One can call [`CapsuleFrag::verify()`] before reencryption to check its integrity.
 pub fn decrypt_reencrypted(
     decrypting_sk: &UmbralSecretKey,
     delegating_pk: &UmbralPublicKey,
@@ -68,13 +87,11 @@ mod tests {
         /*
         This test models the main interactions between NuCypher actors (i.e., Alice,
         Bob, Data Source, and Ursulas) and artifacts (i.e., public and private keys,
-        ciphertexts, capsules, KeyFrags, CFrags, etc).
+        ciphertexts, capsules, KeyFrags, CapsuleFrags, etc).
 
         The test covers all the main stages of data sharing with NuCypher:
         key generation, delegation, encryption, decryption by
         Alice, re-encryption by Ursula, and decryption by Bob.
-
-        Manually injects umbralparameters for multi-curve testing.
         */
 
         let threshold: usize = 2;
@@ -124,7 +141,7 @@ mod tests {
         // Bob requests re-encryption to some set of `threshold` ursulas
         let cfrags: Vec<CapsuleFrag> = kfrags[0..threshold]
             .iter()
-            .map(|kfrag| reencrypt(&kfrag, &capsule, None))
+            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
             .collect();
 
         // Bob checks that the received cfrags are valid

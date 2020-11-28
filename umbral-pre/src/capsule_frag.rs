@@ -114,6 +114,7 @@ impl CapsuleFragProof {
     }
 }
 
+/// A reencrypted fragment of a [`Capsule`] created by a proxy.
 pub struct CapsuleFrag {
     pub(crate) point_e1: CurvePoint,
     pub(crate) point_v1: CurvePoint,
@@ -153,7 +154,7 @@ impl SerializableToArray for CapsuleFrag {
 }
 
 impl CapsuleFrag {
-    pub fn reencrypted(kfrag: &KeyFrag, capsule: &Capsule, metadata: Option<&[u8]>) -> Self {
+    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
@@ -174,6 +175,8 @@ impl CapsuleFrag {
         }
     }
 
+    /// Verifies the integrity of the capsule fragment, given the original capsule,
+    /// the encrypting party's key, the decrypting party's key, and the signing key.
     pub fn verify(
         &self,
         capsule: &Capsule,
