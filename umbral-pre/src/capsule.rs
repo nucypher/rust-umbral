@@ -119,8 +119,7 @@ impl Capsule {
             return None;
         }
 
-        // avoiding the panic branch that happens during normal array addressing
-        let precursor = cfrags.get(0)?.precursor;
+        let precursor = cfrags[0].precursor;
 
         if !cfrags.iter().all(|cfrag| cfrag.precursor == precursor) {
             return None;
@@ -179,11 +178,9 @@ fn lambda_coeff(xs: &[CurveScalar], i: usize) -> Option<CurveScalar> {
     let mut res = CurveScalar::one();
     for j in 0..xs.len() {
         if j != i {
-            let xs_i = xs.get(i)?;
-            let xs_j = xs.get(j)?;
-            let inv_diff_opt: Option<CurveScalar> = (xs_j - xs_i).invert().into();
+            let inv_diff_opt: Option<CurveScalar> = (&xs[j] - &xs[i]).invert().into();
             let inv_diff = inv_diff_opt?;
-            res = &(&res * xs_j) * &inv_diff;
+            res = &(&res * &xs[j]) * &inv_diff;
         }
     }
     Some(res)
