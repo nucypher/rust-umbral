@@ -15,6 +15,13 @@ For more information and usage examples please refer to the documentation.
 
 [Documentation][docs-link]
 
+## Bindings
+
+Bindings for several languages are available:
+
+* [JavaScript (WASM-based)](https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-wasm)
+* [Python](https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-python)
+
 [crate-image]: https://img.shields.io/crates/v/umbral-pre.svg
 [crate-link]: https://crates.io/crates/umbral-pre
 [docs-image]: https://docs.rs/umbral-pre/badge.svg
