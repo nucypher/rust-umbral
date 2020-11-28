@@ -78,10 +78,7 @@ impl Capsule {
     pub(crate) fn from_pubkey(
         params: &UmbralParameters,
         pk: &UmbralPublicKey,
-    ) -> (
-        Capsule,
-        GenericArray<u8, <CurvePoint as SerializableToArray>::Size>,
-    ) {
+    ) -> (Capsule, CurvePoint) {
         let g = CurvePoint::generator();
 
         let priv_r = CurveScalar::random_nonzero();
@@ -103,16 +100,12 @@ impl Capsule {
             signature: s,
         };
 
-        (capsule, shared_key.to_array())
+        (capsule, shared_key)
     }
 
     /// Derive the same symmetric key
-    pub(crate) fn open_original(
-        &self,
-        private_key: &UmbralSecretKey,
-    ) -> GenericArray<u8, PointSize> {
-        let shared_key = &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar();
-        shared_key.to_array()
+    pub(crate) fn open_original(&self, private_key: &UmbralSecretKey) -> CurvePoint {
+        &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar()
     }
 
     #[allow(clippy::many_single_char_names)]
@@ -121,10 +114,19 @@ impl Capsule {
         receiving_sk: &UmbralSecretKey,
         delegating_pk: &UmbralPublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> GenericArray<u8, PointSize> {
-        let pub_key = UmbralPublicKey::from_secret_key(receiving_sk).to_point();
+    ) -> Option<CurvePoint> {
+        if cfrags.is_empty() {
+            return None;
+        }
 
-        let precursor = cfrags[0].precursor;
+        // avoiding the panic branch that happens during normal array addressing
+        let precursor = cfrags.get(0)?.precursor;
+
+        if !cfrags.iter().all(|cfrag| cfrag.precursor == precursor) {
+            return None;
+        }
+
+        let pub_key = UmbralPublicKey::from_secret_key(receiving_sk).to_point();
         let dh_point = &precursor * &receiving_sk.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
@@ -142,8 +144,7 @@ impl Capsule {
         let mut e_prime = CurvePoint::identity();
         let mut v_prime = CurvePoint::identity();
         for (i, cfrag) in (&cfrags).iter().enumerate() {
-            assert!(precursor == cfrag.precursor);
-            let lambda_i = lambda_coeff(&lc, i);
+            let lambda_i = lambda_coeff(&lc, i)?;
             e_prime = &e_prime + &(&cfrag.point_e1 * &lambda_i);
             v_prime = &v_prime + &(&cfrag.point_v1 * &lambda_i);
         }
@@ -161,20 +162,29 @@ impl Capsule {
 
         let orig_pub_key = delegating_pk.to_point();
 
-        assert!(&orig_pub_key * &(&s * &d.invert().unwrap()) == &(&e_prime * &h) + &v_prime);
-        //    raise GenericUmbralError()
+        // Have to convert from subtle::CtOption here.
+        let inv_d_opt: Option<CurveScalar> = d.invert().into();
+        let inv_d = inv_d_opt?;
+
+        if &orig_pub_key * &(&s * &inv_d) != &(&e_prime * &h) + &v_prime {
+            return None;
+        }
 
         let shared_key = &(&e_prime + &v_prime) * &d;
-        shared_key.to_array()
+        Some(shared_key)
     }
 }
 
-fn lambda_coeff(xs: &[CurveScalar], i: usize) -> CurveScalar {
+fn lambda_coeff(xs: &[CurveScalar], i: usize) -> Option<CurveScalar> {
     let mut res = CurveScalar::one();
     for j in 0..xs.len() {
         if j != i {
-            res = &(&res * &xs[j]) * &(&xs[j] - &xs[i]).invert().unwrap();
+            let xs_i = xs.get(i)?;
+            let xs_j = xs.get(j)?;
+            let inv_diff_opt: Option<CurveScalar> = (xs_j - xs_i).invert().into();
+            let inv_diff = inv_diff_opt?;
+            res = &(&res * xs_j) * &inv_diff;
         }
     }
-    res
+    Some(res)
 }

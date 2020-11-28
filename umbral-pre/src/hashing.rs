@@ -21,6 +21,8 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     type PointSize = <CurvePoint as SerializableToArray>::Size;
     let curve_key_size_bytes = PointSize::to_usize();
 
+    // TODO: why not just use `ScalarDigest` and calculate the respective point?
+
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
     while i < <u32>::MAX {

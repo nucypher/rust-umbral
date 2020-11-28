@@ -19,7 +19,7 @@ pub fn encrypt(
     plaintext: &[u8],
 ) -> (Capsule, Box<[u8]>) {
     let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
-    let dem = UmbralDEM::new(&key_seed);
+    let dem = UmbralDEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
     (capsule, ciphertext)
@@ -33,7 +33,7 @@ pub fn decrypt_original(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_original(decrypting_sk);
-    let dem = UmbralDEM::new(&key_seed);
+    let dem = UmbralDEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
@@ -64,8 +64,8 @@ pub fn decrypt_reencrypted(
     cfrags: &[CapsuleFrag],
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
-    let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags);
-    let dem = UmbralDEM::new(&key_seed);
+    let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags)?;
+    let dem = UmbralDEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())
 }
 
