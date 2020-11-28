@@ -46,14 +46,21 @@ impl SerializableToArray for Capsule {
 }
 
 impl Capsule {
-
     pub(crate) fn new_verified(
-            params: UmbralParameters, point_e: CurvePoint,
-            point_v: CurvePoint, signature: CurveScalar) -> Option<Self> {
-        let capsule = Self { params, point_e, point_v, signature };
+        params: UmbralParameters,
+        point_e: CurvePoint,
+        point_v: CurvePoint,
+        signature: CurveScalar,
+    ) -> Option<Self> {
+        let capsule = Self {
+            params,
+            point_e,
+            point_v,
+            signature,
+        };
         match capsule.verify() {
             false => None,
-            true => Some(capsule)
+            true => Some(capsule),
         }
     }
 
@@ -100,7 +107,10 @@ impl Capsule {
     }
 
     /// Derive the same symmetric key
-    pub(crate) fn open_original(&self, private_key: &UmbralSecretKey) -> GenericArray<u8, PointSize> {
+    pub(crate) fn open_original(
+        &self,
+        private_key: &UmbralSecretKey,
+    ) -> GenericArray<u8, PointSize> {
         let shared_key = &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar();
         shared_key.to_array()
     }

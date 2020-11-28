@@ -35,3 +35,9 @@ impl SerializableToArray for UmbralParameters {
         Some(Self { u })
     }
 }
+
+impl Default for UmbralParameters {
+    fn default() -> Self {
+        Self::new()
+    }
+}

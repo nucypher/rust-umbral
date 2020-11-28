@@ -5,8 +5,8 @@ use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::params::UmbralParameters;
 use crate::traits::SerializableToArray;
 
-use alloc::vec::Vec;
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;

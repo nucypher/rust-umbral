@@ -83,12 +83,9 @@
 //!
 //! [umbral]: https://github.com/nucypher/umbral-doc/blob/master/umbral-doc.pdf
 
-#![doc(
-    html_root_url = "https://docs.rs/umbral-pre"
-)]
+#![doc(html_root_url = "https://docs.rs/umbral-pre")]
 #![forbid(unsafe_code)]
 #![warn(missing_docs, rust_2018_idioms, unused_qualifications)]
-
 #![no_std]
 
 extern crate alloc;
