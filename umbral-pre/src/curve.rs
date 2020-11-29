@@ -43,6 +43,10 @@ impl CurveScalar {
         Self(BackendScalar::one())
     }
 
+    pub(crate) fn is_zero(&self) -> bool {
+        self.0.is_zero().into()
+    }
+
     /// Generates a random non-zero scalar (in nearly constant-time).
     pub(crate) fn random_nonzero() -> CurveScalar {
         Self(*BackendNonZeroScalar::random(&mut OsRng))
@@ -154,17 +158,9 @@ impl SerializableToArray for CurvePoint {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice());
-        if ep.is_err() {
-            return None;
-        }
-
-        let cp = BackendPoint::from_encoded_point(&ep.unwrap());
-        if cp.is_some().into() {
-            Some(Self(cp.unwrap()))
-        } else {
-            None
-        }
+        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
+        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep).into();
+        cp_opt.map(Self)
     }
 }
 
@@ -242,7 +238,9 @@ impl UmbralPublicKey {
 
     /// Returns the underlying curve point of the public key.
     pub(crate) fn to_point(&self) -> CurvePoint {
-        // TODO: store CurvePoint instead of EncodedPoint?
+        // TODO: there's currently no way to get the point
+        // of a known valid public key without `unwrap()`.
+        // If there's a panic here, something is wrong with the backend ECC crate.
         CurvePoint(BackendPoint::from_encoded_point(&self.0).unwrap())
     }
 
@@ -252,6 +250,9 @@ impl UmbralPublicKey {
         digest: impl Digest<OutputSize = U32>,
         signature: &UmbralSignature,
     ) -> bool {
+        // TODO: there's currently no way to create a verifier
+        // from a known valid public key without `unwrap()`.
+        // If there's a panic here, something is wrong with the backend ECC crate.
         let verifier = VerifyKey::from_encoded_point(&self.0).unwrap();
         verifier.verify_digest(digest, &signature.0).is_ok()
     }

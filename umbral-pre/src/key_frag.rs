@@ -268,20 +268,28 @@ impl KeyFragFactory {
 
         let bob_pubkey_point = receiving_pk.to_point();
 
-        // The precursor point is used as an ephemeral public key in a DH key exchange,
-        // and the resulting shared secret 'dh_point' is used to derive other secret values
-        let private_precursor = CurveScalar::random_nonzero();
-        let precursor = &g * &private_precursor;
+        let (d, precursor, dh_point) = loop {
+            // The precursor point is used as an ephemeral public key in a DH key exchange,
+            // and the resulting shared secret 'dh_point' is used to derive other secret values
+            let private_precursor = CurveScalar::random_nonzero();
+            let precursor = &g * &private_precursor;
 
-        let dh_point = &bob_pubkey_point * &private_precursor;
+            let dh_point = &bob_pubkey_point * &private_precursor;
 
-        // Secret value 'd' allows to make Umbral non-interactive
-        let d = ScalarDigest::new()
-            .chain_points(&[precursor, bob_pubkey_point, dh_point])
-            .chain_bytes(NON_INTERACTIVE)
-            .finalize();
+            // Secret value 'd' allows to make Umbral non-interactive
+            let d = ScalarDigest::new()
+                .chain_points(&[precursor, bob_pubkey_point, dh_point])
+                .chain_bytes(NON_INTERACTIVE)
+                .finalize();
+
+            // TODO: at the moment we cannot statically ensure `d` is a `NonZeroScalar`.
+            if !d.is_zero() {
+                break (d, precursor, dh_point);
+            }
+        };
 
         // Coefficients of the generating polynomial
+        // `invert()` is guaranteed not to panic because `d` is nonzero.
         let coefficient0 = &delegating_sk.to_secret_scalar() * &(d.invert().unwrap());
 
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);

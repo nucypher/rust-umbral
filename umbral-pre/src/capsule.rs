@@ -143,6 +143,8 @@ impl Capsule {
         let mut e_prime = CurvePoint::identity();
         let mut v_prime = CurvePoint::identity();
         for (i, cfrag) in (&cfrags).iter().enumerate() {
+            // There is a minuscule probability that two elements of `lc` are equal,
+            // in which case we'd rather fail gracefully.
             let lambda_i = lambda_coeff(&lc, i)?;
             e_prime = &e_prime + &(&cfrag.point_e1 * &lambda_i);
             v_prime = &v_prime + &(&cfrag.point_v1 * &lambda_i);
@@ -163,6 +165,10 @@ impl Capsule {
 
         // Have to convert from subtle::CtOption here.
         let inv_d_opt: Option<CurveScalar> = d.invert().into();
+        // TODO: at the moment we cannot guarantee statically that the digest `d` is non-zero.
+        // Technically, it is supposed to be non-zero by the choice of `precursor`,
+        // but if is was somehow replaced by an incorrect value,
+        // we'd rather fail gracefully than panic.
         let inv_d = inv_d_opt?;
 
         if &orig_pub_key * &(&s * &inv_d) != &(&e_prime * &h) + &v_prime {
