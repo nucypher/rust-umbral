@@ -361,16 +361,19 @@ pub fn generate_kfrags(
 #[cfg(test)]
 mod tests {
 
+    use alloc::boxed::Box;
+
     use super::{generate_kfrags, KeyFrag};
     use crate::{Parameters, PublicKey, SecretKey, SerializableToArray};
 
-    #[test]
-    fn test_serialize() {
+    fn prepare_kfrags(sign_delegating_key: bool, sign_receiving_key: bool) -> (PublicKey, PublicKey, PublicKey, Box<[KeyFrag]>) {
         let params = Parameters::new();
 
         let delegating_sk = SecretKey::random();
+        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
+        let signing_pk = PublicKey::from_secret_key(&signing_sk);
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
@@ -382,12 +385,40 @@ mod tests {
             &signing_sk,
             2,
             3,
-            true,
-            true,
+            sign_delegating_key,
+            sign_receiving_key,
         );
 
+        (delegating_pk, receiving_pk, signing_pk, kfrags)
+    }
+
+    #[test]
+    fn test_serialize() {
+        let (_, _, _, kfrags) = prepare_kfrags(true, true);
         let kfrag_arr = kfrags[0].to_array();
         let kfrag_back = KeyFrag::from_array(&kfrag_arr).unwrap();
         assert_eq!(kfrags[0], kfrag_back);
+    }
+
+    #[test]
+    fn test_verify() {
+        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(true, true);
+        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(!kfrags[0].verify(&signing_pk, None, Some(&receiving_pk)));
+
+        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(false, true);
+        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(kfrags[0].verify(&signing_pk, None, Some(&receiving_pk)));
+        assert!(!kfrags[0].verify(&signing_pk, Some(&delegating_pk), None));
+
+        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(true, false);
+        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(!kfrags[0].verify(&signing_pk, None, Some(&receiving_pk)));
+        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), None));
+
+        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(false, false);
+        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(kfrags[0].verify(&signing_pk, None, None));
+        assert!(!kfrags[0].verify(&delegating_pk, None, None));
     }
 }
