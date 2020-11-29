@@ -33,7 +33,7 @@
 //!
 //! let params = UmbralParameters::new();
 //! let plaintext = b"peace at dawn";
-//! let (capsule, ciphertext) = encrypt(&params, &alice_pk, plaintext);
+//! let (capsule, ciphertext) = encrypt(&params, &alice_pk, plaintext).unwrap();
 //!
 //! // Since data was encrypted with Alice's public key, Alice can open the capsule
 //! // and decrypt the ciphertext with her private key.

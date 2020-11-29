@@ -50,7 +50,7 @@ impl UmbralDEM {
     }
     */
 
-    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Box<[u8]> {
+    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Option<Box<[u8]>> {
         type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
@@ -59,13 +59,14 @@ impl UmbralDEM {
             msg: data,
             aad: authenticated_data,
         };
-        let mut enc_data = self.cipher.encrypt(nonce, payload).unwrap();
+
+        let mut enc_data = self.cipher.encrypt(nonce, payload).ok()?;
 
         // Add nonce at the end to keep the compatibility with `encrypt_in_place()`
-        // (see the note there)
+        // (currently scrapped).
         enc_data.extend_from_slice(&nonce);
 
-        enc_data.into_boxed_slice()
+        Some(enc_data.into_boxed_slice())
     }
 
     pub fn decrypt(

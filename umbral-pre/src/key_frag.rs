@@ -205,14 +205,12 @@ impl KeyFrag {
         delegating_pk: Option<&UmbralPublicKey>,
         receiving_pk: Option<&UmbralPublicKey>,
     ) -> bool {
-        if self.proof.delegating_key_signed {
-            // TODO: how to handle it better?
-            assert!(delegating_pk.is_some());
+        if self.proof.delegating_key_signed && delegating_pk.is_none() {
+            return false;
         }
 
-        if self.proof.receiving_key_signed {
-            // TODO: how to handle it better?
-            assert!(receiving_pk.is_some());
+        if self.proof.receiving_key_signed && receiving_pk.is_none() {
+            return false;
         }
 
         let u = self.params.u;
@@ -232,9 +230,11 @@ impl KeyFrag {
             .chain_bool(self.proof.delegating_key_signed)
             .chain_bool(self.proof.receiving_key_signed);
         if self.proof.delegating_key_signed {
+            // `delegating_pk` is guaranteed to be Some here.
             digest = digest.chain_pubkey(&delegating_pk.unwrap());
         }
         if self.proof.receiving_key_signed {
+            // `receiving_pk` is guaranteed to be Some here.
             digest = digest.chain_pubkey(&receiving_pk.unwrap());
         }
         let valid_kfrag_signature = digest.verify(&signing_pk, &self.proof.signature_for_proxy);
@@ -348,11 +348,6 @@ pub fn generate_kfrags(
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[KeyFrag]> {
-    assert!(threshold > 0);
-
-    // Technically we can do threshold > num_kfrags, but the result will be useless
-    assert!(threshold <= num_kfrags);
-
     let base = KeyFragFactory::new(params, delegating_sk, receiving_pk, signing_sk, threshold);
 
     let mut result = Vec::<KeyFrag>::new();

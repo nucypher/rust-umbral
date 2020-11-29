@@ -17,12 +17,12 @@ pub fn encrypt(
     params: &UmbralParameters,
     pk: &UmbralPublicKey,
     plaintext: &[u8],
-) -> (Capsule, Box<[u8]>) {
+) -> Option<(Capsule, Box<[u8]>)> {
     let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
     let dem = UmbralDEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
-    let ciphertext = dem.encrypt(plaintext, &capsule_bytes);
-    (capsule, ciphertext)
+    let ciphertext = dem.encrypt(plaintext, &capsule_bytes)?;
+    Some((capsule, ciphertext))
 }
 
 /// Attempts to decrypt the ciphertext using the original encryptor's
@@ -113,7 +113,7 @@ mod tests {
 
         // Encryption by an unnamed data source
         let plaintext = b"peace at dawn";
-        let (capsule, ciphertext) = encrypt(&params, &delegating_pk, plaintext);
+        let (capsule, ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
 
         // Decryption by Alice
         let plaintext_alice = decrypt_original(&delegating_sk, &capsule, &ciphertext).unwrap();

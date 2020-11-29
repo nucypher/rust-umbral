@@ -196,11 +196,15 @@ pub fn encrypt(
     params: &UmbralParameters,
     alice_pubkey: &UmbralPublicKey,
     plaintext: &[u8],
-) -> EncryptionResult {
+) -> Option<EncryptionResult> {
     let backend_params = params.to_backend();
     let backend_pubkey = alice_pubkey.to_backend();
-    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext);
-    EncryptionResult::new(ciphertext, Capsule::from_backend(&capsule))
+    let (capsule, ciphertext) =
+        umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext).unwrap();
+    Some(EncryptionResult::new(
+        ciphertext,
+        Capsule::from_backend(&capsule),
+    ))
 }
 
 #[wasm_bindgen]
