@@ -39,17 +39,6 @@ impl UmbralDEM {
         Self { cipher }
     }
 
-    // TODO: use in a test somewhere
-    /*
-    pub fn ciphertext_size_for(plaintext_size: usize) -> usize {
-        let overhead =
-            <<ChaCha20Poly1305 as AeadInPlace>::CiphertextOverhead as Unsigned>::to_usize();
-        let tag_size = <<ChaCha20Poly1305 as AeadInPlace>::TagSize as Unsigned>::to_usize();
-        let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
-        plaintext_size + tag_size + overhead + nonce_size
-    }
-    */
-
     pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Option<Box<[u8]>> {
         type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
@@ -60,13 +49,12 @@ impl UmbralDEM {
             aad: authenticated_data,
         };
 
-        let mut enc_data = self.cipher.encrypt(nonce, payload).ok()?;
-
-        // Add nonce at the end to keep the compatibility with `encrypt_in_place()`
-        // (currently scrapped).
-        enc_data.extend_from_slice(&nonce);
-
-        Some(enc_data.into_boxed_slice())
+        let mut result = nonce.to_vec();
+        let enc_data = self.cipher.encrypt(nonce, payload).ok()?;
+        // Somewhat inefficient, but it doesn't seem that you can pass
+        // a mutable view of a vector to encrypt_in_place().
+        result.extend(enc_data);
+        Some(result.into_boxed_slice())
     }
 
     pub fn decrypt(
@@ -81,9 +69,9 @@ impl UmbralDEM {
             return None;
         }
 
-        let nonce = Nonce::from_slice(&ciphertext.as_ref()[buf_size - nonce_size..buf_size]);
+        let nonce = Nonce::from_slice(&ciphertext.as_ref()[..nonce_size]);
         let payload = Payload {
-            msg: &ciphertext.as_ref()[0..buf_size - nonce_size],
+            msg: &ciphertext.as_ref()[nonce_size..],
             aad: authenticated_data,
         };
         self.cipher
