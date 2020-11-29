@@ -23,6 +23,12 @@ impl Parameters {
     }
 }
 
+impl PartialEq for Parameters {
+    fn eq(&self, other: &Self) -> bool {
+        self.u == other.u
+    }
+}
+
 impl SerializableToArray for Parameters {
     type Size = <CurvePoint as SerializableToArray>::Size;
 
@@ -39,5 +45,27 @@ impl SerializableToArray for Parameters {
 impl Default for Parameters {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::Parameters;
+    use crate::SerializableToArray;
+
+    #[test]
+    fn test_serialize() {
+        let p = Parameters::new();
+        let p_arr = p.to_array();
+        let p_back = Parameters::from_array(&p_arr).unwrap();
+        assert_eq!(p, p_back);
+    }
+
+    #[test]
+    fn test_default() {
+        let p1 = Parameters::new();
+        let p2 = Parameters::default();
+        assert_eq!(p1, p2);
     }
 }
