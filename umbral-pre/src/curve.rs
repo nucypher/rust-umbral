@@ -5,7 +5,10 @@
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
-use ecdsa::{SecretKey as BackendSecretKey, Signature, SignatureSize, SigningKey, VerifyKey};
+use ecdsa::{
+    SecretKey as BackendSecretKey, Signature as BackendSignature, SignatureSize, SigningKey,
+    VerifyKey,
+};
 use elliptic_curve::ff::PrimeField;
 use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
@@ -152,9 +155,9 @@ impl SerializableToArray for CurvePoint {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct UmbralSignature(Signature<CurveType>);
+pub struct Signature(BackendSignature<CurveType>);
 
-impl SerializableToArray for UmbralSignature {
+impl SerializableToArray for Signature {
     type Size = SignatureSize<CurveType>;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
@@ -162,7 +165,7 @@ impl SerializableToArray for UmbralSignature {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        Signature::<CurveType>::from_bytes(arr.as_slice())
+        BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .ok()
             .map(Self)
     }
@@ -194,9 +197,9 @@ impl SecretKey {
     pub(crate) fn sign_digest(
         &self,
         digest: impl BlockInput + FixedOutput<OutputSize = U32> + Clone + Default + Reset + Update,
-    ) -> UmbralSignature {
+    ) -> Signature {
         let signer = SigningKey::<CurveType>::from(&self.0);
-        UmbralSignature(signer.sign_digest_with_rng(OsRng, digest))
+        Signature(signer.sign_digest_with_rng(OsRng, digest))
     }
 }
 
@@ -236,7 +239,7 @@ impl PublicKey {
     pub(crate) fn verify_digest(
         &self,
         digest: impl Digest<OutputSize = U32>,
-        signature: &UmbralSignature,
+        signature: &Signature,
     ) -> bool {
         // TODO: there's currently no way to create a verifier
         // from a known valid public key without `unwrap()`.

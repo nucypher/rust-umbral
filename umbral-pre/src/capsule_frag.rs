@@ -1,6 +1,6 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{PublicKey, UmbralSignature};
+use crate::curve::{PublicKey, Signature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::key_frag::KeyFrag;
 use crate::traits::SerializableToArray;
@@ -15,7 +15,7 @@ pub struct CapsuleFragProof {
     kfrag_commitment: CurvePoint,
     kfrag_pok: CurvePoint,
     signature: CurveScalar,
-    kfrag_signature: UmbralSignature,
+    kfrag_signature: Signature,
 
     // TODO: (for @tux and @dnunez): originally it was a bytestring.
     // In heapless mode I'd have to make this struct, and all that depends on it
@@ -26,7 +26,7 @@ pub struct CapsuleFragProof {
 
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type SignatureSize = <UmbralSignature as SerializableToArray>::Size;
+type SignatureSize = <Signature as SerializableToArray>::Size;
 type CapsuleFragProofSize =
     op!(PointSize + PointSize + PointSize + PointSize + ScalarSize + SignatureSize + ScalarSize);
 
@@ -50,7 +50,7 @@ impl SerializableToArray for CapsuleFragProof {
         let (kfrag_commitment, rest) = CurvePoint::take(rest)?;
         let (kfrag_pok, rest) = CurvePoint::take(rest)?;
         let (signature, rest) = CurveScalar::take(rest)?;
-        let (kfrag_signature, rest) = UmbralSignature::take(rest)?;
+        let (kfrag_signature, rest) = Signature::take(rest)?;
         let metadata = CurveScalar::take_last(rest)?;
         Some(Self {
             point_e2,

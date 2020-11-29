@@ -1,6 +1,6 @@
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{PublicKey, SecretKey, UmbralSignature};
+use crate::curve::{PublicKey, SecretKey, Signature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
@@ -15,14 +15,14 @@ use typenum::{op, U1};
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
-    signature_for_proxy: UmbralSignature,
-    signature_for_bob: UmbralSignature,
+    signature_for_proxy: Signature,
+    signature_for_bob: Signature,
     delegating_key_signed: bool,
     receiving_key_signed: bool,
 }
 
 type ParametersSize = <Parameters as SerializableToArray>::Size;
-type SignatureSize = <UmbralSignature as SerializableToArray>::Size;
+type SignatureSize = <Signature as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type KeyFragProofSize = op!(PointSize + SignatureSize + SignatureSize + U1 + U1);
@@ -41,8 +41,8 @@ impl SerializableToArray for KeyFragProof {
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
         let (commitment, rest) = CurvePoint::take(*arr)?;
-        let (signature_for_proxy, rest) = UmbralSignature::take(rest)?;
-        let (signature_for_bob, rest) = UmbralSignature::take(rest)?;
+        let (signature_for_proxy, rest) = Signature::take(rest)?;
+        let (signature_for_bob, rest) = Signature::take(rest)?;
         let (delegating_key_signed, rest) = bool::take(rest)?;
         let receiving_key_signed = bool::take_last(rest)?;
         Some(Self {
@@ -104,7 +104,7 @@ impl KeyFragProof {
         }
     }
 
-    pub(crate) fn signature_for_bob(&self) -> UmbralSignature {
+    pub(crate) fn signature_for_bob(&self) -> Signature {
         self.signature_for_bob.clone()
     }
 }
