@@ -30,7 +30,7 @@ type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 
 // FIXME: only needed to be `pub` and not `pub(crate)` because it leaks through ArrayLength traits
 // in the heapless implementation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CurveScalar(BackendScalar);
 
 impl CurveScalar {
@@ -82,7 +82,7 @@ type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
 
 // FIXME: only needed to be `pub` and not `pub(crate)` because it leaks through ArrayLength traits
 // in the heapless implementation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CurvePoint(BackendPoint);
 
 impl CurvePoint {
@@ -132,18 +132,6 @@ impl Mul<&CurveScalar> for &CurveScalar {
 
     fn mul(self, other: &CurveScalar) -> CurveScalar {
         CurveScalar(self.0.mul(&(other.0)))
-    }
-}
-
-impl PartialEq for CurveScalar {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
-impl PartialEq for CurvePoint {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
     }
 }
 

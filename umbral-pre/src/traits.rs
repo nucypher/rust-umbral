@@ -110,18 +110,12 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     struct SomeStruct {
         f1: u16,
         f2: u8,
         f3: u16,
         f4: bool,
-    }
-
-    impl PartialEq for SomeStruct {
-        fn eq(&self, other: &Self) -> bool {
-            self.f1 == other.f1 && self.f2 == other.f2 && self.f3 == other.f3 && self.f4 == other.f4
-        }
     }
 
     type U8Size = <u8 as SerializableToArray>::Size;

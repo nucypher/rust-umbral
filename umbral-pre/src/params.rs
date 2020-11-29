@@ -5,7 +5,7 @@ use crate::traits::SerializableToArray;
 use generic_array::GenericArray;
 
 /// An object containing shared scheme parameters.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Parameters {
     pub(crate) u: CurvePoint,
 }
@@ -20,12 +20,6 @@ impl Parameters {
         let u = unsafe_hash_to_point(&g_bytes, parameters_seed).unwrap();
 
         Self { u }
-    }
-}
-
-impl PartialEq for Parameters {
-    fn eq(&self, other: &Self) -> bool {
-        self.u == other.u
     }
 }
 
