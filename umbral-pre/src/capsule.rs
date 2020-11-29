@@ -1,6 +1,6 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
-use crate::curve::{CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey};
+use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
 use crate::hashing::ScalarDigest;
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
@@ -75,10 +75,7 @@ impl Capsule {
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    pub(crate) fn from_pubkey(
-        params: &Parameters,
-        pk: &UmbralPublicKey,
-    ) -> (Capsule, CurvePoint) {
+    pub(crate) fn from_pubkey(params: &Parameters, pk: &PublicKey) -> (Capsule, CurvePoint) {
         let g = CurvePoint::generator();
 
         let priv_r = CurveScalar::random_nonzero();
@@ -104,15 +101,15 @@ impl Capsule {
     }
 
     /// Derive the same symmetric key
-    pub(crate) fn open_original(&self, private_key: &UmbralSecretKey) -> CurvePoint {
+    pub(crate) fn open_original(&self, private_key: &SecretKey) -> CurvePoint {
         &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar()
     }
 
     #[allow(clippy::many_single_char_names)]
     pub(crate) fn open_reencrypted(
         &self,
-        receiving_sk: &UmbralSecretKey,
-        delegating_pk: &UmbralPublicKey,
+        receiving_sk: &SecretKey,
+        delegating_pk: &PublicKey,
         cfrags: &[CapsuleFrag],
     ) -> Option<CurvePoint> {
         if cfrags.is_empty() {
@@ -125,7 +122,7 @@ impl Capsule {
             return None;
         }
 
-        let pub_key = UmbralPublicKey::from_secret_key(receiving_sk).to_point();
+        let pub_key = PublicKey::from_secret_key(receiving_sk).to_point();
         let dh_point = &precursor * &receiving_sk.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction

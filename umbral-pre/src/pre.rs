@@ -2,7 +2,7 @@
 
 use crate::capsule::Capsule;
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{UmbralPublicKey, UmbralSecretKey};
+use crate::curve::{PublicKey, SecretKey};
 use crate::dem::UmbralDEM;
 use crate::key_frag::KeyFrag;
 use crate::params::Parameters;
@@ -15,7 +15,7 @@ use alloc::boxed::Box;
 /// Returns the KEM [`Capsule`] and the ciphertext.
 pub fn encrypt(
     params: &Parameters,
-    pk: &UmbralPublicKey,
+    pk: &PublicKey,
     plaintext: &[u8],
 ) -> Option<(Capsule, Box<[u8]>)> {
     let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
@@ -28,7 +28,7 @@ pub fn encrypt(
 /// Attempts to decrypt the ciphertext using the original encryptor's
 /// secret key.
 pub fn decrypt_original(
-    decrypting_sk: &UmbralSecretKey,
+    decrypting_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
@@ -58,8 +58,8 @@ pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) ->
 ///
 /// One can call [`CapsuleFrag::verify()`] before reencryption to check its integrity.
 pub fn decrypt_reencrypted(
-    decrypting_sk: &UmbralSecretKey,
-    delegating_pk: &UmbralPublicKey,
+    decrypting_sk: &SecretKey,
+    delegating_pk: &PublicKey,
     capsule: &Capsule,
     cfrags: &[CapsuleFrag],
     ciphertext: impl AsRef<[u8]>,
@@ -80,7 +80,7 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::{Parameters, UmbralPublicKey, UmbralSecretKey};
+    use crate::{Parameters, PublicKey, SecretKey};
 
     #[test]
     fn test_simple_api() {
@@ -101,15 +101,15 @@ mod tests {
         let params = Parameters::new();
 
         // Key Generation (Alice)
-        let delegating_sk = UmbralSecretKey::random();
-        let delegating_pk = UmbralPublicKey::from_secret_key(&delegating_sk);
+        let delegating_sk = SecretKey::random();
+        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
-        let signing_sk = UmbralSecretKey::random();
-        let signing_pk = UmbralPublicKey::from_secret_key(&signing_sk);
+        let signing_sk = SecretKey::random();
+        let signing_pk = PublicKey::from_secret_key(&signing_sk);
 
         // Key Generation (Bob)
-        let receiving_sk = UmbralSecretKey::random();
-        let receiving_pk = UmbralPublicKey::from_secret_key(&receiving_sk);
+        let receiving_sk = SecretKey::random();
+        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         // Encryption by an unnamed data source
         let plaintext = b"peace at dawn";

@@ -1,7 +1,7 @@
 import * as wasm from "umbral-pre";
 
-let delegating_sk = wasm.UmbralSecretKey.random();
-let delegating_pk = wasm.UmbralPublicKey.from_secret_key(delegating_sk);
+let delegating_sk = wasm.SecretKey.random();
+let delegating_pk = wasm.PublicKey.from_secret_key(delegating_sk);
 let params = new wasm.Parameters();
 
 let enc = new TextEncoder();
@@ -18,11 +18,11 @@ if (dec.decode(plaintext) == msg) {
     console.log("decrypt_original() passed.")
 }
 
-let receiving_sk = wasm.UmbralSecretKey.random();
-let receiving_pk = wasm.UmbralPublicKey.from_secret_key(receiving_sk);
+let receiving_sk = wasm.SecretKey.random();
+let receiving_pk = wasm.PublicKey.from_secret_key(receiving_sk);
 
-let signing_sk = wasm.UmbralSecretKey.random();
-let signing_pk = wasm.UmbralPublicKey.from_secret_key(signing_sk);
+let signing_sk = wasm.SecretKey.random();
+let signing_pk = wasm.PublicKey.from_secret_key(signing_sk);
 
 let threshold = 2;
 let num_frags = 3;

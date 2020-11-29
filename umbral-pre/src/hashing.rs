@@ -4,7 +4,7 @@ use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use sha3::Sha3_256;
 
-use crate::curve::{CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey, UmbralSignature};
+use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, UmbralSignature};
 use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data into a valid EC point of the specified curve,
@@ -111,7 +111,7 @@ impl SignatureDigest {
         Self(self.0.chain(&point.to_array()))
     }
 
-    pub fn chain_pubkey(self, pk: &UmbralPublicKey) -> Self {
+    pub fn chain_pubkey(self, pk: &PublicKey) -> Self {
         Self(self.0.chain(&pk.to_array()))
     }
 
@@ -119,11 +119,11 @@ impl SignatureDigest {
         Self(self.0.chain(&[val as u8]))
     }
 
-    pub fn sign(self, sk: &UmbralSecretKey) -> UmbralSignature {
+    pub fn sign(self, sk: &SecretKey) -> UmbralSignature {
         sk.sign_digest(self.0)
     }
 
-    pub fn verify(self, pk: &UmbralPublicKey, signature: &UmbralSignature) -> bool {
+    pub fn verify(self, pk: &PublicKey, signature: &UmbralSignature) -> bool {
         pk.verify_digest(self.0, signature)
     }
 }

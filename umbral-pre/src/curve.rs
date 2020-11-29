@@ -5,7 +5,7 @@
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
-use ecdsa::{SecretKey, Signature, SignatureSize, SigningKey, VerifyKey};
+use ecdsa::{SecretKey as BackendSecretKey, Signature, SignatureSize, SigningKey, VerifyKey};
 use elliptic_curve::ff::PrimeField;
 use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
@@ -14,8 +14,7 @@ use generic_array::typenum::U32;
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
-use signature::Signature as SignatureTrait;
-use signature::{DigestVerifier, RandomizedDigestSigner};
+use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
 use subtle::CtOption;
 
 use crate::traits::SerializableToArray;
@@ -183,18 +182,19 @@ impl SerializableToArray for UmbralSignature {
 
 /// A secret key.
 #[derive(Clone, Debug)]
-pub struct UmbralSecretKey(SecretKey<CurveType>);
+pub struct SecretKey(BackendSecretKey<CurveType>);
 
-impl UmbralSecretKey {
+impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
-        let secret_key = SecretKey::<CurveType>::random(&mut OsRng);
+        let secret_key = BackendSecretKey::<CurveType>::random(&mut OsRng);
         Self(secret_key)
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
     pub(crate) fn to_secret_scalar(&self) -> CurveScalar {
-        // TODO: `SecretKey` only returns a reference, but how important is this safety measure?
+        // TODO: `BackendSecretKey` only returns a reference,
+        // but how important is this safety measure?
         // We could return a wrapped reference, and define arithmetic operations for it.
         // But we use this secret scalar to multiply not only points, but other scalars too.
         // So there's no point in hiding the actual value here as long as
@@ -212,7 +212,7 @@ impl UmbralSecretKey {
     }
 }
 
-impl SerializableToArray for UmbralSecretKey {
+impl SerializableToArray for SecretKey {
     type Size = <CurveScalar as SerializableToArray>::Size;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
@@ -220,7 +220,7 @@ impl SerializableToArray for UmbralSecretKey {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        SecretKey::<CurveType>::from_bytes(arr.as_slice())
+        BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
             .ok()
             .map(Self)
     }
@@ -228,11 +228,11 @@ impl SerializableToArray for UmbralSecretKey {
 
 /// A public key.
 #[derive(Clone, Copy, Debug)]
-pub struct UmbralPublicKey(EncodedPoint<CurveType>);
+pub struct PublicKey(EncodedPoint<CurveType>);
 
-impl UmbralPublicKey {
+impl PublicKey {
     /// Creates a public key from a secret key.
-    pub fn from_secret_key(secret_key: &UmbralSecretKey) -> Self {
+    pub fn from_secret_key(secret_key: &SecretKey) -> Self {
         Self(EncodedPoint::from_secret_key(&secret_key.0, true))
     }
 
@@ -258,7 +258,7 @@ impl UmbralPublicKey {
     }
 }
 
-impl SerializableToArray for UmbralPublicKey {
+impl SerializableToArray for PublicKey {
     type Size = <CurvePoint as SerializableToArray>::Size;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
@@ -279,18 +279,18 @@ impl SerializableToArray for UmbralPublicKey {
 #[cfg(test)]
 mod tests {
 
-    use super::{UmbralPublicKey, UmbralSecretKey};
+    use super::{PublicKey, SecretKey};
     use sha3::Sha3_256;
     use signature::digest::Digest;
 
     #[test]
     fn sign_verify() {
-        let sk = UmbralSecretKey::random();
+        let sk = SecretKey::random();
         let message = b"asdafdahsfdasdfasd";
         let digest = Sha3_256::new().chain(message);
         let signature = sk.sign_digest(digest);
 
-        let pk = UmbralPublicKey::from_secret_key(&sk);
+        let pk = PublicKey::from_secret_key(&sk);
         let digest = Sha3_256::new().chain(message);
         assert!(pk.verify_digest(digest, &signature));
     }

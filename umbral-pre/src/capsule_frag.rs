@@ -1,6 +1,6 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{UmbralPublicKey, UmbralSignature};
+use crate::curve::{PublicKey, UmbralSignature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::key_frag::KeyFrag;
 use crate::traits::SerializableToArray;
@@ -180,9 +180,9 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
-        delegating_pk: &UmbralPublicKey,
-        receiving_pk: &UmbralPublicKey,
-        signing_pk: &UmbralPublicKey,
+        delegating_pk: &PublicKey,
+        receiving_pk: &PublicKey,
+        signing_pk: &PublicKey,
     ) -> bool {
         let params = capsule.params;
 

@@ -16,45 +16,39 @@ use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 
 #[wasm_bindgen]
-pub struct UmbralSecretKey(
-    GenericArray<u8, <umbral_pre::UmbralSecretKey as SerializableToArray>::Size>,
-);
+pub struct SecretKey(GenericArray<u8, <umbral_pre::SecretKey as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
-impl UmbralSecretKey {
+impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
         console_error_panic_hook::set_once(); // TODO: find a better place to initialize it
-        Self(umbral_pre::UmbralSecretKey::random().to_array())
+        Self(umbral_pre::SecretKey::random().to_array())
     }
 
-    pub(crate) fn to_backend(&self) -> umbral_pre::UmbralSecretKey {
-        umbral_pre::UmbralSecretKey::from_bytes(&self.0).unwrap()
+    pub(crate) fn to_backend(&self) -> umbral_pre::SecretKey {
+        umbral_pre::SecretKey::from_bytes(&self.0).unwrap()
     }
 }
 
 #[wasm_bindgen]
-pub struct UmbralPublicKey(
-    GenericArray<u8, <umbral_pre::UmbralPublicKey as SerializableToArray>::Size>,
-);
+pub struct PublicKey(GenericArray<u8, <umbral_pre::PublicKey as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
-impl UmbralPublicKey {
+impl PublicKey {
     /// Generates a secret key using the default RNG and returns it.
-    pub fn from_secret_key(secret_key: &UmbralSecretKey) -> Self {
+    pub fn from_secret_key(secret_key: &SecretKey) -> Self {
         let sk = secret_key.to_backend();
-        Self(umbral_pre::UmbralPublicKey::from_secret_key(&sk).to_array())
+        Self(umbral_pre::PublicKey::from_secret_key(&sk).to_array())
     }
 
-    pub(crate) fn to_backend(&self) -> umbral_pre::UmbralPublicKey {
-        umbral_pre::UmbralPublicKey::from_bytes(&self.0).unwrap()
+    pub(crate) fn to_backend(&self) -> umbral_pre::PublicKey {
+        umbral_pre::PublicKey::from_bytes(&self.0).unwrap()
     }
 }
 
 #[wasm_bindgen]
-pub struct Parameters(
-    GenericArray<u8, <umbral_pre::Parameters as SerializableToArray>::Size>,
-);
+pub struct Parameters(GenericArray<u8, <umbral_pre::Parameters as SerializableToArray>::Size>);
 
 #[wasm_bindgen]
 impl Parameters {
@@ -118,9 +112,9 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
-        signing_pubkey: &UmbralPublicKey,
-        delegating_pubkey: &UmbralPublicKey,
-        receiving_pubkey: &UmbralPublicKey,
+        signing_pubkey: &PublicKey,
+        delegating_pubkey: &PublicKey,
+        receiving_pubkey: &PublicKey,
     ) -> bool {
         self.to_backend().verify(
             &capsule.to_backend(),
@@ -152,8 +146,8 @@ impl CapsuleWithFrags {
     #[wasm_bindgen]
     pub fn decrypt_reencrypted(
         &self,
-        decrypting_key: &UmbralSecretKey,
-        delegating_pk: &UmbralPublicKey,
+        decrypting_key: &SecretKey,
+        delegating_pk: &PublicKey,
         ciphertext: &[u8],
     ) -> Option<Box<[u8]>> {
         let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
@@ -194,7 +188,7 @@ impl EncryptionResult {
 #[wasm_bindgen]
 pub fn encrypt(
     params: &Parameters,
-    alice_pubkey: &UmbralPublicKey,
+    alice_pubkey: &PublicKey,
     plaintext: &[u8],
 ) -> Option<EncryptionResult> {
     let backend_params = params.to_backend();
@@ -209,7 +203,7 @@ pub fn encrypt(
 
 #[wasm_bindgen]
 pub fn decrypt_original(
-    decrypting_key: &UmbralSecretKey,
+    decrypting_key: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Box<[u8]> {
@@ -231,14 +225,14 @@ impl KeyFrag {
         umbral_pre::KeyFrag::from_bytes(&self.0).unwrap()
     }
 
-    // FIXME: `Option<&UmbralPublicKey> are currently not supported.
+    // FIXME: `Option<&PublicKey> are currently not supported.
     // See https://github.com/rustwasm/wasm-bindgen/issues/2370
     #[wasm_bindgen]
     pub fn verify(
         &self,
-        signing_pubkey: &UmbralPublicKey,
-        delegating_pubkey: &UmbralPublicKey,
-        receiving_pubkey: &UmbralPublicKey,
+        signing_pubkey: &PublicKey,
+        delegating_pubkey: &PublicKey,
+        receiving_pubkey: &PublicKey,
     ) -> bool {
         let backend_delegating_pubkey = delegating_pubkey.to_backend();
         let backend_receiving_pubkey = receiving_pubkey.to_backend();
@@ -255,9 +249,9 @@ impl KeyFrag {
 #[wasm_bindgen]
 pub fn generate_kfrags(
     params: &Parameters,
-    delegating_sk: &UmbralSecretKey,
-    receiving_pubkey: &UmbralPublicKey,
-    signing_sk: &UmbralSecretKey,
+    delegating_sk: &SecretKey,
+    receiving_pubkey: &PublicKey,
+    signing_sk: &SecretKey,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,

@@ -18,14 +18,14 @@
 //! // need a signing keypair.
 //!
 //! // Key Generation (on Alice's side)
-//! let alice_sk = UmbralSecretKey::random();
-//! let alice_pk = UmbralPublicKey::from_secret_key(&alice_sk);
-//! let signing_sk = UmbralSecretKey::random();
-//! let signing_pk = UmbralPublicKey::from_secret_key(&signing_sk);
+//! let alice_sk = SecretKey::random();
+//! let alice_pk = PublicKey::from_secret_key(&alice_sk);
+//! let signing_sk = SecretKey::random();
+//! let signing_pk = PublicKey::from_secret_key(&signing_sk);
 //!
 //! // Key Generation (on Bob's side)
-//! let bob_sk = UmbralSecretKey::random();
-//! let bob_pk = UmbralPublicKey::from_secret_key(&bob_sk);
+//! let bob_sk = SecretKey::random();
+//! let bob_pk = PublicKey::from_secret_key(&bob_sk);
 //!
 //! // Now let's encrypt data with Alice's public key.
 //! // Invocation of `encrypt()` returns both the ciphertext and a capsule.
@@ -110,7 +110,7 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
 pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
-pub use curve::{UmbralPublicKey, UmbralSecretKey};
+pub use curve::{PublicKey, SecretKey};
 pub use key_frag::KeyFrag;
 pub use params::Parameters;
 pub use traits::SerializableToArray;

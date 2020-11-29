@@ -1,6 +1,6 @@
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
+use crate::curve::{PublicKey, SecretKey, UmbralSignature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
@@ -62,9 +62,9 @@ impl KeyFragProof {
         kfrag_id: &CurveScalar,
         kfrag_key: &CurveScalar,
         kfrag_precursor: &CurvePoint,
-        signing_sk: &UmbralSecretKey,
-        delegating_pk: &UmbralPublicKey,
-        receiving_pk: &UmbralPublicKey,
+        signing_sk: &SecretKey,
+        delegating_pk: &PublicKey,
+        receiving_pk: &PublicKey,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -201,9 +201,9 @@ impl KeyFrag {
     /// is not provided, the verification fails.
     pub fn verify(
         &self,
-        signing_pk: &UmbralPublicKey,
-        delegating_pk: Option<&UmbralPublicKey>,
-        receiving_pk: Option<&UmbralPublicKey>,
+        signing_pk: &PublicKey,
+        delegating_pk: Option<&PublicKey>,
+        receiving_pk: Option<&PublicKey>,
     ) -> bool {
         if self.proof.delegating_key_signed && delegating_pk.is_none() {
             return false;
@@ -244,27 +244,27 @@ impl KeyFrag {
 }
 
 struct KeyFragFactory {
-    signing_sk: UmbralSecretKey,
+    signing_sk: SecretKey,
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
     dh_point: CurvePoint,
     params: Parameters,
-    delegating_pk: UmbralPublicKey,
-    receiving_pk: UmbralPublicKey,
+    delegating_pk: PublicKey,
+    receiving_pk: PublicKey,
     coefficients: Box<[CurveScalar]>,
 }
 
 impl KeyFragFactory {
     pub fn new(
         params: &Parameters,
-        delegating_sk: &UmbralSecretKey,
-        receiving_pk: &UmbralPublicKey,
-        signing_sk: &UmbralSecretKey,
+        delegating_sk: &SecretKey,
+        receiving_pk: &PublicKey,
+        signing_sk: &SecretKey,
         threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
 
-        let delegating_pk = UmbralPublicKey::from_secret_key(delegating_sk);
+        let delegating_pk = PublicKey::from_secret_key(delegating_sk);
 
         let bob_pubkey_point = receiving_pk.to_point();
 
@@ -340,9 +340,9 @@ fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     params: &Parameters,
-    delegating_sk: &UmbralSecretKey,
-    receiving_pk: &UmbralPublicKey,
-    signing_sk: &UmbralSecretKey,
+    delegating_sk: &SecretKey,
+    receiving_pk: &PublicKey,
+    signing_sk: &SecretKey,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
