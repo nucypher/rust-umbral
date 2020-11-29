@@ -2,7 +2,7 @@ use crate::capsule_frag::CapsuleFrag;
 use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar, UmbralPublicKey, UmbralSecretKey};
 use crate::hashing::ScalarDigest;
-use crate::params::UmbralParameters;
+use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
 use alloc::vec::Vec;
@@ -14,16 +14,16 @@ use typenum::op;
 /// Encapsulated symmetric key used to encrypt the plaintext.
 #[derive(Clone, Copy, Debug)]
 pub struct Capsule {
-    pub(crate) params: UmbralParameters,
+    pub(crate) params: Parameters,
     pub(crate) point_e: CurvePoint,
     pub(crate) point_v: CurvePoint,
     pub(crate) signature: CurveScalar,
 }
 
-type UmbralParametersSize = <UmbralParameters as SerializableToArray>::Size;
+type ParametersSize = <Parameters as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type CapsuleSize = op!(UmbralParametersSize + PointSize + PointSize + ScalarSize);
+type CapsuleSize = op!(ParametersSize + PointSize + PointSize + ScalarSize);
 
 impl SerializableToArray for Capsule {
     type Size = CapsuleSize;
@@ -37,7 +37,7 @@ impl SerializableToArray for Capsule {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let (params, rest) = UmbralParameters::take(*arr)?;
+        let (params, rest) = Parameters::take(*arr)?;
         let (point_e, rest) = CurvePoint::take(rest)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
         let signature = CurveScalar::take_last(rest)?;
@@ -47,7 +47,7 @@ impl SerializableToArray for Capsule {
 
 impl Capsule {
     pub(crate) fn new_verified(
-        params: UmbralParameters,
+        params: Parameters,
         point_e: CurvePoint,
         point_v: CurvePoint,
         signature: CurveScalar,
@@ -76,7 +76,7 @@ impl Capsule {
 
     /// Generates a symmetric key and its associated KEM ciphertext
     pub(crate) fn from_pubkey(
-        params: &UmbralParameters,
+        params: &Parameters,
         pk: &UmbralPublicKey,
     ) -> (Capsule, CurvePoint) {
         let g = CurvePoint::generator();

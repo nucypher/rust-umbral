@@ -5,7 +5,7 @@ use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{UmbralPublicKey, UmbralSecretKey};
 use crate::dem::UmbralDEM;
 use crate::key_frag::KeyFrag;
-use crate::params::UmbralParameters;
+use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
@@ -14,7 +14,7 @@ use alloc::boxed::Box;
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
 pub fn encrypt(
-    params: &UmbralParameters,
+    params: &Parameters,
     pk: &UmbralPublicKey,
     plaintext: &[u8],
 ) -> Option<(Capsule, Box<[u8]>)> {
@@ -80,7 +80,7 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::{UmbralParameters, UmbralPublicKey, UmbralSecretKey};
+    use crate::{Parameters, UmbralPublicKey, UmbralSecretKey};
 
     #[test]
     fn test_simple_api() {
@@ -98,7 +98,7 @@ mod tests {
         let num_frags: usize = threshold + 1;
 
         // Generation of global parameters
-        let params = UmbralParameters::new();
+        let params = Parameters::new();
 
         // Key Generation (Alice)
         let delegating_sk = UmbralSecretKey::random();

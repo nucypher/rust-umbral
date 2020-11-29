@@ -2,7 +2,7 @@ import * as wasm from "umbral-pre";
 
 let delegating_sk = wasm.UmbralSecretKey.random();
 let delegating_pk = wasm.UmbralPublicKey.from_secret_key(delegating_sk);
-let params = new wasm.UmbralParameters();
+let params = new wasm.Parameters();
 
 let enc = new TextEncoder();
 let dec = new TextDecoder("utf-8");

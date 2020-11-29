@@ -11,8 +11,8 @@
 //! # Usage
 //!
 //! ```
-//! # use umbral_pre::*;
-//! #
+//! use umbral_pre::*;
+//!
 //! // As in any public-key cryptosystem, users need a pair of public and private keys.
 //! // Additionally, users that delegate access to their data (like Alice, in this example)
 //! // need a signing keypair.
@@ -31,7 +31,7 @@
 //! // Invocation of `encrypt()` returns both the ciphertext and a capsule.
 //! // Note that anyone with Alice's public key can perform this operation.
 //!
-//! let params = UmbralParameters::new();
+//! let params = Parameters::new();
 //! let plaintext = b"peace at dawn";
 //! let (capsule, ciphertext) = encrypt(&params, &alice_pk, plaintext).unwrap();
 //!
@@ -112,5 +112,5 @@ pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
 pub use curve::{UmbralPublicKey, UmbralSecretKey};
 pub use key_frag::KeyFrag;
-pub use params::UmbralParameters;
+pub use params::Parameters;
 pub use traits::SerializableToArray;

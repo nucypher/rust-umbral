@@ -52,23 +52,23 @@ impl UmbralPublicKey {
 }
 
 #[wasm_bindgen]
-pub struct UmbralParameters(
-    GenericArray<u8, <umbral_pre::UmbralParameters as SerializableToArray>::Size>,
+pub struct Parameters(
+    GenericArray<u8, <umbral_pre::Parameters as SerializableToArray>::Size>,
 );
 
 #[wasm_bindgen]
-impl UmbralParameters {
+impl Parameters {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self(umbral_pre::UmbralParameters::new().to_array())
+        Self(umbral_pre::Parameters::new().to_array())
     }
 
-    pub(crate) fn to_backend(&self) -> umbral_pre::UmbralParameters {
-        umbral_pre::UmbralParameters::from_bytes(&self.0).unwrap()
+    pub(crate) fn to_backend(&self) -> umbral_pre::Parameters {
+        umbral_pre::Parameters::from_bytes(&self.0).unwrap()
     }
 }
 
-impl Default for UmbralParameters {
+impl Default for Parameters {
     fn default() -> Self {
         Self::new()
     }
@@ -193,7 +193,7 @@ impl EncryptionResult {
 
 #[wasm_bindgen]
 pub fn encrypt(
-    params: &UmbralParameters,
+    params: &Parameters,
     alice_pubkey: &UmbralPublicKey,
     plaintext: &[u8],
 ) -> Option<EncryptionResult> {
@@ -254,7 +254,7 @@ impl KeyFrag {
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn generate_kfrags(
-    params: &UmbralParameters,
+    params: &Parameters,
     delegating_sk: &UmbralSecretKey,
     receiving_pubkey: &UmbralPublicKey,
     signing_sk: &UmbralSecretKey,

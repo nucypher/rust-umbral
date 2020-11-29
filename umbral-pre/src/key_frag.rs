@@ -2,7 +2,7 @@ use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{UmbralPublicKey, UmbralSecretKey, UmbralSignature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
-use crate::params::UmbralParameters;
+use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
@@ -21,7 +21,7 @@ pub(crate) struct KeyFragProof {
     receiving_key_signed: bool,
 }
 
-type ParametersSize = <UmbralParameters as SerializableToArray>::Size;
+type ParametersSize = <Parameters as SerializableToArray>::Size;
 type SignatureSize = <UmbralSignature as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
@@ -58,7 +58,7 @@ impl SerializableToArray for KeyFragProof {
 impl KeyFragProof {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        params: &UmbralParameters,
+        params: &Parameters,
         kfrag_id: &CurveScalar,
         kfrag_key: &CurveScalar,
         kfrag_precursor: &CurvePoint,
@@ -112,7 +112,7 @@ impl KeyFragProof {
 /// A fragment of the encrypting party's key used to create a [`CapsuleFrag`](`crate::CapsuleFrag`).
 #[derive(Clone, Debug)]
 pub struct KeyFrag {
-    params: UmbralParameters,
+    params: Parameters,
     pub(crate) id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
     pub(crate) key: CurveScalar,
     pub(crate) precursor: CurvePoint,
@@ -134,7 +134,7 @@ impl SerializableToArray for KeyFrag {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let (params, rest) = UmbralParameters::take(*arr)?;
+        let (params, rest) = Parameters::take(*arr)?;
         let (id, rest) = CurveScalar::take(rest)?;
         let (key, rest) = CurveScalar::take(rest)?;
         let (precursor, rest) = CurvePoint::take(rest)?;
@@ -248,7 +248,7 @@ struct KeyFragFactory {
     precursor: CurvePoint,
     bob_pubkey_point: CurvePoint,
     dh_point: CurvePoint,
-    params: UmbralParameters,
+    params: Parameters,
     delegating_pk: UmbralPublicKey,
     receiving_pk: UmbralPublicKey,
     coefficients: Box<[CurveScalar]>,
@@ -256,7 +256,7 @@ struct KeyFragFactory {
 
 impl KeyFragFactory {
     pub fn new(
-        params: &UmbralParameters,
+        params: &Parameters,
         delegating_sk: &UmbralSecretKey,
         receiving_pk: &UmbralPublicKey,
         signing_sk: &UmbralSecretKey,
@@ -339,7 +339,7 @@ fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
 /// Returns a boxed slice of `num_kfrags` KeyFrags
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
-    params: &UmbralParameters,
+    params: &Parameters,
     delegating_sk: &UmbralSecretKey,
     receiving_pk: &UmbralPublicKey,
     signing_sk: &UmbralSecretKey,

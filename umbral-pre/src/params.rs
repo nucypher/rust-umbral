@@ -6,11 +6,11 @@ use generic_array::GenericArray;
 
 /// An object containing shared scheme parameters.
 #[derive(Clone, Copy, Debug)]
-pub struct UmbralParameters {
+pub struct Parameters {
     pub(crate) u: CurvePoint,
 }
 
-impl UmbralParameters {
+impl Parameters {
     /// Creates a new parameter object.
     pub fn new() -> Self {
         let g = CurvePoint::generator();
@@ -23,7 +23,7 @@ impl UmbralParameters {
     }
 }
 
-impl SerializableToArray for UmbralParameters {
+impl SerializableToArray for Parameters {
     type Size = <CurvePoint as SerializableToArray>::Size;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
@@ -36,7 +36,7 @@ impl SerializableToArray for UmbralParameters {
     }
 }
 
-impl Default for UmbralParameters {
+impl Default for Parameters {
     fn default() -> Self {
         Self::new()
     }
