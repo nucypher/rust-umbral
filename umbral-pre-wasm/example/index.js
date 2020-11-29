@@ -45,7 +45,10 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generate_kfrags(
-    params, alice_sk, bob_pk, signing_sk, m, n, true, true);
+    params, alice_sk, bob_pk, signing_sk, m, n,
+    true, // add the delegating key (alice_pk) to the signature
+    true, // add the receiving key (bob_pk) to the signature
+    );
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -60,11 +63,15 @@ let kfrags = umbral.generate_kfrags(
 let metadata = "asbdasdasd";
 
 // Ursula 0
-console.assert(kfrags[0].verify(signing_pk, alice_pk, bob_pk), "kfrag0 is invalid");
+console.assert(
+    kfrags[0].verify_with_delegating_and_receiving_keys(signing_pk, alice_pk, bob_pk),
+    "kfrag0 is invalid");
 let cfrag0 = umbral.reencrypt(capsule, kfrags[0], enc.encode(metadata));
 
 // Ursula 1
-console.assert(kfrags[1].verify(signing_pk, alice_pk, bob_pk), "kfrag1 is invalid");
+console.assert(
+    kfrags[1].verify_with_delegating_and_receiving_keys(signing_pk, alice_pk, bob_pk),
+    "kfrag1 is invalid");
 let cfrag1 = umbral.reencrypt(capsule, kfrags[1], enc.encode(metadata));
 
 // ...

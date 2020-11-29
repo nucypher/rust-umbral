@@ -227,8 +227,46 @@ impl KeyFrag {
 
     // FIXME: `Option<&PublicKey> are currently not supported.
     // See https://github.com/rustwasm/wasm-bindgen/issues/2370
+    // So we have to use 4 functions instead of 1. Yikes.
+
     #[wasm_bindgen]
-    pub fn verify(
+    pub fn verify(&self, signing_pubkey: &PublicKey) -> bool {
+        self.to_backend()
+            .verify(&signing_pubkey.to_backend(), None, None)
+    }
+
+    #[wasm_bindgen]
+    pub fn verify_with_delegating_key(
+        &self,
+        signing_pubkey: &PublicKey,
+        delegating_pubkey: &PublicKey,
+    ) -> bool {
+        let backend_delegating_pubkey = delegating_pubkey.to_backend();
+
+        self.to_backend().verify(
+            &signing_pubkey.to_backend(),
+            Some(&backend_delegating_pubkey),
+            None,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn verify_with_receiving_key(
+        &self,
+        signing_pubkey: &PublicKey,
+        receiving_pubkey: &PublicKey,
+    ) -> bool {
+        let backend_receiving_pubkey = receiving_pubkey.to_backend();
+
+        self.to_backend().verify(
+            &signing_pubkey.to_backend(),
+            None,
+            Some(&backend_receiving_pubkey),
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn verify_with_delegating_and_receiving_keys(
         &self,
         signing_pubkey: &PublicKey,
         delegating_pubkey: &PublicKey,
