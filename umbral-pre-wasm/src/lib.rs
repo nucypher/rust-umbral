@@ -7,58 +7,42 @@ extern crate wee_alloc;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-use generic_array::GenericArray;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
-
-use umbral_pre::SerializableToArray;
 
 use alloc::boxed::Box;
 use alloc::{vec, vec::Vec};
 
 #[wasm_bindgen]
-pub struct SecretKey(GenericArray<u8, <umbral_pre::SecretKey as SerializableToArray>::Size>);
+pub struct SecretKey(umbral_pre::SecretKey);
 
 #[wasm_bindgen]
 impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
         console_error_panic_hook::set_once(); // TODO: find a better place to initialize it
-        Self(umbral_pre::SecretKey::random().to_array())
-    }
-
-    pub(crate) fn to_backend(&self) -> umbral_pre::SecretKey {
-        umbral_pre::SecretKey::from_bytes(&self.0).unwrap()
+        Self(umbral_pre::SecretKey::random())
     }
 }
 
 #[wasm_bindgen]
-pub struct PublicKey(GenericArray<u8, <umbral_pre::PublicKey as SerializableToArray>::Size>);
+pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
 impl PublicKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn from_secret_key(secret_key: &SecretKey) -> Self {
-        let sk = secret_key.to_backend();
-        Self(umbral_pre::PublicKey::from_secret_key(&sk).to_array())
-    }
-
-    pub(crate) fn to_backend(&self) -> umbral_pre::PublicKey {
-        umbral_pre::PublicKey::from_bytes(&self.0).unwrap()
+        Self(umbral_pre::PublicKey::from_secret_key(&secret_key.0))
     }
 }
 
 #[wasm_bindgen]
-pub struct Parameters(GenericArray<u8, <umbral_pre::Parameters as SerializableToArray>::Size>);
+pub struct Parameters(umbral_pre::Parameters);
 
 #[wasm_bindgen]
 impl Parameters {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self(umbral_pre::Parameters::new().to_array())
-    }
-
-    pub(crate) fn to_backend(&self) -> umbral_pre::Parameters {
-        umbral_pre::Parameters::from_bytes(&self.0).unwrap()
+        Self(umbral_pre::Parameters::new())
     }
 }
 
@@ -70,18 +54,10 @@ impl Default for Parameters {
 
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
-pub struct Capsule(GenericArray<u8, <umbral_pre::Capsule as SerializableToArray>::Size>);
+pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
 impl Capsule {
-    fn from_backend(capsule: &umbral_pre::Capsule) -> Self {
-        Self(capsule.to_array())
-    }
-
-    fn to_backend(&self) -> umbral_pre::Capsule {
-        umbral_pre::Capsule::from_bytes(&self.0).unwrap()
-    }
-
     // FIXME: have to add cfrags one by one since `wasm_bindgen` currently does not support
     // Vec<CustomStruct> as a parameter.
     // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
@@ -89,25 +65,17 @@ impl Capsule {
     pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
         CapsuleWithFrags {
             capsule: *self,
-            cfrags: vec![*cfrag],
+            cfrags: vec![cfrag.clone()],
         }
     }
 }
 
 #[wasm_bindgen]
-#[derive(Clone, Copy)]
-pub struct CapsuleFrag(GenericArray<u8, <umbral_pre::CapsuleFrag as SerializableToArray>::Size>);
+#[derive(Clone)]
+pub struct CapsuleFrag(umbral_pre::CapsuleFrag);
 
 #[wasm_bindgen]
 impl CapsuleFrag {
-    fn from_backend(cfrag: &umbral_pre::CapsuleFrag) -> Self {
-        Self(cfrag.to_array())
-    }
-
-    fn to_backend(&self) -> umbral_pre::CapsuleFrag {
-        umbral_pre::CapsuleFrag::from_bytes(&self.0).unwrap()
-    }
-
     #[wasm_bindgen]
     pub fn verify(
         &self,
@@ -116,11 +84,11 @@ impl CapsuleFrag {
         delegating_pubkey: &PublicKey,
         receiving_pubkey: &PublicKey,
     ) -> bool {
-        self.to_backend().verify(
-            &capsule.to_backend(),
-            &signing_pubkey.to_backend(),
-            &delegating_pubkey.to_backend(),
-            &receiving_pubkey.to_backend(),
+        self.0.verify(
+            &capsule.0,
+            &signing_pubkey.0,
+            &delegating_pubkey.0,
+            &receiving_pubkey.0,
         )
     }
 }
@@ -136,7 +104,7 @@ impl CapsuleWithFrags {
     #[wasm_bindgen]
     pub fn with_cfrag(&self, cfrag: &CapsuleFrag) -> CapsuleWithFrags {
         let mut new_cfrags = self.cfrags.clone();
-        new_cfrags.push(*cfrag);
+        new_cfrags.push(cfrag.clone());
         Self {
             capsule: self.capsule,
             cfrags: new_cfrags,
@@ -151,11 +119,11 @@ impl CapsuleWithFrags {
         ciphertext: &[u8],
     ) -> Option<Box<[u8]>> {
         let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
-            self.cfrags.iter().map(CapsuleFrag::to_backend).collect();
+            self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
-            &decrypting_key.to_backend(),
-            &delegating_pk.to_backend(),
-            &self.capsule.to_backend(),
+            &decrypting_key.0,
+            &delegating_pk.0,
+            &self.capsule.0,
             backend_cfrags.as_slice(),
             ciphertext,
         )
@@ -191,14 +159,11 @@ pub fn encrypt(
     alice_pubkey: &PublicKey,
     plaintext: &[u8],
 ) -> Option<EncryptionResult> {
-    let backend_params = params.to_backend();
-    let backend_pubkey = alice_pubkey.to_backend();
+    let backend_params = params.0;
+    let backend_pubkey = alice_pubkey.0;
     let (capsule, ciphertext) =
         umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext).unwrap();
-    Some(EncryptionResult::new(
-        ciphertext,
-        Capsule::from_backend(&capsule),
-    ))
+    Some(EncryptionResult::new(ciphertext, Capsule(capsule)))
 }
 
 #[wasm_bindgen]
@@ -207,32 +172,21 @@ pub fn decrypt_original(
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Box<[u8]> {
-    let backend_capsule = capsule.to_backend();
-    let backend_key = decrypting_key.to_backend();
-    umbral_pre::decrypt_original(&backend_key, &backend_capsule, ciphertext).unwrap()
+    umbral_pre::decrypt_original(&decrypting_key.0, &capsule.0, ciphertext).unwrap()
 }
 
 #[wasm_bindgen]
-pub struct KeyFrag(GenericArray<u8, <umbral_pre::KeyFrag as SerializableToArray>::Size>);
+pub struct KeyFrag(umbral_pre::KeyFrag);
 
 #[wasm_bindgen]
 impl KeyFrag {
-    fn from_backend(kfrag: &umbral_pre::KeyFrag) -> Self {
-        Self(kfrag.to_array())
-    }
-
-    fn to_backend(&self) -> umbral_pre::KeyFrag {
-        umbral_pre::KeyFrag::from_bytes(&self.0).unwrap()
-    }
-
     // FIXME: `Option<&PublicKey> are currently not supported.
     // See https://github.com/rustwasm/wasm-bindgen/issues/2370
     // So we have to use 4 functions instead of 1. Yikes.
 
     #[wasm_bindgen]
     pub fn verify(&self, signing_pubkey: &PublicKey) -> bool {
-        self.to_backend()
-            .verify(&signing_pubkey.to_backend(), None, None)
+        self.0.verify(&signing_pubkey.0, None, None)
     }
 
     #[wasm_bindgen]
@@ -241,13 +195,10 @@ impl KeyFrag {
         signing_pubkey: &PublicKey,
         delegating_pubkey: &PublicKey,
     ) -> bool {
-        let backend_delegating_pubkey = delegating_pubkey.to_backend();
+        let backend_delegating_pubkey = delegating_pubkey.0;
 
-        self.to_backend().verify(
-            &signing_pubkey.to_backend(),
-            Some(&backend_delegating_pubkey),
-            None,
-        )
+        self.0
+            .verify(&signing_pubkey.0, Some(&backend_delegating_pubkey), None)
     }
 
     #[wasm_bindgen]
@@ -256,13 +207,10 @@ impl KeyFrag {
         signing_pubkey: &PublicKey,
         receiving_pubkey: &PublicKey,
     ) -> bool {
-        let backend_receiving_pubkey = receiving_pubkey.to_backend();
+        let backend_receiving_pubkey = receiving_pubkey.0;
 
-        self.to_backend().verify(
-            &signing_pubkey.to_backend(),
-            None,
-            Some(&backend_receiving_pubkey),
-        )
+        self.0
+            .verify(&signing_pubkey.0, None, Some(&backend_receiving_pubkey))
     }
 
     #[wasm_bindgen]
@@ -272,11 +220,11 @@ impl KeyFrag {
         delegating_pubkey: &PublicKey,
         receiving_pubkey: &PublicKey,
     ) -> bool {
-        let backend_delegating_pubkey = delegating_pubkey.to_backend();
-        let backend_receiving_pubkey = receiving_pubkey.to_backend();
+        let backend_delegating_pubkey = delegating_pubkey.0;
+        let backend_receiving_pubkey = receiving_pubkey.0;
 
-        self.to_backend().verify(
-            &signing_pubkey.to_backend(),
+        self.0.verify(
+            &signing_pubkey.0,
             Some(&backend_delegating_pubkey),
             Some(&backend_receiving_pubkey),
         )
@@ -295,15 +243,11 @@ pub fn generate_kfrags(
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Vec<JsValue> {
-    let backend_params = params.to_backend();
-    let backend_delegating_sk = delegating_sk.to_backend();
-    let backend_receiving_pubkey = receiving_pubkey.to_backend();
-    let backend_signing_sk = signing_sk.to_backend();
     let backend_kfrags = umbral_pre::generate_kfrags(
-        &backend_params,
-        &backend_delegating_sk,
-        &backend_receiving_pubkey,
-        &backend_signing_sk,
+        &params.0,
+        &delegating_sk.0,
+        &receiving_pubkey.0,
+        &signing_sk.0,
         threshold,
         num_kfrags,
         sign_delegating_key,
@@ -315,16 +259,15 @@ pub fn generate_kfrags(
     // See https://github.com/rustwasm/wasm-bindgen/issues/111
     backend_kfrags
         .iter()
-        .map(|kfrag| KeyFrag::from_backend(&kfrag))
+        .cloned()
+        .map(KeyFrag)
         .map(JsValue::from)
         .collect()
 }
 
 #[wasm_bindgen]
 pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<Box<[u8]>>) -> CapsuleFrag {
-    let backend_kfrag = kfrag.to_backend();
-    let backend_capsule = capsule.to_backend();
     let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
-    let backend_cfrag = umbral_pre::reencrypt(&backend_capsule, &backend_kfrag, metadata_slice);
-    CapsuleFrag::from_backend(&backend_cfrag)
+    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0, metadata_slice);
+    CapsuleFrag(backend_cfrag)
 }

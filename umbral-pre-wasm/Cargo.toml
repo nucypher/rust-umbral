@@ -14,7 +14,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 umbral-pre = { path = "../umbral-pre" }
-generic-array = "0.14"
 wasm-bindgen = "0.2.63"
 console_error_panic_hook = { version = "0.1" } # TODO: make conditional
 wee_alloc = "0.4"
