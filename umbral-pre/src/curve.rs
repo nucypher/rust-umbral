@@ -163,7 +163,7 @@ impl SerializableToArray for CurvePoint {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UmbralSignature(Signature<CurveType>);
 
 impl SerializableToArray for UmbralSignature {

@@ -12,7 +12,7 @@ use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::{op, U1};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
     signature_for_proxy: UmbralSignature,
@@ -110,7 +110,7 @@ impl KeyFragProof {
 }
 
 /// A fragment of the encrypting party's key used to create a [`CapsuleFrag`](`crate::CapsuleFrag`).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct KeyFrag {
     params: Parameters,
     pub(crate) id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
@@ -356,4 +356,38 @@ pub fn generate_kfrags(
     }
 
     result.into_boxed_slice()
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::{generate_kfrags, KeyFrag};
+    use crate::{Parameters, PublicKey, SecretKey, SerializableToArray};
+
+    #[test]
+    fn test_serialize() {
+        let params = Parameters::new();
+
+        let delegating_sk = SecretKey::random();
+
+        let signing_sk = SecretKey::random();
+
+        let receiving_sk = SecretKey::random();
+        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
+
+        let kfrags = generate_kfrags(
+            &params,
+            &delegating_sk,
+            &receiving_pk,
+            &signing_sk,
+            2,
+            3,
+            true,
+            true,
+        );
+
+        let kfrag_arr = kfrags[0].to_array();
+        let kfrag_back = KeyFrag::from_array(&kfrag_arr).unwrap();
+        assert_eq!(kfrags[0], kfrag_back);
+    }
 }
