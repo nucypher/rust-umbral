@@ -175,6 +175,12 @@ impl SerializableToArray for Signature {
 #[derive(Clone, Debug)]
 pub struct SecretKey(BackendSecretKey<CurveType>);
 
+impl PartialEq for SecretKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_secret_scalar() == other.to_secret_scalar()
+    }
+}
+
 impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
@@ -218,7 +224,7 @@ impl SerializableToArray for SecretKey {
 }
 
 /// A public key.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PublicKey(EncodedPoint<CurveType>);
 
 impl PublicKey {
@@ -270,12 +276,31 @@ impl SerializableToArray for PublicKey {
 #[cfg(test)]
 mod tests {
 
-    use super::{PublicKey, SecretKey};
     use sha3::Sha3_256;
     use signature::digest::Digest;
 
+    use super::{PublicKey, SecretKey};
+    use crate::SerializableToArray;
+
     #[test]
-    fn sign_verify() {
+    fn test_serialize_secret_key() {
+        let sk = SecretKey::random();
+        let sk_arr = sk.to_array();
+        let sk_back = SecretKey::from_array(&sk_arr).unwrap();
+        assert_eq!(sk, sk_back);
+    }
+
+    #[test]
+    fn test_serialize_public_key() {
+        let sk = SecretKey::random();
+        let pk = PublicKey::from_secret_key(&sk);
+        let pk_arr = pk.to_array();
+        let pk_back = PublicKey::from_array(&pk_arr).unwrap();
+        assert_eq!(pk, pk_back);
+    }
+
+    #[test]
+    fn test_sign_and_verify() {
         let sk = SecretKey::random();
         let message = b"asdafdahsfdasdfasd";
         let digest = Sha3_256::new().chain(message);
