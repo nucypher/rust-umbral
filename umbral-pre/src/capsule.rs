@@ -192,8 +192,13 @@ fn lambda_coeff(xs: &[CurveScalar], i: usize) -> Option<CurveScalar> {
 #[cfg(test)]
 mod tests {
 
+    use alloc::vec::Vec;
+
     use super::Capsule;
-    use crate::{encrypt, Parameters, PublicKey, SecretKey, SerializableToArray};
+    use crate::{
+        encrypt, generate_kfrags, reencrypt, CapsuleFrag, Parameters, PublicKey, SecretKey,
+        SerializableToArray,
+    };
 
     #[test]
     fn test_serialize() {
@@ -208,5 +213,78 @@ mod tests {
         let capsule_arr = capsule.to_array();
         let capsule_back = Capsule::from_array(&capsule_arr).unwrap();
         assert_eq!(capsule, capsule_back);
+    }
+
+    #[test]
+    fn test_open_reencrypted() {
+        let params = Parameters::new();
+
+        let delegating_sk = SecretKey::random();
+        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+
+        let signing_sk = SecretKey::random();
+
+        let receiving_sk = SecretKey::random();
+        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
+
+        let (capsule, key_seed) = Capsule::from_pubkey(&params, &delegating_pk);
+
+        let kfrags = generate_kfrags(
+            &params,
+            &delegating_sk,
+            &receiving_pk,
+            &signing_sk,
+            2,
+            3,
+            true,
+            true,
+        );
+
+        let cfrags: Vec<CapsuleFrag> = kfrags
+            .iter()
+            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .collect();
+
+        let key_seed_reenc = capsule
+            .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
+            .unwrap();
+        assert_eq!(key_seed, key_seed_reenc);
+
+        // Empty cfrag vector
+        assert!(capsule
+            .open_reencrypted(&receiving_sk, &delegating_pk, &[])
+            .is_none());
+
+        // Mismatched cfrags - each `generate_kfrags()` uses new randoms.
+        let kfrags2 = generate_kfrags(
+            &params,
+            &delegating_sk,
+            &receiving_pk,
+            &signing_sk,
+            2,
+            3,
+            true,
+            true,
+        );
+
+        let cfrags2: Vec<CapsuleFrag> = kfrags2
+            .iter()
+            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .collect();
+
+        let mismatched_cfrags: Vec<CapsuleFrag> = cfrags[0..1]
+            .iter()
+            .cloned()
+            .chain(cfrags2[1..2].iter().cloned())
+            .collect();
+        assert!(capsule
+            .open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags)
+            .is_none());
+
+        // Mismatched capsule
+        let (capsule2, _key_seed) = Capsule::from_pubkey(&params, &delegating_pk);
+        assert!(capsule2
+            .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
+            .is_none());
     }
 }

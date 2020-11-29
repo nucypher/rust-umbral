@@ -9,7 +9,7 @@ use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::op;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CapsuleFragProof {
     point_e2: CurvePoint,
     point_v2: CurvePoint,
@@ -116,7 +116,7 @@ impl CapsuleFragProof {
 }
 
 /// A reencrypted fragment of a [`Capsule`] created by a proxy.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CapsuleFrag {
     pub(crate) point_e1: CurvePoint,
     pub(crate) point_v1: CurvePoint,
