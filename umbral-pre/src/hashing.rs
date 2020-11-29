@@ -131,8 +131,8 @@ impl SignatureDigest {
 #[cfg(test)]
 mod tests {
 
-    use super::{unsafe_hash_to_point, ScalarDigest};
-    use crate::curve::CurvePoint;
+    use super::{unsafe_hash_to_point, ScalarDigest, SignatureDigest};
+    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
 
     #[test]
     fn test_unsafe_hash_to_point() {
@@ -152,14 +152,74 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_to_scalar() {
+    fn test_scalar_digest() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let s = ScalarDigest::new().chain_points(&[p1, p2]).finalize();
-        let s_same = ScalarDigest::new().chain_points(&[p1, p2]).finalize();
+        let rs = CurveScalar::random_nonzero();
+        let bytes: &[u8] = b"foobar";
+
+        let s = ScalarDigest::new()
+            .chain_points(&[p1, p2])
+            .chain_scalar(&rs)
+            .chain_bytes(bytes)
+            .finalize();
+        let s_same = ScalarDigest::new()
+            .chain_points(&[p1, p2])
+            .chain_scalar(&rs)
+            .chain_bytes(bytes)
+            .finalize();
         assert_eq!(s, s_same);
 
-        let s_diff = ScalarDigest::new().chain_points(&[p2, p1]).finalize();
+        let s_diff = ScalarDigest::new()
+            .chain_points(&[p2, p1])
+            .chain_scalar(&rs)
+            .chain_bytes(bytes)
+            .finalize();
         assert_ne!(s, s_diff);
+    }
+
+    #[test]
+    fn test_signature_digest() {
+        let p1 = CurvePoint::generator();
+        let p2 = &p1 + &p1;
+        let rs = CurveScalar::random_nonzero();
+        let b = true;
+        let pk = PublicKey::from_secret_key(&SecretKey::random());
+
+        let signing_sk = SecretKey::random();
+        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+
+        let signature = SignatureDigest::new()
+            .chain_point(&p2)
+            .chain_scalar(&rs)
+            .chain_bool(b)
+            .chain_pubkey(&pk)
+            .sign(&signing_sk);
+
+        let same_values_same_key = SignatureDigest::new()
+            .chain_point(&p2)
+            .chain_scalar(&rs)
+            .chain_bool(b)
+            .chain_pubkey(&pk)
+            .verify(&signing_pk, &signature);
+        assert!(same_values_same_key);
+
+        let same_values_different_key = SignatureDigest::new()
+            .chain_point(&p2)
+            .chain_scalar(&rs)
+            .chain_bool(b)
+            .chain_pubkey(&pk)
+            .verify(&pk, &signature);
+
+        assert!(!same_values_different_key);
+
+        let different_values_same_key = SignatureDigest::new()
+            .chain_point(&p1)
+            .chain_scalar(&rs)
+            .chain_bool(b)
+            .chain_pubkey(&pk)
+            .verify(&signing_pk, &signature);
+
+        assert!(!different_values_same_key);
     }
 }
