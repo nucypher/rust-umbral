@@ -9,6 +9,7 @@ use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::op;
 
+#[derive(Debug, PartialEq)]
 pub struct CapsuleFragProof {
     point_e2: CurvePoint,
     point_v2: CurvePoint,
@@ -115,6 +116,7 @@ impl CapsuleFragProof {
 }
 
 /// A reencrypted fragment of a [`Capsule`] created by a proxy.
+#[derive(Debug, PartialEq)]
 pub struct CapsuleFrag {
     pub(crate) point_e1: CurvePoint,
     pub(crate) point_v1: CurvePoint,
@@ -229,5 +231,77 @@ impl CapsuleFrag {
             & correct_reencryption_of_e
             & correct_reencryption_of_v
             & correct_rk_commitment
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use alloc::boxed::Box;
+    use alloc::vec::Vec;
+
+    use super::CapsuleFrag;
+    use crate::{
+        encrypt, generate_kfrags, reencrypt, Capsule, Parameters, PublicKey, SecretKey,
+        SerializableToArray,
+    };
+
+    fn prepare_cfrags() -> (PublicKey, PublicKey, PublicKey, Capsule, Box<[CapsuleFrag]>) {
+        let params = Parameters::new();
+
+        let delegating_sk = SecretKey::random();
+        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+
+        let signing_sk = SecretKey::random();
+        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+
+        let receiving_sk = SecretKey::random();
+        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
+
+        let plaintext = b"peace at dawn";
+        let (capsule, _ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+
+        let kfrags = generate_kfrags(
+            &params,
+            &delegating_sk,
+            &receiving_pk,
+            &signing_sk,
+            2,
+            3,
+            true,
+            true,
+        );
+
+        let cfrags: Vec<CapsuleFrag> = kfrags
+            .iter()
+            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .collect();
+
+        (
+            delegating_pk,
+            receiving_pk,
+            signing_pk,
+            capsule,
+            cfrags.into_boxed_slice(),
+        )
+    }
+
+    #[test]
+    fn test_serialize() {
+        let (_, _, _, _, cfrags) = prepare_cfrags();
+        let cfrag_arr = cfrags[0].to_array();
+        let cfrag_back = CapsuleFrag::from_array(&cfrag_arr).unwrap();
+        assert_eq!(cfrags[0], cfrag_back);
+    }
+
+    #[test]
+    fn test_verify() {
+        let (delegating_pk, receiving_pk, signing_pk, capsule, cfrags) = prepare_cfrags();
+        assert!(cfrags.iter().all(|cfrag| cfrag.verify(
+            &capsule,
+            &delegating_pk,
+            &receiving_pk,
+            &signing_pk,
+        )));
     }
 }

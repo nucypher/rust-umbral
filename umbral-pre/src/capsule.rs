@@ -12,7 +12,7 @@ use generic_array::GenericArray;
 use typenum::op;
 
 /// Encapsulated symmetric key used to encrypt the plaintext.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Capsule {
     pub(crate) params: Parameters,
     pub(crate) point_e: CurvePoint,
@@ -187,4 +187,26 @@ fn lambda_coeff(xs: &[CurveScalar], i: usize) -> Option<CurveScalar> {
         }
     }
     Some(res)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::Capsule;
+    use crate::{encrypt, Parameters, PublicKey, SecretKey, SerializableToArray};
+
+    #[test]
+    fn test_serialize() {
+        let params = Parameters::new();
+
+        let delegating_sk = SecretKey::random();
+        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+
+        let plaintext = b"peace at dawn";
+        let (capsule, _ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+
+        let capsule_arr = capsule.to_array();
+        let capsule_back = Capsule::from_array(&capsule_arr).unwrap();
+        assert_eq!(capsule, capsule_back);
+    }
 }

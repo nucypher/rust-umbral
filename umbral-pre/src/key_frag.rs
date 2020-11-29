@@ -366,7 +366,10 @@ mod tests {
     use super::{generate_kfrags, KeyFrag};
     use crate::{Parameters, PublicKey, SecretKey, SerializableToArray};
 
-    fn prepare_kfrags(sign_delegating_key: bool, sign_receiving_key: bool) -> (PublicKey, PublicKey, PublicKey, Box<[KeyFrag]>) {
+    fn prepare_kfrags(
+        sign_delegating_key: bool,
+        sign_receiving_key: bool,
+    ) -> (PublicKey, PublicKey, PublicKey, Box<[KeyFrag]>) {
         let params = Parameters::new();
 
         let delegating_sk = SecretKey::random();
