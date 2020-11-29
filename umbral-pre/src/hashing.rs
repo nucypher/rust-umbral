@@ -1,5 +1,5 @@
-use blake2::Blake2b;
-use digest::Digest;
+use blake2::VarBlake2b;
+use digest::{Digest, Update, VariableOutput};
 use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
 use sha3::Sha3_256;
@@ -23,27 +23,23 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     let len_label = (label.len() as u32).to_be_bytes();
 
     type PointSize = <CurvePoint as SerializableToArray>::Size;
-    let curve_key_size_bytes = PointSize::to_usize();
-
-    // TODO: why not just use `ScalarDigest` and calculate the respective point?
+    let point_size = PointSize::to_usize();
+    let mut arr = GenericArray::<u8, PointSize>::default();
 
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
     while i < <u32>::MAX {
         let ibytes = (i as u32).to_be_bytes();
 
-        // TODO: use a Blake2b implementation that supports personalization (see #155)
-        // TODO: use VarBlake2b?
-        let mut hash_function = Blake2b::new();
-        hash_function.update(&len_label);
-        hash_function.update(label);
-        hash_function.update(&len_data);
-        hash_function.update(data);
-        hash_function.update(&ibytes);
-        let hash_digest_full = hash_function.finalize();
-        // TODO: check that the digest is long enough?
-        let mut arr =
-            *GenericArray::<u8, PointSize>::from_slice(&hash_digest_full[0..curve_key_size_bytes]);
+        // May fail if `point_size` is too large for the hashing algorithm.
+        let digest = VarBlake2b::new(point_size).ok()?;
+        digest
+            .chain(&len_label)
+            .chain(label)
+            .chain(&len_data)
+            .chain(data)
+            .chain(&ibytes)
+            .finalize_variable(|buf| arr = *GenericArray::<u8, PointSize>::from_slice(buf));
 
         // Set the sign byte
         let arr_data = arr.as_mut_slice();
@@ -57,30 +53,33 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
         i += 1
     }
 
-    // Only happens with probability 2^(-32)
-    // TODO: increment the whole scalar to reduce the fail probability?
-    // And how exactly was this probability calculated?
+    // Each iteration can fail with probability 2^(-32), so we probably never reach this point.
+    // And even if we do, it's only called once in Parameters::new(), and is easy to notice.
     None
 }
 
 pub(crate) struct ScalarDigest(Sha3_256);
 
-// TODO: original uses ExtendedKeccak here
+// TODO (#2): original uses ExtendedKeccak here
 impl ScalarDigest {
     pub fn new() -> Self {
         Self(Sha3_256::new()).chain_bytes(b"hash_to_curvebn")
     }
 
+    fn chain_impl(self, bytes: &[u8]) -> Self {
+        Self(digest::Digest::chain(self.0, bytes))
+    }
+
     pub fn chain_bytes(self, bytes: &[u8]) -> Self {
-        Self(self.0.chain(bytes))
+        self.chain_impl(bytes)
     }
 
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        Self(self.0.chain(&scalar.to_array()))
+        self.chain_impl(&scalar.to_array())
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        Self(self.0.chain(&point.to_array()))
+        self.chain_impl(&point.to_array())
     }
 
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {
@@ -103,20 +102,24 @@ impl SignatureDigest {
         Self(Sha3_256::new())
     }
 
+    fn chain_impl(self, bytes: &[u8]) -> Self {
+        Self(digest::Digest::chain(self.0, bytes))
+    }
+
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        Self(self.0.chain(&scalar.to_array()))
+        self.chain_impl(&scalar.to_array())
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        Self(self.0.chain(&point.to_array()))
+        self.chain_impl(&point.to_array())
     }
 
     pub fn chain_pubkey(self, pk: &PublicKey) -> Self {
-        Self(self.0.chain(&pk.to_array()))
+        self.chain_impl(&pk.to_array())
     }
 
     pub fn chain_bool(self, val: bool) -> Self {
-        Self(self.0.chain(&[val as u8]))
+        self.chain_impl(&[val as u8])
     }
 
     pub fn sign(self, sk: &SecretKey) -> Signature {
