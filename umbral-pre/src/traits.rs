@@ -12,11 +12,9 @@ where
     /// Resulting array length.
     type Size: ArrayLength<u8>;
 
-    // TODO: would be nice to have a dependent type
+    // It would be nice to have a dependent type
     // type Array = GenericArray<u8, Self::Size>;
-    // but it's currently an unstable feature.
-
-    // TODO: `to_array()` and `from_array()` can be derived automatically for compound structs.
+    // but it's currently an unstable feature or Rust.
 
     /// Produces a byte array with the object's contents.
     fn to_array(&self) -> GenericArray<u8, Self::Size>;

@@ -162,7 +162,7 @@ impl Capsule {
 
         // Have to convert from subtle::CtOption here.
         let inv_d_opt: Option<CurveScalar> = d.invert().into();
-        // TODO: at the moment we cannot guarantee statically that the digest `d` is non-zero.
+        // At the moment we cannot guarantee statically that the digest `d` is non-zero.
         // Technically, it is supposed to be non-zero by the choice of `precursor`,
         // but if is was somehow replaced by an incorrect value,
         // we'd rather fail gracefully than panic.

@@ -17,6 +17,10 @@ impl Parameters {
         let g_bytes = g.to_array();
 
         let parameters_seed = b"NuCypher/UmbralParameters/u";
+
+        // Only fails with a minuscule probability,
+        // or if the size of a point is too large for the hasher.
+        // In any case, we will notice it in tests.
         let u = unsafe_hash_to_point(&g_bytes, parameters_seed).unwrap();
 
         Self { u }

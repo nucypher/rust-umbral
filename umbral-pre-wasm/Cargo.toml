@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 umbral-pre = { path = "../umbral-pre" }
 wasm-bindgen = "0.2.63"
-console_error_panic_hook = { version = "0.1" } # TODO: make conditional
+console_error_panic_hook = { version = "0.1" } # TODO (#16): make conditional
 wee_alloc = "0.4"
 
 [package.metadata.wasm-pack.profile.release]

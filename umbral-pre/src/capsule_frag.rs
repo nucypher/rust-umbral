@@ -17,11 +17,6 @@ pub struct CapsuleFragProof {
     kfrag_pok: CurvePoint,
     signature: CurveScalar,
     kfrag_signature: Signature,
-
-    // TODO: (for @tux and @dnunez): originally it was a bytestring.
-    // In heapless mode I'd have to make this struct, and all that depends on it
-    // generic on the metadata size, and that's just too cumbersome.
-    // Instead I'm hashing it to a scalar. Hope it's ok.
     metadata: CurveScalar,
 }
 
@@ -79,7 +74,7 @@ impl CapsuleFragProof {
         let rk = kfrag.key;
         let t = CurveScalar::random_nonzero();
 
-        // Here are the formulaic constituents shared with `verify_correctness`.
+        // Here are the formulaic constituents shared with `CapsuleFrag::verify()`.
 
         let e = capsule.point_e;
         let v = capsule.point_v;
@@ -161,7 +156,6 @@ impl CapsuleFrag {
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
         let metadata_scalar = match metadata {
-            // TODO: why do we hash scalar to a scalar here?
             Some(s) => ScalarDigest::new().chain_bytes(s).finalize(),
             None => CurveScalar::default(),
         };
@@ -188,7 +182,8 @@ impl CapsuleFrag {
     ) -> bool {
         let params = capsule.params;
 
-        // TODO: Here are the formulaic constituents shared with `prove_correctness`.
+        // Here are the formulaic constituents shared with
+        // `CapsuleFragProof::from_kfrag_and_cfrag`.
 
         let e = capsule.point_e;
         let v = capsule.point_v;
@@ -203,7 +198,7 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        // TODO: original uses ExtendedKeccak here
+        // TODO (#2): original uses ExtendedKeccak here
         let h = ScalarDigest::new()
             .chain_points(&[e, e1, e2, v, v1, v2, u, u1, u2])
             .chain_scalar(&self.proof.metadata)

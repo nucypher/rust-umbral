@@ -27,12 +27,14 @@ type CurveType = Secp256k1;
 type BackendScalar = Scalar<CurveType>;
 type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 
-// FIXME: we have to define newtypes for scalar and point here because the compiler
+// We have to define newtypes for scalar and point here because the compiler
 // is not currently smart enough to resolve `BackendScalar` and `BackendPoint`
 // as specific types, so we cannot implement local traits for them.
+//
+// They also have to be public because Rust isn't smart enough to understand that
+//     type PointSize = <Point as SerializableToArray>::Size;
+// isn't leaking the `Point` (probably because type aliases are just inlined).
 
-// FIXME: only needed to be `pub` and not `pub(crate)` because it leaks through ArrayLength traits
-// in the heapless implementation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CurveScalar(BackendScalar);
 
@@ -68,7 +70,7 @@ impl Default for CurveScalar {
 }
 
 impl SerializableToArray for CurveScalar {
-    // FIXME: currently it's the only size available.
+    // Currently it's the only size available.
     // A separate scalar size may appear in later versions of `elliptic_curve`.
     type Size = <CurveType as Curve>::FieldSize;
 
@@ -83,8 +85,6 @@ impl SerializableToArray for CurveScalar {
 
 type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
 
-// FIXME: only needed to be `pub` and not `pub(crate)` because it leaks through ArrayLength traits
-// in the heapless implementation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CurvePoint(BackendPoint);
 
@@ -142,6 +142,8 @@ impl SerializableToArray for CurvePoint {
     type Size = CompressedPointSize<CurveType>;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        // NOTE: a point has to be serialized in a compressed format,
+        // or `unsafe_hash_to_point` becomes unusable.
         *GenericArray::<u8, Self::Size>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )
@@ -190,7 +192,7 @@ impl SecretKey {
 
     /// Returns a reference to the underlying scalar of the secret key.
     pub(crate) fn to_secret_scalar(&self) -> CurveScalar {
-        // TODO: `BackendSecretKey` only returns a reference,
+        // TODO (#8): `BackendSecretKey` only returns a reference,
         // but how important is this safety measure?
         // We could return a wrapped reference, and define arithmetic operations for it.
         // But we use this secret scalar to multiply not only points, but other scalars too.
@@ -238,6 +240,7 @@ impl PublicKey {
         // TODO: there's currently no way to get the point
         // of a known valid public key without `unwrap()`.
         // If there's a panic here, something is wrong with the backend ECC crate.
+        // Should be fixable with `elliptic_curve=0.6`
         CurvePoint(BackendPoint::from_encoded_point(&self.0).unwrap())
     }
 
@@ -250,6 +253,7 @@ impl PublicKey {
         // TODO: there's currently no way to create a verifier
         // from a known valid public key without `unwrap()`.
         // If there's a panic here, something is wrong with the backend ECC crate.
+        // Should be fixable with `elliptic_curve=0.6`
         let verifier = VerifyKey::from_encoded_point(&self.0).unwrap();
         verifier.verify_digest(digest, &signature.0).is_ok()
     }

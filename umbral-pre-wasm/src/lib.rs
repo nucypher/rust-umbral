@@ -19,7 +19,7 @@ pub struct SecretKey(umbral_pre::SecretKey);
 impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
-        console_error_panic_hook::set_once(); // TODO: find a better place to initialize it
+        console_error_panic_hook::set_once(); // TODO (#16): find a better place to initialize it
         Self(umbral_pre::SecretKey::random())
     }
 }
@@ -58,7 +58,7 @@ pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
 impl Capsule {
-    // FIXME: have to add cfrags one by one since `wasm_bindgen` currently does not support
+    // TODO (#23): have to add cfrags one by one since `wasm_bindgen` currently does not support
     // Vec<CustomStruct> as a parameter.
     // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
     #[wasm_bindgen]
@@ -145,7 +145,7 @@ impl EncryptionResult {
         }
     }
 
-    // FIXME: currently can't just make the field public because `Vec` doesn't implement `Copy`.
+    // TODO (#24): currently can't just make the field public because `Box` doesn't implement `Copy`.
     // See https://github.com/rustwasm/wasm-bindgen/issues/439
     #[wasm_bindgen(getter)]
     pub fn ciphertext(&self) -> Box<[u8]> {
@@ -180,7 +180,7 @@ pub struct KeyFrag(umbral_pre::KeyFrag);
 
 #[wasm_bindgen]
 impl KeyFrag {
-    // FIXME: `Option<&PublicKey> are currently not supported.
+    // TODO (#25): `Option<&PublicKey> are currently not supported.
     // See https://github.com/rustwasm/wasm-bindgen/issues/2370
     // So we have to use 4 functions instead of 1. Yikes.
 
@@ -254,7 +254,7 @@ pub fn generate_kfrags(
         sign_receiving_key,
     );
 
-    // FIXME: Apparently we cannot just return a vector of things,
+    // TODO (#26): Apparently we cannot just return a vector of things,
     // so we have to convert them to JsValues manually.
     // See https://github.com/rustwasm/wasm-bindgen/issues/111
     backend_kfrags

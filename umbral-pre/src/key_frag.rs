@@ -113,7 +113,7 @@ impl KeyFragProof {
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyFrag {
     params: Parameters,
-    pub(crate) id: CurveScalar, // TODO: just bytes in the original, but judging by how it's created, seems to be a Scalar
+    pub(crate) id: CurveScalar,
     pub(crate) key: CurveScalar,
     pub(crate) precursor: CurvePoint,
     pub(crate) proof: KeyFragProof,
@@ -282,7 +282,8 @@ impl KeyFragFactory {
                 .chain_bytes(NON_INTERACTIVE)
                 .finalize();
 
-            // TODO: at the moment we cannot statically ensure `d` is a `NonZeroScalar`.
+            // At the moment we cannot statically ensure `d` is a `NonZeroScalar`,
+            // but we need it to be non-zero for the algorithm to work.
             if !d.is_zero() {
                 break (d, precursor, dh_point);
             }
