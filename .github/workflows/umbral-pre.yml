@@ -25,7 +25,7 @@ jobs:
           - 1.46.0 # MSRV
           - stable
         target:
-          # FIXME: there are some build problems with `getrandom` package.
+          # TODO (#13): there are some build problems with `getrandom` package.
           # See if they are fixed when `k256` and its dependencies switch to `getrandom=0.2`
           #- thumbv7em-none-eabi
           - wasm32-unknown-unknown
