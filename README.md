@@ -4,7 +4,7 @@ This repo contains Rust implementation of the [Umbral][umbral] threshold proxy r
 
 * [Rust](https://github.com/nucypher/rust-umbral/tree/master/umbral-pre) (primary) [![crate][rust-crate-image]][rust-crate-link] [![Docs][rust-docs-image]][rust-docs-link] ![License][rust-license-image] [![Build Status][rust-build-image]][rust-build-link] [![Coverage][rust-coverage-image]][rust-coverage-link]
 * [JavaScript](https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-wasm) (WASM-based) [![npm package][js-npm-image]][js-npm-link] ![License][js-license-image]
-* [Python](https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-python) (under construction)
+* [Python](https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-python) [![pypi package][pypi-image]][pypi-link] ![License][pypi-license-image]
 
 [rust-crate-image]: https://img.shields.io/crates/v/umbral-pre.svg
 [rust-crate-link]: https://crates.io/crates/umbral-pre
@@ -18,4 +18,7 @@ This repo contains Rust implementation of the [Umbral][umbral] threshold proxy r
 [js-npm-image]: https://img.shields.io/npm/v/umbral-pre
 [js-npm-link]: https://www.npmjs.com/package/umbral-pre
 [js-license-image]: https://img.shields.io/npm/l/umbral-pre
+[pypi-image]: https://img.shields.io/pypi/v/umbral-pre
+[pypi-link]: https://pypi.org/project/umbral-pre/
+[pypi-license-image]: https://img.shields.io/pypi/l/umbral-pre
 [umbral]: https://github.com/nucypher/umbral-doc/blob/master/umbral-doc.pdf
