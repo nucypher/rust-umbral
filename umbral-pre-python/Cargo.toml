@@ -1,12 +1,12 @@
 [package]
 name = "umbral-pre-python"
 authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
-version = "0.1.0"
+version = "0.0.1"
 edition = "2018"
 
 [lib]
 name = "umbral"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.12.3", features = ["extension-module"] }
