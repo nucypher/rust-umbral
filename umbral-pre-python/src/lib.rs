@@ -198,7 +198,7 @@ pub fn decrypt_reencrypted(
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn umbral(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<PublicKey>()?;
     m.add_class::<Parameters>()?;

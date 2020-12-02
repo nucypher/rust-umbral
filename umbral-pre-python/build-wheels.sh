@@ -4,7 +4,7 @@ set -ex
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
 export PATH="$HOME/.cargo/bin:$PATH"
 
-cd /io
+cd /io/umbral-pre-python
 
 for PYBIN in /opt/python/cp{35,36,37,38,39}*/bin; do
     "${PYBIN}/pip" install -U setuptools wheel setuptools-rust
