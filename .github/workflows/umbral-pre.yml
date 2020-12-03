@@ -80,7 +80,6 @@ jobs:
           toolchain: stable
           profile: minimal
           override: true
-      - run: pwd
       - uses: actions-rs/tarpaulin@v0.1
         with:
           version: latest
