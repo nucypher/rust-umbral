@@ -82,8 +82,7 @@ pub fn decrypt_original(
     ciphertext: &[u8],
 ) -> PyObject {
     let plaintext =
-        umbral_pre::decrypt_original(&sk.backend, &capsule.backend, &ciphertext)
-            .unwrap();
+        umbral_pre::decrypt_original(&sk.backend, &capsule.backend, &ciphertext).unwrap();
     PyBytes::new(py, &plaintext).into()
 }
 
