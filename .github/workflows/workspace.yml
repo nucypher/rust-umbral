@@ -45,22 +45,3 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-
-  codecov:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
-      - uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: latest
-          args: -p umbral-pre --all-features -- --test-threads 1
-      - uses: codecov/codecov-action@v1
-      - uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.xml

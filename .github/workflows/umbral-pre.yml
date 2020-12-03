@@ -70,3 +70,28 @@ jobs:
       - run: ${{ matrix.deps }}
       - run: cargo check --target ${{ matrix.target }} --all-features
       - run: cargo test --release --target ${{ matrix.target }}
+
+  codecov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+      - run: pwd
+      - uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: latest
+          # Only checking the coverage of the main library,
+          # bindings are covered by their language's tests.
+          # Also have to exclude `umbral-pre-python` explicitly,
+          # since it cannot be compiled for testing
+          # (https://github.com/PyO3/pyo3/issues/340)
+          args: --exclude-files umbral-pre-wasm/** --exclude-files umbral-pre-python/** --workspace --exclude umbral-pre-python --all-features -- --test-threads 1
+      - uses: codecov/codecov-action@v1
+      - uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
