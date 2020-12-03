@@ -1,51 +1,86 @@
 import umbral_pre
 
-# Generation of global parameters
-params = umbral_pre.Parameters()
+# As in any public-key cryptosystem, users need a pair
+# of public and private keys.
+# Additionally, users that delegate access to their data
+# (like Alice, in this example) need a signing keypair.
 
-# Key Generation (Alice)
-delegating_sk = umbral_pre.SecretKey.random()
-delegating_pk = umbral_pre.PublicKey.from_secret_key(delegating_sk)
-
+# Key Generation (on Alice's side)
+alice_sk = umbral_pre.SecretKey.random()
+alice_pk = umbral_pre.PublicKey.from_secret_key(alice_sk)
 signing_sk = umbral_pre.SecretKey.random()
 signing_pk = umbral_pre.PublicKey.from_secret_key(signing_sk)
 
-# Key Generation (Bob)
-receiving_sk = umbral_pre.SecretKey.random()
-receiving_pk = umbral_pre.PublicKey.from_secret_key(receiving_sk)
+# Key Generation (on Bob's side)
+bob_sk = umbral_pre.SecretKey.random()
+bob_pk = umbral_pre.PublicKey.from_secret_key(bob_sk)
 
-# Encryption by an unnamed data source
+# Now let's encrypt data with Alice's public key.
+# Invocation of `encrypt()` returns both the ciphertext
+# and the encapsulated symmetric key use to encrypt it.
+# Note that anyone with Alice's public key
+# can perform this operation.
+
+params = umbral_pre.Parameters()
 plaintext = b"peace at dawn"
-capsule, ciphertext = umbral_pre.encrypt(params, delegating_pk, plaintext)
+capsule, ciphertext = umbral_pre.encrypt(
+    params, alice_pk, plaintext)
 
-# Decryption by Alice
-plaintext_alice = umbral_pre.decrypt_original(delegating_sk, capsule, ciphertext);
+# Since data was encrypted with Alice's public key,
+# Alice can open the capsule and decrypt the ciphertext
+# with her private key.
+
+plaintext_alice = umbral_pre.decrypt_original(
+    alice_sk, capsule, ciphertext);
 assert plaintext_alice == plaintext
 
-threshold = 2
-num_frags = threshold + 1
+# When Alice wants to grant Bob access to open her encrypted
+# messages, she creates re-encryption key fragments,
+# or "kfrags", which are then sent to `n` proxies or Ursulas.
+
+n = 3 # how many fragments to create
+m = 2 # how many should be enough to decrypt
 
 # Split Re-Encryption Key Generation (aka Delegation)
 kfrags = umbral_pre.generate_kfrags(
-    params,
-    delegating_sk,
-    receiving_pk,
-    signing_sk,
-    threshold,
-    num_frags,
-    True,
-    True,
+    params, alice_sk, bob_pk, signing_sk, m, n,
+    True, # add the delegating key (alice_pk) to the signature
+    True, # add the receiving key (bob_pk) to the signature
 )
 
-# Ursulas check that the received kfrags are valid
-assert all(kfrag.verify(signing_pk, delegating_pk, receiving_pk) for kfrag in kfrags)
+# Bob asks several Ursulas to re-encrypt the capsule
+# so he can open it.
+# Each Ursula performs re-encryption on the capsule
+# using the kfrag provided by Alice, thus obtaining
+# a "capsule fragment", or cfrag.
 
-# Bob requests re-encryption to some set of `threshold` ursulas
-cfrags = [umbral_pre.reencrypt(capsule, kfrag, b"metadata") for kfrag in kfrags]
+# Bob collects the resulting cfrags from several Ursulas.
+# Bob must gather at least `m` cfrags
+# in order to open the capsule.
 
-# Bob checks that the received cfrags are valid
-assert all(cfrag.verify(capsule, delegating_pk, receiving_pk, signing_pk) for cfrag in cfrags)
+# Ursulas can optionally check that the received kfrags
+# are valid and perform the reencryption.
+
+metadata = b"metadata"
+
+# Ursula 0
+assert kfrags[0].verify(signing_pk, alice_pk, bob_pk)
+cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0], metadata)
+
+# Ursula 1
+assert kfrags[1].verify(signing_pk, alice_pk, bob_pk)
+cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata)
+
+# ...
+
+# Finally, Bob opens the capsule by using at least `m` cfrags,
+# and then decrypts the re-encrypted ciphertext.
+
+# Bob can optionally check that cfrags are valid
+assert cfrag0.verify(capsule, alice_pk, bob_pk, signing_pk)
+assert cfrag1.verify(capsule, alice_pk, bob_pk, signing_pk)
 
 # Decryption by Bob
-plaintext_bob = umbral_pre.decrypt_reencrypted(receiving_sk, delegating_pk, capsule, cfrags, ciphertext)
+plaintext_bob = umbral_pre.decrypt_reencrypted(
+    bob_sk, alice_pk, capsule, [cfrag0, cfrag1], ciphertext)
 assert plaintext_bob == plaintext
