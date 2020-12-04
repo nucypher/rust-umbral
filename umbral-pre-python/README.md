@@ -1,6 +1,6 @@
 # Python bindings for `umbral-pre`
 
-[![pypi package][pypi-image]][pypi-link] ![License][pypi-license-image]
+[![pypi package][pypi-image]][pypi-link] [![Docs][rtd-image]][rtd-link] ![License][pypi-license-image]
 
 This repo contains the Python bindings for the [main Rust project][umbral-pre].
 
@@ -18,4 +18,6 @@ $ docker run --rm -v `pwd`/..:/io quay.io/pypa/manylinux2014_x86_64 /io/umbral-p
 [pypi-image]: https://img.shields.io/pypi/v/umbral-pre
 [pypi-link]: https://pypi.org/project/umbral-pre/
 [pypi-license-image]: https://img.shields.io/pypi/l/umbral-pre
+[rtd-image]: https://readthedocs.org/projects/rust-umbral/badge/?version=latest
+[rtd-link]: https://rust-umbral.readthedocs.io/en/latest/
 [umbral-pre]: https://github.com/nucypher/rust-umbral/tree/master/umbral-pre
