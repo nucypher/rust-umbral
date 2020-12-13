@@ -5,14 +5,14 @@
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
-use ecdsa::{
-    SecretKey as BackendSecretKey, Signature as BackendSignature, SignatureSize, SigningKey,
-    VerifyKey,
-};
+use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
 use elliptic_curve::ff::PrimeField;
 use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
-use elliptic_curve::{Curve, FromDigest, ProjectiveArithmetic, Scalar};
+use elliptic_curve::{
+    Curve, FromDigest, ProjectiveArithmetic, PublicKey as BackendPublicKey, Scalar,
+    SecretKey as BackendSecretKey,
+};
 use generic_array::typenum::U32;
 use generic_array::GenericArray;
 use k256::Secp256k1;
@@ -151,7 +151,7 @@ impl SerializableToArray for CurvePoint {
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
         let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
-        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep).into();
+        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
         cp_opt.map(Self)
     }
 }
@@ -206,7 +206,7 @@ impl SecretKey {
         &self,
         digest: impl BlockInput + FixedOutput<OutputSize = U32> + Clone + Default + Reset + Update,
     ) -> Signature {
-        let signer = SigningKey::<CurveType>::from(&self.0);
+        let signer = SigningKey::<CurveType>::from(self.0.clone());
         Signature(signer.sign_digest_with_rng(OsRng, digest))
     }
 }
@@ -227,21 +227,17 @@ impl SerializableToArray for SecretKey {
 
 /// A public key.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PublicKey(EncodedPoint<CurveType>);
+pub struct PublicKey(BackendPublicKey<CurveType>);
 
 impl PublicKey {
     /// Creates a public key from a secret key.
     pub fn from_secret_key(secret_key: &SecretKey) -> Self {
-        Self(EncodedPoint::from_secret_key(&secret_key.0, true))
+        Self(secret_key.0.public_key())
     }
 
     /// Returns the underlying curve point of the public key.
     pub(crate) fn to_point(&self) -> CurvePoint {
-        // TODO: there's currently no way to get the point
-        // of a known valid public key without `unwrap()`.
-        // If there's a panic here, something is wrong with the backend ECC crate.
-        // Should be fixable with `elliptic_curve=0.6`
-        CurvePoint(BackendPoint::from_encoded_point(&self.0).unwrap())
+        CurvePoint(self.0.to_projective())
     }
 
     /// Verifies the signature.
@@ -250,11 +246,7 @@ impl PublicKey {
         digest: impl Digest<OutputSize = U32>,
         signature: &Signature,
     ) -> bool {
-        // TODO: there's currently no way to create a verifier
-        // from a known valid public key without `unwrap()`.
-        // If there's a panic here, something is wrong with the backend ECC crate.
-        // Should be fixable with `elliptic_curve=0.6`
-        let verifier = VerifyKey::from_encoded_point(&self.0).unwrap();
+        let verifier = VerifyingKey::from(&self.0);
         verifier.verify_digest(digest, &signature.0).is_ok()
     }
 }
@@ -263,17 +255,12 @@ impl SerializableToArray for PublicKey {
     type Size = <CurvePoint as SerializableToArray>::Size;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        // EncodedPoint can be compressed or uncompressed,
-        // so `to_bytes()` does not have a compile-time size,
-        // and we have to do this conversion
-        // (we know that in our case it is always compressed).
-        *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
+        self.to_point().to_array()
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        EncodedPoint::<CurveType>::from_bytes(arr.as_slice())
-            .ok()
-            .map(Self)
+        CurvePoint::from_array(&arr)
+            .map(|cp| Self(BackendPublicKey::<CurveType>::from_affine(cp.0.to_affine())))
     }
 }
 
