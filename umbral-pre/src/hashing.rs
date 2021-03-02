@@ -2,7 +2,7 @@ use blake2::VarBlake2b;
 use digest::{Digest, Update, VariableOutput};
 use generic_array::typenum::Unsigned;
 use generic_array::GenericArray;
-use sha3::Sha3_256;
+use sha2::Sha256;
 
 use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
 use crate::traits::SerializableToArray;
@@ -58,12 +58,11 @@ pub fn unsafe_hash_to_point(data: &[u8], label: &[u8]) -> Option<CurvePoint> {
     None
 }
 
-pub(crate) struct ScalarDigest(Sha3_256);
+pub(crate) struct ScalarDigest(Sha256);
 
-// TODO (#2): original uses ExtendedKeccak here
 impl ScalarDigest {
     pub fn new() -> Self {
-        Self(Sha3_256::new())
+        Self(Sha256::new())
     }
 
     pub fn new_with_dst(bytes: &[u8]) -> Self {
@@ -99,11 +98,11 @@ impl ScalarDigest {
     }
 }
 
-pub(crate) struct SignatureDigest(Sha3_256);
+pub(crate) struct SignatureDigest(Sha256);
 
 impl SignatureDigest {
     pub fn new() -> Self {
-        Self(Sha3_256::new())
+        Self(Sha256::new())
     }
 
     fn chain_impl(self, bytes: &[u8]) -> Self {
