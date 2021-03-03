@@ -13,15 +13,15 @@ pub struct Parameters {
 impl Parameters {
     /// Creates a new parameter object.
     pub fn new() -> Self {
+        // Some future-proofing for a scenario where someone uses a different generator.
+        // We wouldn't want `u` to be the same in that case.
         let g = CurvePoint::generator();
         let g_bytes = g.to_array();
-
-        let parameters_seed = b"NuCypher/UmbralParameters/u";
 
         // Only fails with a minuscule probability,
         // or if the size of a point is too large for the hasher.
         // In any case, we will notice it in tests.
-        let u = unsafe_hash_to_point(&g_bytes, parameters_seed).unwrap();
+        let u = unsafe_hash_to_point(b"POINT_U", &g_bytes).unwrap();
 
         Self { u }
     }
