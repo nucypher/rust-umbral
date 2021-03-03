@@ -198,7 +198,7 @@ impl SecretKey {
         // But we use this secret scalar to multiply not only points, but other scalars too.
         // So there's no point in hiding the actual value here as long as
         // it is going to be effectively dereferenced in other places.
-        CurveScalar(*self.0.secret_scalar())
+        CurveScalar(**self.0.secret_scalar())
     }
 
     /// Signs a message using the default RNG.
@@ -259,8 +259,9 @@ impl SerializableToArray for PublicKey {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        CurvePoint::from_array(&arr)
-            .map(|cp| Self(BackendPublicKey::<CurveType>::from_affine(cp.0.to_affine())))
+        let cp = CurvePoint::from_array(&arr)?;
+        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.0.to_affine()).ok()?;
+        Some(Self(backend_pk))
     }
 }
 
