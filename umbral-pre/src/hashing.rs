@@ -63,7 +63,11 @@ pub(crate) struct ScalarDigest(Sha3_256);
 // TODO (#2): original uses ExtendedKeccak here
 impl ScalarDigest {
     pub fn new() -> Self {
-        Self(Sha3_256::new()).chain_bytes(b"hash_to_curvebn")
+        Self(Sha3_256::new())
+    }
+
+    pub fn new_with_dst(bytes: &[u8]) -> Self {
+        Self::new().chain_bytes(bytes)
     }
 
     fn chain_impl(self, bytes: &[u8]) -> Self {

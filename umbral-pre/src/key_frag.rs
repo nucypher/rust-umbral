@@ -1,7 +1,7 @@
-use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{PublicKey, SecretKey, Signature};
-use crate::hashing::{ScalarDigest, SignatureDigest};
+use crate::hashing::SignatureDigest;
+use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
@@ -158,15 +158,12 @@ impl KeyFrag {
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
         // generating polynomial), is used to prevent reconstruction of the
         // re-encryption key without Bob's intervention
-        let share_index = ScalarDigest::new()
-            .chain_points(&[
-                factory.precursor,
-                factory.bob_pubkey_point,
-                factory.dh_point,
-            ])
-            .chain_bytes(X_COORDINATE)
-            .chain_scalar(&kfrag_id)
-            .finalize();
+        let share_index = hash_to_polynomial_arg(
+            &factory.precursor,
+            &factory.bob_pubkey_point,
+            &factory.dh_point,
+            &kfrag_id,
+        );
 
         // The re-encryption key share is the result of evaluating the generating
         // polynomial for the index value
@@ -277,10 +274,7 @@ impl KeyFragFactory {
             let dh_point = &bob_pubkey_point * &private_precursor;
 
             // Secret value 'd' allows to make Umbral non-interactive
-            let d = ScalarDigest::new()
-                .chain_points(&[precursor, bob_pubkey_point, dh_point])
-                .chain_bytes(NON_INTERACTIVE)
-                .finalize();
+            let d = hash_to_shared_secret(&precursor, &bob_pubkey_point, &dh_point);
 
             // At the moment we cannot statically ensure `d` is a `NonZeroScalar`,
             // but we need it to be non-zero for the algorithm to work.

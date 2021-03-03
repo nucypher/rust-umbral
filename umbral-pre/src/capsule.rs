@@ -1,7 +1,7 @@
 use crate::capsule_frag::CapsuleFrag;
-use crate::constants::{NON_INTERACTIVE, X_COORDINATE};
 use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
 use crate::hashing::ScalarDigest;
+use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
@@ -126,14 +126,9 @@ impl Capsule {
         let dh_point = &precursor * &receiving_sk.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
-        let points = [precursor, pub_key, dh_point];
         let mut lc = Vec::<CurveScalar>::with_capacity(cfrags.len());
         for cfrag in cfrags {
-            let coeff = ScalarDigest::new()
-                .chain_points(&points)
-                .chain_bytes(X_COORDINATE)
-                .chain_scalar(&cfrag.kfrag_id)
-                .finalize();
+            let coeff = hash_to_polynomial_arg(&precursor, &pub_key, &dh_point, &cfrag.kfrag_id);
             lc.push(coeff);
         }
 
@@ -148,10 +143,7 @@ impl Capsule {
         }
 
         // Secret value 'd' allows to make Umbral non-interactive
-        let d = ScalarDigest::new()
-            .chain_points(&[precursor, pub_key, dh_point])
-            .chain_bytes(NON_INTERACTIVE)
-            .finalize();
+        let d = hash_to_shared_secret(&precursor, &pub_key, &dh_point);
 
         let e = self.point_e;
         let v = self.point_v;
