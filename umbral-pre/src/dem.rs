@@ -1,18 +1,18 @@
 use alloc::boxed::Box;
 
 use aead::{Aead, AeadInPlace, Payload};
-use blake2::Blake2b;
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use generic_array::{typenum::Unsigned, GenericArray};
 use hkdf::Hkdf;
 use rand_core::OsRng;
 use rand_core::RngCore;
+use sha2::Sha256;
 
 type KdfSize = <ChaCha20Poly1305 as NewAead>::KeySize;
 
 fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8, KdfSize> {
-    let hk = Hkdf::<Blake2b>::new(salt, &seed);
+    let hk = Hkdf::<Sha256>::new(salt, &seed);
 
     let mut okm = GenericArray::<u8, KdfSize>::default();
 

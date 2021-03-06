@@ -198,7 +198,6 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        // TODO (#2): original uses ExtendedKeccak here
         let h = ScalarDigest::new()
             .chain_points(&[e, e1, e2, v, v1, v2, u, u1, u2])
             .chain_scalar(&self.proof.metadata)

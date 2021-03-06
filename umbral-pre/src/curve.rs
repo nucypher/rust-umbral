@@ -268,7 +268,7 @@ impl SerializableToArray for PublicKey {
 #[cfg(test)]
 mod tests {
 
-    use sha3::Sha3_256;
+    use sha2::Sha256;
     use signature::digest::Digest;
 
     use super::{PublicKey, SecretKey};
@@ -295,11 +295,11 @@ mod tests {
     fn test_sign_and_verify() {
         let sk = SecretKey::random();
         let message = b"asdafdahsfdasdfasd";
-        let digest = Sha3_256::new().chain(message);
+        let digest = Sha256::new().chain(message);
         let signature = sk.sign_digest(digest);
 
         let pk = PublicKey::from_secret_key(&sk);
-        let digest = Sha3_256::new().chain(message);
+        let digest = Sha256::new().chain(message);
         assert!(pk.verify_digest(digest, &signature));
     }
 }
