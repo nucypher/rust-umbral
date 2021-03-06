@@ -4,6 +4,7 @@
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing::ScalarDigest;
 
+// TODO (#39): Ideally this should return a non-zero scalar.
 pub(crate) fn hash_to_polynomial_arg(
     precursor: &CurvePoint,
     pubkey: &CurvePoint,
@@ -18,6 +19,8 @@ pub(crate) fn hash_to_polynomial_arg(
         .finalize()
 }
 
+// TODO (#39): Ideally this should return a non-zero scalar.
+// (when it does, the loop in `KeyFragFactory::new()` can be removed)
 pub(crate) fn hash_to_shared_secret(
     precursor: &CurvePoint,
     pubkey: &CurvePoint,
