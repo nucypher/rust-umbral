@@ -71,8 +71,8 @@ impl ScalarDigest {
         Self(digest::Digest::chain(self.0, bytes))
     }
 
-    pub fn chain_bytes(self, bytes: &[u8]) -> Self {
-        self.chain_impl(bytes)
+    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
+        self.chain_impl(bytes.as_ref())
     }
 
     pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
@@ -108,8 +108,8 @@ impl SignatureDigest {
         Self(digest::Digest::chain(self.0, bytes))
     }
 
-    pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        self.chain_impl(&scalar.to_array())
+    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
+        self.chain_impl(bytes.as_ref())
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
@@ -187,7 +187,7 @@ mod tests {
     fn test_signature_digest() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let rs = CurveScalar::random_nonzero();
+        let bytes = b"asdfghjk";
         let b = true;
         let pk = PublicKey::from_secret_key(&SecretKey::random());
 
@@ -196,14 +196,14 @@ mod tests {
 
         let signature = SignatureDigest::new()
             .chain_point(&p2)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .sign(&signing_sk);
 
         let same_values_same_key = SignatureDigest::new()
             .chain_point(&p2)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&signing_pk, &signature);
@@ -211,7 +211,7 @@ mod tests {
 
         let same_values_different_key = SignatureDigest::new()
             .chain_point(&p2)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&pk, &signature);
@@ -220,7 +220,7 @@ mod tests {
 
         let different_values_same_key = SignatureDigest::new()
             .chain_point(&p1)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&signing_pk, &signature);

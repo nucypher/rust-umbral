@@ -10,7 +10,39 @@ use alloc::vec::Vec;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
-use typenum::{op, U1};
+use rand_core::{OsRng, RngCore};
+use typenum::{op, U1, U32};
+
+type KeyFragIDSize = U32;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct KeyFragID(GenericArray<u8, KeyFragIDSize>);
+
+impl KeyFragID {
+    fn random() -> Self {
+        let mut bytes = GenericArray::<u8, KeyFragIDSize>::default();
+        OsRng.fill_bytes(&mut bytes);
+        Self(bytes)
+    }
+}
+
+impl AsRef<[u8]> for KeyFragID {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl SerializableToArray for KeyFragID {
+    type Size = KeyFragIDSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.0
+    }
+
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        Some(Self(*arr))
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct KeyFragProof {
@@ -59,7 +91,7 @@ impl KeyFragProof {
     #[allow(clippy::too_many_arguments)]
     fn new(
         params: &Parameters,
-        kfrag_id: &CurveScalar,
+        kfrag_id: &KeyFragID,
         kfrag_key: &CurveScalar,
         kfrag_precursor: &CurvePoint,
         signing_sk: &SecretKey,
@@ -71,7 +103,7 @@ impl KeyFragProof {
         let commitment = &params.u * kfrag_key;
 
         let signature_for_bob = SignatureDigest::new()
-            .chain_scalar(kfrag_id)
+            .chain_bytes(kfrag_id)
             .chain_pubkey(delegating_pk)
             .chain_pubkey(receiving_pk)
             .chain_point(&commitment)
@@ -79,7 +111,7 @@ impl KeyFragProof {
             .sign(signing_sk);
 
         let mut digest_for_proxy = SignatureDigest::new()
-            .chain_scalar(kfrag_id)
+            .chain_bytes(kfrag_id)
             .chain_point(&commitment)
             .chain_point(kfrag_precursor)
             .chain_bool(sign_delegating_key)
@@ -113,7 +145,7 @@ impl KeyFragProof {
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyFrag {
     params: Parameters,
-    pub(crate) id: CurveScalar,
+    pub(crate) id: KeyFragID,
     pub(crate) key: CurveScalar,
     pub(crate) precursor: CurvePoint,
     pub(crate) proof: KeyFragProof,
@@ -135,7 +167,7 @@ impl SerializableToArray for KeyFrag {
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
         let (params, rest) = Parameters::take(*arr)?;
-        let (id, rest) = CurveScalar::take(rest)?;
+        let (id, rest) = KeyFragID::take(rest)?;
         let (key, rest) = CurveScalar::take(rest)?;
         let (precursor, rest) = CurvePoint::take(rest)?;
         let proof = KeyFragProof::take_last(rest)?;
@@ -151,8 +183,7 @@ impl SerializableToArray for KeyFrag {
 
 impl KeyFrag {
     fn new(factory: &KeyFragFactory, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
-        // Was: `os.urandom(bn_size)`. But it seems we just want a scalar?
-        let kfrag_id = CurveScalar::random_nonzero();
+        let kfrag_id = KeyFragID::random();
 
         // The index of the re-encryption key share (which in Shamir's Secret
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
@@ -221,7 +252,7 @@ impl KeyFrag {
         let correct_commitment = commitment == &u * &key;
 
         let mut digest = SignatureDigest::new()
-            .chain_scalar(&kfrag_id)
+            .chain_bytes(&kfrag_id)
             .chain_point(&commitment)
             .chain_point(&precursor)
             .chain_bool(self.proof.delegating_key_signed)

@@ -2,7 +2,7 @@ use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{PublicKey, Signature};
 use crate::hashing::{ScalarDigest, SignatureDigest};
-use crate::key_frag::KeyFrag;
+use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::traits::SerializableToArray;
 
 use generic_array::sequence::Concat;
@@ -115,7 +115,7 @@ impl CapsuleFragProof {
 pub struct CapsuleFrag {
     pub(crate) point_e1: CurvePoint,
     pub(crate) point_v1: CurvePoint,
-    pub(crate) kfrag_id: CurveScalar,
+    pub(crate) kfrag_id: KeyFragID,
     pub(crate) precursor: CurvePoint,
     pub(crate) proof: CapsuleFragProof,
 }
@@ -137,7 +137,7 @@ impl SerializableToArray for CapsuleFrag {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
         let (point_e1, rest) = CurvePoint::take(*arr)?;
         let (point_v1, rest) = CurvePoint::take(rest)?;
-        let (kfrag_id, rest) = CurveScalar::take(rest)?;
+        let (kfrag_id, rest) = KeyFragID::take(rest)?;
         let (precursor, rest) = CurvePoint::take(rest)?;
         let proof = CapsuleFragProof::take_last(rest)?;
         Some(Self {
@@ -209,7 +209,7 @@ impl CapsuleFrag {
         let kfrag_id = self.kfrag_id;
 
         let valid_kfrag_signature = SignatureDigest::new()
-            .chain_scalar(&kfrag_id)
+            .chain_bytes(&kfrag_id)
             .chain_pubkey(delegating_pk)
             .chain_pubkey(receiving_pk)
             .chain_point(&u1)
