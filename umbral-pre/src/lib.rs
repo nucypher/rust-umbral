@@ -96,10 +96,10 @@ extern crate typenum;
 pub mod bench; // Re-export some internals for benchmarks.
 mod capsule;
 mod capsule_frag;
-mod constants;
 mod curve;
 mod dem;
 mod hashing;
+mod hashing_ds;
 mod key_frag;
 mod params;
 mod pre;
