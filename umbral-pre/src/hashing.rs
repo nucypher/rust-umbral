@@ -162,23 +162,23 @@ mod tests {
     use super::{
         unsafe_hash_to_point, BytesDigest, BytesDigestOutputSize, ScalarDigest, SignatureDigest,
     };
-    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
+    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
     use generic_array::GenericArray;
 
     #[test]
     fn test_unsafe_hash_to_point() {
         let data = b"abcdefg";
         let dst = b"sdasdasd";
-        let p = unsafe_hash_to_point(&dst[..], &data[..]);
-        let p_same = unsafe_hash_to_point(&dst[..], &data[..]);
+        let p: Option<CurvePoint> = unsafe_hash_to_point(&dst[..], &data[..]);
+        let p_same: Option<CurvePoint> = unsafe_hash_to_point(&dst[..], &data[..]);
         assert_eq!(p, p_same);
 
         let data2 = b"abcdefgh";
-        let p_data2 = unsafe_hash_to_point(&dst[..], &data2[..]);
+        let p_data2: Option<CurvePoint> = unsafe_hash_to_point(&dst[..], &data2[..]);
         assert_ne!(p, p_data2);
 
         let dst2 = b"sdasdasds";
-        let p_dst2 = unsafe_hash_to_point(&dst2[..], &data[..]);
+        let p_dst2: Option<CurvePoint> = unsafe_hash_to_point(&dst2[..], &data[..]);
         assert_ne!(p, p_dst2);
     }
 
@@ -188,17 +188,17 @@ mod tests {
         let p2 = &p1 + &p1;
         let bytes: &[u8] = b"foobar";
 
-        let s = ScalarDigest::new()
+        let s: CurveScalar = ScalarDigest::new()
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
             .finalize();
-        let s_same = ScalarDigest::new()
+        let s_same: CurveScalar = ScalarDigest::new()
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
             .finalize();
         assert_eq!(s, s_same);
 
-        let s_diff = ScalarDigest::new()
+        let s_diff: CurveScalar = ScalarDigest::new()
             .chain_points(&[p2, p1])
             .chain_bytes(bytes)
             .finalize();
@@ -216,7 +216,7 @@ mod tests {
         let signing_sk = SecretKey::random();
         let signing_pk = PublicKey::from_secret_key(&signing_sk);
 
-        let signature = SignatureDigest::new()
+        let signature: Signature = SignatureDigest::new()
             .chain_point(&p2)
             .chain_bytes(&bytes)
             .chain_bool(b)
