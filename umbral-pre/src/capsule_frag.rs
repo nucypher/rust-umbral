@@ -1,13 +1,44 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{PublicKey, Signature};
-use crate::hashing::{ScalarDigest, SignatureDigest};
+use crate::hashing::{BytesDigestOutputSize, ScalarDigest, SignatureDigest};
+use crate::hashing_ds::hash_metadata;
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::traits::SerializableToArray;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::op;
+
+type HashedMetadataSize = BytesDigestOutputSize;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct HashedMetadata(GenericArray<u8, HashedMetadataSize>);
+
+impl HashedMetadata {
+    fn new(maybe_metadata: Option<&[u8]>) -> Self {
+        let metadata = maybe_metadata.unwrap_or(b"");
+        Self(hash_metadata(metadata))
+    }
+}
+
+impl AsRef<[u8]> for HashedMetadata {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl SerializableToArray for HashedMetadata {
+    type Size = HashedMetadataSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.0
+    }
+
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        Some(Self(*arr))
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CapsuleFragProof {
@@ -17,7 +48,7 @@ pub struct CapsuleFragProof {
     kfrag_pok: CurvePoint,
     signature: CurveScalar,
     kfrag_signature: Signature,
-    metadata: CurveScalar,
+    metadata: HashedMetadata,
 }
 
 type PointSize = <CurvePoint as SerializableToArray>::Size;
@@ -47,7 +78,7 @@ impl SerializableToArray for CapsuleFragProof {
         let (kfrag_pok, rest) = CurvePoint::take(rest)?;
         let (signature, rest) = CurveScalar::take(rest)?;
         let (kfrag_signature, rest) = Signature::take(rest)?;
-        let metadata = CurveScalar::take_last(rest)?;
+        let metadata = HashedMetadata::take_last(rest)?;
         Some(Self {
             point_e2,
             point_v2,
@@ -67,7 +98,7 @@ impl CapsuleFragProof {
         kfrag: &KeyFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
-        metadata: &CurveScalar,
+        metadata: &HashedMetadata,
     ) -> Self {
         let params = capsule.params;
 
@@ -91,7 +122,7 @@ impl CapsuleFragProof {
 
         let h = ScalarDigest::new()
             .chain_points(&[e, *e1, e2, v, *v1, v2, u, u1, u2])
-            .chain_scalar(metadata)
+            .chain_bytes(metadata)
             .finalize();
 
         ////////
@@ -151,16 +182,16 @@ impl SerializableToArray for CapsuleFrag {
 }
 
 impl CapsuleFrag {
-    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
+    pub(crate) fn reencrypted(
+        capsule: &Capsule,
+        kfrag: &KeyFrag,
+        maybe_metadata: Option<&[u8]>,
+    ) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
-        let metadata_scalar = match metadata {
-            Some(s) => ScalarDigest::new().chain_bytes(s).finalize(),
-            None => CurveScalar::default(),
-        };
-        let proof =
-            CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata_scalar);
+        let metadata = HashedMetadata::new(maybe_metadata);
+        let proof = CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata);
 
         Self {
             point_e1: e1,
@@ -200,7 +231,7 @@ impl CapsuleFrag {
 
         let h = ScalarDigest::new()
             .chain_points(&[e, e1, e2, v, v1, v2, u, u1, u2])
-            .chain_scalar(&self.proof.metadata)
+            .chain_bytes(&self.proof.metadata)
             .finalize();
 
         ///////
