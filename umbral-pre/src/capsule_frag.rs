@@ -1,16 +1,18 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{PublicKey, Signature};
-use crate::hashing::{BytesDigestOutputSize, ScalarDigest, SignatureDigest};
+use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::hashing_ds::hash_metadata;
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::traits::SerializableToArray;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
-use typenum::op;
+use typenum::{op, U32};
 
-type HashedMetadataSize = BytesDigestOutputSize;
+// The compiler will ensure that's the array length we are getting from the hash function.
+// Hardcoding here for the purposes of the formal specification.
+type HashedMetadataSize = U32;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct HashedMetadata(GenericArray<u8, HashedMetadataSize>);
