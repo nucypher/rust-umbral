@@ -71,12 +71,8 @@ impl ScalarDigest {
         Self(digest::Digest::chain(self.0, bytes))
     }
 
-    pub fn chain_bytes(self, bytes: &[u8]) -> Self {
-        self.chain_impl(bytes)
-    }
-
-    pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        self.chain_impl(&scalar.to_array())
+    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
+        self.chain_impl(bytes.as_ref())
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
@@ -108,8 +104,8 @@ impl SignatureDigest {
         Self(digest::Digest::chain(self.0, bytes))
     }
 
-    pub fn chain_scalar(self, scalar: &CurveScalar) -> Self {
-        self.chain_impl(&scalar.to_array())
+    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
+        self.chain_impl(bytes.as_ref())
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
@@ -133,26 +129,56 @@ impl SignatureDigest {
     }
 }
 
+pub(crate) struct BytesDigest(Sha256);
+
+// Can't be put in the `impl` in the current version of Rust.
+pub type BytesDigestOutputSize = <Sha256 as Digest>::OutputSize;
+
+impl BytesDigest {
+    fn new() -> Self {
+        Self(Sha256::new())
+    }
+
+    pub fn new_with_dst(bytes: &[u8]) -> Self {
+        Self::new().chain_bytes(bytes)
+    }
+
+    fn chain_impl(self, bytes: &[u8]) -> Self {
+        Self(digest::Digest::chain(self.0, bytes))
+    }
+
+    pub fn chain_bytes(self, bytes: &[u8]) -> Self {
+        self.chain_impl(bytes)
+    }
+
+    pub fn finalize(self) -> GenericArray<u8, BytesDigestOutputSize> {
+        self.0.finalize()
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
-    use super::{unsafe_hash_to_point, ScalarDigest, SignatureDigest};
-    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
+    use super::{
+        unsafe_hash_to_point, BytesDigest, BytesDigestOutputSize, ScalarDigest, SignatureDigest,
+    };
+    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
+    use generic_array::GenericArray;
 
     #[test]
     fn test_unsafe_hash_to_point() {
         let data = b"abcdefg";
         let dst = b"sdasdasd";
-        let p = unsafe_hash_to_point(&dst[..], &data[..]);
-        let p_same = unsafe_hash_to_point(&dst[..], &data[..]);
+        let p: Option<CurvePoint> = unsafe_hash_to_point(&dst[..], &data[..]);
+        let p_same: Option<CurvePoint> = unsafe_hash_to_point(&dst[..], &data[..]);
         assert_eq!(p, p_same);
 
         let data2 = b"abcdefgh";
-        let p_data2 = unsafe_hash_to_point(&dst[..], &data2[..]);
+        let p_data2: Option<CurvePoint> = unsafe_hash_to_point(&dst[..], &data2[..]);
         assert_ne!(p, p_data2);
 
         let dst2 = b"sdasdasds";
-        let p_dst2 = unsafe_hash_to_point(&dst2[..], &data[..]);
+        let p_dst2: Option<CurvePoint> = unsafe_hash_to_point(&dst2[..], &data[..]);
         assert_ne!(p, p_dst2);
     }
 
@@ -160,24 +186,20 @@ mod tests {
     fn test_scalar_digest() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let rs = CurveScalar::random_nonzero();
         let bytes: &[u8] = b"foobar";
 
-        let s = ScalarDigest::new()
+        let s: CurveScalar = ScalarDigest::new()
             .chain_points(&[p1, p2])
-            .chain_scalar(&rs)
             .chain_bytes(bytes)
             .finalize();
-        let s_same = ScalarDigest::new()
+        let s_same: CurveScalar = ScalarDigest::new()
             .chain_points(&[p1, p2])
-            .chain_scalar(&rs)
             .chain_bytes(bytes)
             .finalize();
         assert_eq!(s, s_same);
 
-        let s_diff = ScalarDigest::new()
+        let s_diff: CurveScalar = ScalarDigest::new()
             .chain_points(&[p2, p1])
-            .chain_scalar(&rs)
             .chain_bytes(bytes)
             .finalize();
         assert_ne!(s, s_diff);
@@ -187,23 +209,23 @@ mod tests {
     fn test_signature_digest() {
         let p1 = CurvePoint::generator();
         let p2 = &p1 + &p1;
-        let rs = CurveScalar::random_nonzero();
+        let bytes = b"asdfghjk";
         let b = true;
         let pk = PublicKey::from_secret_key(&SecretKey::random());
 
         let signing_sk = SecretKey::random();
         let signing_pk = PublicKey::from_secret_key(&signing_sk);
 
-        let signature = SignatureDigest::new()
+        let signature: Signature = SignatureDigest::new()
             .chain_point(&p2)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .sign(&signing_sk);
 
         let same_values_same_key = SignatureDigest::new()
             .chain_point(&p2)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&signing_pk, &signature);
@@ -211,7 +233,7 @@ mod tests {
 
         let same_values_different_key = SignatureDigest::new()
             .chain_point(&p2)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&pk, &signature);
@@ -220,11 +242,27 @@ mod tests {
 
         let different_values_same_key = SignatureDigest::new()
             .chain_point(&p1)
-            .chain_scalar(&rs)
+            .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&signing_pk, &signature);
 
         assert!(!different_values_same_key);
+    }
+
+    #[test]
+    fn test_bytes_digest() {
+        let bytes: &[u8] = b"foobar";
+        let bytes2: &[u8] = b"barbaz";
+
+        let s: GenericArray<u8, BytesDigestOutputSize> =
+            BytesDigest::new().chain_bytes(bytes).finalize();
+        let s_same: GenericArray<u8, BytesDigestOutputSize> =
+            BytesDigest::new().chain_bytes(bytes).finalize();
+        assert_eq!(s, s_same);
+
+        let s_diff: GenericArray<u8, BytesDigestOutputSize> =
+            BytesDigest::new().chain_bytes(bytes2).finalize();
+        assert_ne!(s, s_diff);
     }
 }

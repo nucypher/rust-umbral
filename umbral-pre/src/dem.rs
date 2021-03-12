@@ -16,10 +16,7 @@ fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8
 
     let mut okm = GenericArray::<u8, KdfSize>::default();
 
-    let def_info = match info {
-        Some(x) => x,
-        None => &[],
-    };
+    let def_info = info.unwrap_or(&[]);
 
     // We can only get an error here if `KdfSize` is too large, and it's known at compile-time.
     hk.expand(&def_info, &mut okm).unwrap();
