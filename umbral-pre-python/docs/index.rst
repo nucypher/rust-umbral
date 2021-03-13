@@ -34,18 +34,12 @@ API reference
 
         Creates a public key corresponding to the given secret key.
 
-
-.. py:class:: Parameters()
-
-    A scheme parameters object.
-
-
 .. py:class:: Capsule
 
     An encapsulated symmetric key.
 
 
-.. py:function:: encrypt(params: Parameters, pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
+.. py:function:: encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
 
     Creates a symmetric key, encrypts ``plaintext`` with it, and returns the encapsulated symmetric key along with the ciphertext. ``pk`` is the public key of the recipient.
 
@@ -53,7 +47,7 @@ API reference
 
     Decrypts ``ciphertext`` with the key used to encrypt it.
 
-.. py:function:: generate_kfrags(params: Parameters, delegating_sk: SecretKey, receiving_pk: PublicKey, signing_sk: SecretKey, threshold: int, num_kfrags: int, sign_delegating_key: bool, sign_receiving_key: bool) -> List[KeyFrag]
+.. py:function:: generate_kfrags(delegating_sk: SecretKey, receiving_pk: PublicKey, signing_sk: SecretKey, threshold: int, num_kfrags: int, sign_delegating_key: bool, sign_receiving_key: bool) -> List[KeyFrag]
 
     Generates ``num_kfrags`` key fragments that can be used to reencrypt the capsule for the holder of the secret key corresponding to ``receiving_pk``. ``threshold`` fragments will be enough for decryption.
 

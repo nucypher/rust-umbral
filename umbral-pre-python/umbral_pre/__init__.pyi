@@ -12,13 +12,10 @@ class PublicKey:
         ...
 
 
-class Parameters: ...
-
-
 class Capsule: ...
 
 
-def encrypt(params: Parameters, pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
+def encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
     ...
 
 
@@ -37,7 +34,6 @@ class KeyFrag:
 
 
 def generate_kfrags(
-        params: Parameters,
         delegating_sk: SecretKey,
         receiving_pk: PublicKey,
         signing_sk: SecretKey,

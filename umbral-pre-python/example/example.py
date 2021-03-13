@@ -21,10 +21,8 @@ bob_pk = umbral_pre.PublicKey.from_secret_key(bob_sk)
 # Note that anyone with Alice's public key
 # can perform this operation.
 
-params = umbral_pre.Parameters()
 plaintext = b"peace at dawn"
-capsule, ciphertext = umbral_pre.encrypt(
-    params, alice_pk, plaintext)
+capsule, ciphertext = umbral_pre.encrypt(alice_pk, plaintext)
 
 # Since data was encrypted with Alice's public key,
 # Alice can open the capsule and decrypt the ciphertext
@@ -43,7 +41,7 @@ m = 2 # how many should be enough to decrypt
 
 # Split Re-Encryption Key Generation (aka Delegation)
 kfrags = umbral_pre.generate_kfrags(
-    params, alice_sk, bob_pk, signing_sk, m, n,
+    alice_sk, bob_pk, signing_sk, m, n,
     True, # add the delegating key (alice_pk) to the signature
     True, # add the receiving key (bob_pk) to the signature
 )

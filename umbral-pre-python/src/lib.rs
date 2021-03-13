@@ -1,6 +1,11 @@
+use pyo3::class::basic::CompareOp;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::wrap_pyfunction;
+use pyo3::PyObjectProtocol;
+
+use umbral_pre::SerializableToArray;
 
 #[pyclass(module = "umbral")]
 pub struct SecretKey {
@@ -33,41 +38,14 @@ impl PublicKey {
 }
 
 #[pyclass(module = "umbral")]
-pub struct Parameters {
-    backend: umbral_pre::Parameters,
-}
-
-#[pymethods]
-impl Parameters {
-    #[new]
-    pub fn new() -> Self {
-        Self {
-            backend: umbral_pre::Parameters::new(),
-        }
-    }
-}
-
-impl Default for Parameters {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[pyclass(module = "umbral")]
 #[derive(Clone)]
 pub struct Capsule {
     backend: umbral_pre::Capsule,
 }
 
 #[pyfunction]
-pub fn encrypt(
-    py: Python,
-    params: &Parameters,
-    pk: &PublicKey,
-    plaintext: &[u8],
-) -> (Capsule, PyObject) {
-    let (capsule, ciphertext) =
-        umbral_pre::encrypt(&params.backend, &pk.backend, plaintext).unwrap();
+pub fn encrypt(py: Python, pk: &PublicKey, plaintext: &[u8]) -> (Capsule, PyObject) {
+    let (capsule, ciphertext) = umbral_pre::encrypt(&pk.backend, plaintext).unwrap();
     (
         Capsule { backend: capsule },
         PyBytes::new(py, &ciphertext).into(),
@@ -110,7 +88,6 @@ impl KeyFrag {
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
 pub fn generate_kfrags(
-    params: &Parameters,
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
     signing_sk: &SecretKey,
@@ -120,7 +97,6 @@ pub fn generate_kfrags(
     sign_receiving_key: bool,
 ) -> Vec<KeyFrag> {
     let backend_kfrags = umbral_pre::generate_kfrags(
-        &params.backend,
         &delegating_sk.backend,
         &receiving_pk.backend,
         &signing_sk.backend,
@@ -198,7 +174,6 @@ pub fn decrypt_reencrypted(
 fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<PublicKey>()?;
-    m.add_class::<Parameters>()?;
     m.add_function(wrap_pyfunction!(encrypt, m)?).unwrap();
     m.add_function(wrap_pyfunction!(decrypt_original, m)?)
         .unwrap();

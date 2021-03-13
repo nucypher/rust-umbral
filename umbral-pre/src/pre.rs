@@ -5,7 +5,6 @@ use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{PublicKey, SecretKey};
 use crate::dem::DEM;
 use crate::key_frag::KeyFrag;
-use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
@@ -13,12 +12,8 @@ use alloc::boxed::Box;
 /// Encrypts the given plaintext message using a DEM scheme,
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
-pub fn encrypt(
-    params: &Parameters,
-    pk: &PublicKey,
-    plaintext: &[u8],
-) -> Option<(Capsule, Box<[u8]>)> {
-    let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
+pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<(Capsule, Box<[u8]>)> {
+    let (capsule, key_seed) = Capsule::from_pubkey(pk);
     // TODO (#43): add salt and info here?
     let dem = DEM::new(&key_seed.to_array(), None, None);
     let capsule_bytes = capsule.to_array();
@@ -75,15 +70,13 @@ pub fn decrypt_reencrypted(
 #[cfg(test)]
 mod tests {
 
-    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
-
-    use crate::key_frag::generate_kfrags;
-
-    use crate::capsule_frag::CapsuleFrag;
-
     use alloc::vec::Vec;
 
-    use crate::{Parameters, PublicKey, SecretKey};
+    use crate::capsule_frag::CapsuleFrag;
+    use crate::key_frag::generate_kfrags;
+    use crate::{PublicKey, SecretKey};
+
+    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
     #[test]
     fn test_simple_api() {
@@ -100,9 +93,6 @@ mod tests {
         let threshold: usize = 2;
         let num_frags: usize = threshold + 1;
 
-        // Generation of global parameters
-        let params = Parameters::new();
-
         // Key Generation (Alice)
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
@@ -116,7 +106,7 @@ mod tests {
 
         // Encryption by an unnamed data source
         let plaintext = b"peace at dawn";
-        let (capsule, ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+        let (capsule, ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
 
         // Decryption by Alice
         let plaintext_alice = decrypt_original(&delegating_sk, &capsule, &ciphertext).unwrap();
@@ -124,7 +114,6 @@ mod tests {
 
         // Split Re-Encryption Key Generation (aka Delegation)
         let kfrags = generate_kfrags(
-            &params,
             &delegating_sk,
             &receiving_pk,
             &signing_sk,

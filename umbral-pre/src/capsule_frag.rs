@@ -264,13 +264,10 @@ mod tests {
 
     use super::CapsuleFrag;
     use crate::{
-        encrypt, generate_kfrags, reencrypt, Capsule, Parameters, PublicKey, SecretKey,
-        SerializableToArray,
+        encrypt, generate_kfrags, reencrypt, Capsule, PublicKey, SecretKey, SerializableToArray,
     };
 
     fn prepare_cfrags() -> (PublicKey, PublicKey, PublicKey, Capsule, Box<[CapsuleFrag]>) {
-        let params = Parameters::new();
-
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
@@ -281,18 +278,9 @@ mod tests {
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         let plaintext = b"peace at dawn";
-        let (capsule, _ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+        let (capsule, _ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
 
-        let kfrags = generate_kfrags(
-            &params,
-            &delegating_sk,
-            &receiving_pk,
-            &signing_sk,
-            2,
-            3,
-            true,
-            true,
-        );
+        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
 
         let cfrags: Vec<CapsuleFrag> = kfrags
             .iter()

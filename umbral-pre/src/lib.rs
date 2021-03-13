@@ -31,9 +31,8 @@
 //! // Invocation of `encrypt()` returns both the ciphertext and a capsule.
 //! // Note that anyone with Alice's public key can perform this operation.
 //!
-//! let params = Parameters::new();
 //! let plaintext = b"peace at dawn";
-//! let (capsule, ciphertext) = encrypt(&params, &alice_pk, plaintext).unwrap();
+//! let (capsule, ciphertext) = encrypt(&alice_pk, plaintext).unwrap();
 //!
 //! // Since data was encrypted with Alice's public key, Alice can open the capsule
 //! // and decrypt the ciphertext with her private key.
@@ -47,7 +46,7 @@
 //!
 //! let n = 3; // how many fragments to create
 //! let m = 2; // how many should be enough to decrypt
-//! let kfrags = generate_kfrags(&params, &alice_sk, &bob_pk, &signing_sk, m, n, true, true);
+//! let kfrags = generate_kfrags(&alice_sk, &bob_pk, &signing_sk, m, n, true, true);
 //!
 //! // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 //! // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -112,5 +111,4 @@ pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
 pub use curve::{PublicKey, SecretKey};
 pub use key_frag::KeyFrag;
-pub use params::Parameters;
 pub use traits::SerializableToArray;

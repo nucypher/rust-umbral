@@ -1,8 +1,5 @@
 use crate::curve::CurvePoint;
 use crate::hashing::unsafe_hash_to_point;
-use crate::traits::SerializableToArray;
-
-use generic_array::GenericArray;
 
 /// An object containing shared scheme parameters.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -31,43 +28,15 @@ impl Parameters {
     }
 }
 
-impl SerializableToArray for Parameters {
-    type Size = <CurvePoint as SerializableToArray>::Size;
-
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.u.to_array()
-    }
-
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let u = CurvePoint::take_last(*arr)?;
-        Some(Self { u })
-    }
-}
-
-impl Default for Parameters {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use super::Parameters;
-    use crate::SerializableToArray;
-
-    #[test]
-    fn test_serialize() {
-        let p = Parameters::new();
-        let p_arr = p.to_array();
-        let p_back = Parameters::from_array(&p_arr).unwrap();
-        assert_eq!(p, p_back);
-    }
 
     #[test]
     fn test_default() {
         let p1 = Parameters::new();
-        let p2 = Parameters::default();
+        let p2 = Parameters::new();
         assert_eq!(p1, p2);
     }
 }

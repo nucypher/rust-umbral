@@ -52,7 +52,6 @@ pub(crate) struct KeyFragProof {
     receiving_key_signed: bool,
 }
 
-type ParametersSize = <Parameters as SerializableToArray>::Size;
 type SignatureSize = <Signature as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
@@ -154,23 +153,22 @@ pub struct KeyFrag {
     pub(crate) proof: KeyFragProof,
 }
 
-type KeyFragSize = op!(ParametersSize + ScalarSize + ScalarSize + PointSize + KeyFragProofSize);
+type KeyFragSize = op!(ScalarSize + ScalarSize + PointSize + KeyFragProofSize);
 
 impl SerializableToArray for KeyFrag {
     type Size = KeyFragSize;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.params
+        self.id
             .to_array()
-            .concat(self.id.to_array())
             .concat(self.key.to_array())
             .concat(self.precursor.to_array())
             .concat(self.proof.to_array())
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let (params, rest) = Parameters::take(*arr)?;
-        let (id, rest) = KeyFragID::take(rest)?;
+        let params = Parameters::new();
+        let (id, rest) = KeyFragID::take(*arr)?;
         let (key, rest) = CurveScalar::take(rest)?;
         let (precursor, rest) = CurvePoint::take(rest)?;
         let proof = KeyFragProof::take_last(rest)?;
@@ -280,13 +278,13 @@ struct KeyFragFactory {
 
 impl KeyFragFactory {
     pub fn new(
-        params: &Parameters,
         delegating_sk: &SecretKey,
         receiving_pk: &PublicKey,
         signing_sk: &SecretKey,
         threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
+        let params = Parameters::new();
 
         let delegating_pk = PublicKey::from_secret_key(delegating_sk);
 
@@ -325,7 +323,7 @@ impl KeyFragFactory {
             precursor,
             bob_pubkey_point,
             dh_point,
-            params: *params,
+            params,
             delegating_pk,
             receiving_pk: *receiving_pk,
             coefficients: coefficients.into_boxed_slice(),
@@ -361,7 +359,6 @@ fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
 /// Returns a boxed slice of `num_kfrags` KeyFrags
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
-    params: &Parameters,
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
     signing_sk: &SecretKey,
@@ -370,7 +367,7 @@ pub fn generate_kfrags(
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[KeyFrag]> {
-    let base = KeyFragFactory::new(params, delegating_sk, receiving_pk, signing_sk, threshold);
+    let base = KeyFragFactory::new(delegating_sk, receiving_pk, signing_sk, threshold);
 
     let mut result = Vec::<KeyFrag>::new();
     for _ in 0..num_kfrags {
@@ -386,14 +383,12 @@ mod tests {
     use alloc::boxed::Box;
 
     use super::{generate_kfrags, KeyFrag};
-    use crate::{Parameters, PublicKey, SecretKey, SerializableToArray};
+    use crate::{PublicKey, SecretKey, SerializableToArray};
 
     fn prepare_kfrags(
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> (PublicKey, PublicKey, PublicKey, Box<[KeyFrag]>) {
-        let params = Parameters::new();
-
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
@@ -404,7 +399,6 @@ mod tests {
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         let kfrags = generate_kfrags(
-            &params,
             &delegating_sk,
             &receiving_pk,
             &signing_sk,

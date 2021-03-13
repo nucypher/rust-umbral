@@ -21,14 +21,13 @@ let bob_pk = umbral.PublicKey.from_secret_key(bob_sk);
 // Invocation of `encrypt()` returns both the ciphertext and a capsule.
 // Note that anyone with Alice's public key can perform this operation.
 
-let params = new umbral.Parameters();
 let plaintext = "Plaintext message";
 let plaintext_bytes = enc.encode(plaintext);
 
 // The API here slightly differs from that in Rust.
 // Since wasm-pack does not support returning tuples, we return an object containing
 // the ciphertext and the capsule.
-let result = umbral.encrypt(params, alice_pk, plaintext_bytes);
+let result = umbral.encrypt(alice_pk, plaintext_bytes);
 let ciphertext = result.ciphertext;
 let capsule = result.capsule;
 
@@ -45,7 +44,7 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generate_kfrags(
-    params, alice_sk, bob_pk, signing_sk, m, n,
+    alice_sk, bob_pk, signing_sk, m, n,
     true, // add the delegating key (alice_pk) to the signature
     true, // add the receiving key (bob_pk) to the signature
     );
