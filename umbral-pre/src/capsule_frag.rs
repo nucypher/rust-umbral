@@ -1,8 +1,7 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{PublicKey, Signature};
-use crate::hashing::{ScalarDigest, SignatureDigest};
-use crate::hashing_ds::hash_metadata;
+use crate::hashing_ds::{hash_metadata, hash_to_cfrag_signature, hash_to_cfrag_verification};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::traits::SerializableToArray;
 
@@ -122,10 +121,7 @@ impl CapsuleFragProof {
         let v2 = &v * &t;
         let u2 = &u * &t;
 
-        let h = ScalarDigest::new()
-            .chain_points(&[e, *e1, e2, v, *v1, v2, u, u1, u2])
-            .chain_bytes(metadata)
-            .finalize();
+        let h = hash_to_cfrag_verification(&[e, *e1, e2, v, *v1, v2, u, u1, u2], metadata);
 
         ////////
 
@@ -231,23 +227,22 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        let h = ScalarDigest::new()
-            .chain_points(&[e, e1, e2, v, v1, v2, u, u1, u2])
-            .chain_bytes(&self.proof.metadata)
-            .finalize();
+        let h =
+            hash_to_cfrag_verification(&[e, e1, e2, v, v1, v2, u, u1, u2], &self.proof.metadata);
 
         ///////
 
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        let valid_kfrag_signature = SignatureDigest::new()
-            .chain_bytes(&kfrag_id)
-            .chain_pubkey(delegating_pk)
-            .chain_pubkey(receiving_pk)
-            .chain_point(&u1)
-            .chain_point(&precursor)
-            .verify(signing_pk, &self.proof.kfrag_signature);
+        let valid_kfrag_signature = hash_to_cfrag_signature(
+            &kfrag_id,
+            &u1,
+            &precursor,
+            Some(delegating_pk),
+            Some(receiving_pk),
+        )
+        .verify(signing_pk, &self.proof.kfrag_signature);
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);

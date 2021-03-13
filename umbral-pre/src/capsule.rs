@@ -1,7 +1,6 @@
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
-use crate::hashing::ScalarDigest;
-use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret};
+use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
@@ -67,10 +66,7 @@ impl Capsule {
     /// Verifies the integrity of the capsule.
     fn verify(&self) -> bool {
         let g = CurvePoint::generator();
-        let h = ScalarDigest::new()
-            .chain_point(&self.point_e)
-            .chain_point(&self.point_v)
-            .finalize();
+        let h = hash_capsule_points(&self.point_e, &self.point_v);
         &g * &self.signature == &self.point_v + &(&self.point_e * &h)
     }
 
@@ -84,7 +80,7 @@ impl Capsule {
         let priv_u = CurveScalar::random_nonzero();
         let pub_u = &g * &priv_u;
 
-        let h = ScalarDigest::new().chain_points(&[pub_r, pub_u]).finalize();
+        let h = hash_capsule_points(&pub_r, &pub_u);
 
         let s = &priv_u + &(&priv_r * &h);
 
@@ -145,10 +141,8 @@ impl Capsule {
         // Secret value 'd' allows to make Umbral non-interactive
         let d = hash_to_shared_secret(&precursor, &pub_key, &dh_point);
 
-        let e = self.point_e;
-        let v = self.point_v;
         let s = self.signature;
-        let h = ScalarDigest::new().chain_points(&[e, v]).finalize();
+        let h = hash_capsule_points(&self.point_e, &self.point_v);
 
         let orig_pub_key = delegating_pk.to_point();
 

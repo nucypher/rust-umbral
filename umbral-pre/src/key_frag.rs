@@ -1,7 +1,6 @@
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::curve::{PublicKey, SecretKey, Signature};
-use crate::hashing::SignatureDigest;
-use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret};
+use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
@@ -87,6 +86,14 @@ impl SerializableToArray for KeyFragProof {
     }
 }
 
+fn none_unless<T>(x: Option<T>, predicate: bool) -> Option<T> {
+    if predicate {
+        x
+    } else {
+        None
+    }
+}
+
 impl KeyFragProof {
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -102,30 +109,26 @@ impl KeyFragProof {
     ) -> Self {
         let commitment = &params.u * kfrag_key;
 
-        let signature_for_bob = SignatureDigest::new()
-            .chain_bytes(kfrag_id)
-            .chain_pubkey(delegating_pk)
-            .chain_pubkey(receiving_pk)
-            .chain_point(&commitment)
-            .chain_point(kfrag_precursor)
-            .sign(signing_sk);
+        let maybe_delegating_pk = Some(delegating_pk);
+        let maybe_receiving_pk = Some(receiving_pk);
 
-        let mut digest_for_proxy = SignatureDigest::new()
-            .chain_bytes(kfrag_id)
-            .chain_point(&commitment)
-            .chain_point(kfrag_precursor)
-            .chain_bool(sign_delegating_key)
-            .chain_bool(sign_receiving_key);
+        let signature_for_bob = hash_to_cfrag_signature(
+            &kfrag_id,
+            &commitment,
+            &kfrag_precursor,
+            maybe_delegating_pk,
+            maybe_receiving_pk,
+        )
+        .sign(signing_sk);
 
-        if sign_delegating_key {
-            digest_for_proxy = digest_for_proxy.chain_pubkey(delegating_pk);
-        }
-
-        if sign_receiving_key {
-            digest_for_proxy = digest_for_proxy.chain_pubkey(receiving_pk);
-        }
-
-        let signature_for_proxy = digest_for_proxy.sign(&signing_sk);
+        let signature_for_proxy = hash_to_cfrag_signature(
+            &kfrag_id,
+            &commitment,
+            &kfrag_precursor,
+            none_unless(maybe_delegating_pk, sign_delegating_key),
+            none_unless(maybe_receiving_pk, sign_receiving_key),
+        )
+        .sign(&signing_sk);
 
         Self {
             commitment,
@@ -230,17 +233,9 @@ impl KeyFrag {
     pub fn verify(
         &self,
         signing_pk: &PublicKey,
-        delegating_pk: Option<&PublicKey>,
-        receiving_pk: Option<&PublicKey>,
+        maybe_delegating_pk: Option<&PublicKey>,
+        maybe_receiving_pk: Option<&PublicKey>,
     ) -> bool {
-        if self.proof.delegating_key_signed && delegating_pk.is_none() {
-            return false;
-        }
-
-        if self.proof.receiving_key_signed && receiving_pk.is_none() {
-            return false;
-        }
-
         let u = self.params.u;
 
         let kfrag_id = self.id;
@@ -251,21 +246,22 @@ impl KeyFrag {
         // We check that the commitment is well-formed
         let correct_commitment = commitment == &u * &key;
 
-        let mut digest = SignatureDigest::new()
-            .chain_bytes(&kfrag_id)
-            .chain_point(&commitment)
-            .chain_point(&precursor)
-            .chain_bool(self.proof.delegating_key_signed)
-            .chain_bool(self.proof.receiving_key_signed);
-        if self.proof.delegating_key_signed {
-            // `delegating_pk` is guaranteed to be Some here.
-            digest = digest.chain_pubkey(&delegating_pk.unwrap());
-        }
-        if self.proof.receiving_key_signed {
-            // `receiving_pk` is guaranteed to be Some here.
-            digest = digest.chain_pubkey(&receiving_pk.unwrap());
-        }
-        let valid_kfrag_signature = digest.verify(&signing_pk, &self.proof.signature_for_proxy);
+        // A shortcut, perhaps not necessary
+        let delegating_key_provided =
+            !(maybe_delegating_pk.is_none() && self.proof.delegating_key_signed);
+        let receiving_key_provided =
+            !(maybe_receiving_pk.is_none() && self.proof.receiving_key_signed);
+
+        let valid_kfrag_signature = delegating_key_provided
+            && receiving_key_provided
+            && hash_to_cfrag_signature(
+                &kfrag_id,
+                &commitment,
+                &precursor,
+                none_unless(maybe_delegating_pk, self.proof.delegating_key_signed),
+                none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
+            )
+            .verify(&signing_pk, &self.proof.signature_for_proxy);
 
         correct_commitment & valid_kfrag_signature
     }
