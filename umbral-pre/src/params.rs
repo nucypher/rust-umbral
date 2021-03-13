@@ -13,15 +13,19 @@ pub struct Parameters {
 impl Parameters {
     /// Creates a new parameter object.
     pub fn new() -> Self {
-        // Some future-proofing for a scenario where someone uses a different generator.
-        // We wouldn't want `u` to be the same in that case.
-        let g = CurvePoint::generator();
-        let g_bytes = g.to_array();
+        // The goal is to find two distinct points `g` and `u` for which `log_g(u)` is unknown.
+        // `g` is fixed to be the generator because it has to be the same
+        // as the one used for secret/public keys, and it is standardized (for a given curve).
 
         // Only fails with a minuscule probability,
-        // or if the size of a point is too large for the hasher.
-        // In any case, we will notice it in tests.
-        let u = unsafe_hash_to_point(b"POINT_U", &g_bytes).unwrap();
+        // and since `g` is fixed here, we can just ignore the panic branch,
+        // because we know it succeeds.
+
+        // Technically, we don't need the DST here now since it's a custom hashing function
+        // used for exactly one purpose (and, really, on only one value).
+        // But in view of possible replacement with the standard hash-to-curve (see #35),
+        // which will need a DST, we're using a DST here as well.
+        let u = unsafe_hash_to_point(b"PARAMETERS", b"POINT_U").unwrap();
 
         Self { u }
     }
