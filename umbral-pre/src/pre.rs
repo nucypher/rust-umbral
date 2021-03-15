@@ -3,7 +3,7 @@
 use crate::capsule::Capsule;
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{PublicKey, SecretKey};
-use crate::dem::UmbralDEM;
+use crate::dem::DEM;
 use crate::key_frag::KeyFrag;
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
@@ -19,7 +19,7 @@ pub fn encrypt(
     plaintext: &[u8],
 ) -> Option<(Capsule, Box<[u8]>)> {
     let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
-    let dem = UmbralDEM::new(&key_seed.to_array());
+    let dem = DEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes)?;
     Some((capsule, ciphertext))
@@ -33,7 +33,7 @@ pub fn decrypt_original(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_original(decrypting_sk);
-    let dem = UmbralDEM::new(&key_seed.to_array());
+    let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
@@ -65,7 +65,7 @@ pub fn decrypt_reencrypted(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags)?;
-    let dem = UmbralDEM::new(&key_seed.to_array());
+    let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())
 }
 

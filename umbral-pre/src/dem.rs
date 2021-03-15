@@ -26,11 +26,11 @@ fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8
 
 type NonceSize = <XChaCha20Poly1305 as AeadInPlace>::NonceSize;
 
-pub(crate) struct UmbralDEM {
+pub(crate) struct DEM {
     cipher: XChaCha20Poly1305,
 }
 
-impl UmbralDEM {
+impl DEM {
     pub fn new(key_seed: &[u8]) -> Self {
         let key_bytes = kdf(&key_seed, None, None);
         let key = Key::from_slice(&key_bytes);
