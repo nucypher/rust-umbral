@@ -2,14 +2,14 @@ use alloc::boxed::Box;
 
 use aead::{Aead, AeadInPlace, Payload};
 use chacha20poly1305::aead::NewAead;
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use generic_array::{typenum::Unsigned, GenericArray};
 use hkdf::Hkdf;
 use rand_core::OsRng;
 use rand_core::RngCore;
 use sha2::Sha256;
 
-type KdfSize = <ChaCha20Poly1305 as NewAead>::KeySize;
+type KdfSize = <XChaCha20Poly1305 as NewAead>::KeySize;
 
 fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8, KdfSize> {
     let hk = Hkdf::<Sha256>::new(salt, &seed);
@@ -24,23 +24,24 @@ fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8
     okm
 }
 
+type NonceSize = <XChaCha20Poly1305 as AeadInPlace>::NonceSize;
+
 pub(crate) struct UmbralDEM {
-    cipher: ChaCha20Poly1305,
+    cipher: XChaCha20Poly1305,
 }
 
 impl UmbralDEM {
     pub fn new(key_seed: &[u8]) -> Self {
         let key_bytes = kdf(&key_seed, None, None);
         let key = Key::from_slice(&key_bytes);
-        let cipher = ChaCha20Poly1305::new(key);
+        let cipher = XChaCha20Poly1305::new(key);
         Self { cipher }
     }
 
     pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Option<Box<[u8]>> {
-        type NonceSize = <ChaCha20Poly1305 as AeadInPlace>::NonceSize;
         let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
-        let nonce = Nonce::from_slice(&nonce);
+        let nonce = XNonce::from_slice(&nonce);
         let payload = Payload {
             msg: data,
             aad: authenticated_data,
@@ -59,20 +60,20 @@ impl UmbralDEM {
         ciphertext: impl AsRef<[u8]>,
         authenticated_data: &[u8],
     ) -> Option<Box<[u8]>> {
-        let nonce_size = <<ChaCha20Poly1305 as AeadInPlace>::NonceSize as Unsigned>::to_usize();
+        let nonce_size = <NonceSize as Unsigned>::to_usize();
         let buf_size = ciphertext.as_ref().len();
 
         if buf_size < nonce_size {
             return None;
         }
 
-        let nonce = Nonce::from_slice(&ciphertext.as_ref()[..nonce_size]);
+        let nonce = XNonce::from_slice(&ciphertext.as_ref()[..nonce_size]);
         let payload = Payload {
             msg: &ciphertext.as_ref()[nonce_size..],
             aad: authenticated_data,
         };
         self.cipher
-            .decrypt(&nonce, payload)
+            .decrypt(nonce, payload)
             .ok()
             .map(|pt| pt.into_boxed_slice())
     }

@@ -12,7 +12,7 @@ categories = ["cryptography", "no-std"]
 [dependencies]
 k256 = { version = "0.7", default-features = false, features = ["ecdsa", "arithmetic"] }
 sha2 = "0.9"
-chacha20poly1305 = "0.7"
+chacha20poly1305 = { version = "0.7", features = ["xchacha20poly1305"] }
 hkdf = "0.10"
 
 # These packages are among the dependencies of the packages above.
