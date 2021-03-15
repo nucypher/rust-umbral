@@ -174,7 +174,7 @@ impl SerializableToArray for Signature {
 }
 
 /// A secret key.
-#[derive(Clone, Debug)]
+#[derive(Clone)] // No Debug derivation, to avoid exposing the key accidentally.
 pub struct SecretKey(BackendSecretKey<CurveType>);
 
 impl PartialEq for SecretKey {
@@ -215,6 +215,7 @@ impl SerializableToArray for SecretKey {
     type Size = <CurveScalar as SerializableToArray>::Size;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        // TODO (#8): a copy of secret data is created in `to_bytes()`.
         self.0.to_bytes()
     }
 
@@ -279,7 +280,7 @@ mod tests {
         let sk = SecretKey::random();
         let sk_arr = sk.to_array();
         let sk_back = SecretKey::from_array(&sk_arr).unwrap();
-        assert_eq!(sk, sk_back);
+        assert_eq!(sk.to_secret_scalar(), sk_back.to_secret_scalar());
     }
 
     #[test]

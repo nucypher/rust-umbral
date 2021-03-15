@@ -19,7 +19,8 @@ pub fn encrypt(
     plaintext: &[u8],
 ) -> Option<(Capsule, Box<[u8]>)> {
     let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
-    let dem = DEM::new(&key_seed.to_array());
+    // TODO (#43): add salt and info here?
+    let dem = DEM::new(&key_seed.to_array(), None, None);
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes)?;
     Some((capsule, ciphertext))
@@ -33,7 +34,8 @@ pub fn decrypt_original(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_original(decrypting_sk);
-    let dem = DEM::new(&key_seed.to_array());
+    // TODO (#43): add salt and info here?
+    let dem = DEM::new(&key_seed.to_array(), None, None);
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
@@ -65,7 +67,8 @@ pub fn decrypt_reencrypted(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags)?;
-    let dem = DEM::new(&key_seed.to_array());
+    // TODO (#43): add salt and info here?
+    let dem = DEM::new(&key_seed.to_array(), None, None);
     dem.decrypt(&ciphertext, &capsule.to_array())
 }
 
