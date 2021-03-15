@@ -20,9 +20,23 @@ impl SecretKey {
             backend: umbral_pre::SecretKey::random(),
         }
     }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_key = umbral_pre::SecretKey::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_key,
+        })
+    }
 }
 
 #[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct PublicKey {
     backend: umbral_pre::PublicKey,
 }
@@ -35,12 +49,51 @@ impl PublicKey {
             backend: umbral_pre::PublicKey::from_secret_key(&sk.backend),
         }
     }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_pubkey = umbral_pre::PublicKey::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_pubkey,
+        })
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for PublicKey {
+    fn __richcmp__(&self, other: PyRef<PublicKey>, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self == &*other),
+            CompareOp::Ne => Ok(self != &*other),
+            _ => Err(PyTypeError::new_err("PublicKey objects are not ordered")),
+        }
+    }
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone)]
 pub struct Capsule {
     backend: umbral_pre::Capsule,
+}
+
+#[pymethods]
+impl Capsule {
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_capsule = umbral_pre::Capsule::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_capsule,
+        })
+    }
 }
 
 #[pyfunction]
@@ -82,6 +135,19 @@ impl KeyFrag {
             delegating_pk.map(|pk| &pk.backend),
             receiving_pk.map(|pk| &pk.backend),
         )
+    }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_kfrag = umbral_pre::KeyFrag::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_kfrag,
+        })
     }
 }
 
@@ -135,6 +201,19 @@ impl CapsuleFrag {
             &receiving_pk.backend,
         )
     }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_cfrag = umbral_pre::CapsuleFrag::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_cfrag,
+        })
+    }
 }
 
 #[pyfunction]
@@ -174,6 +253,9 @@ pub fn decrypt_reencrypted(
 fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<PublicKey>()?;
+    m.add_class::<Capsule>()?;
+    m.add_class::<KeyFrag>()?;
+    m.add_class::<CapsuleFrag>()?;
     m.add_function(wrap_pyfunction!(encrypt, m)?).unwrap();
     m.add_function(wrap_pyfunction!(decrypt_original, m)?)
         .unwrap();
