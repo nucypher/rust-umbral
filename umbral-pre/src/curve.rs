@@ -167,6 +167,8 @@ impl SerializableToArray for Signature {
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        // Note that it will not normalize `s` automatically,
+        // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .ok()
             .map(Self)
