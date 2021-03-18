@@ -133,7 +133,7 @@ impl CapsuleFragProof {
             kfrag_commitment: u1,
             kfrag_pok: u2,
             signature: z3,
-            kfrag_signature: kfrag.proof.signature_for_bob(),
+            kfrag_signature: kfrag.proof.signature_for_receiver(),
             metadata: *metadata,
         }
     }

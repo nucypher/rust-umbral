@@ -47,7 +47,7 @@ impl SerializableToArray for KeyFragID {
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
     signature_for_proxy: Signature,
-    signature_for_bob: Signature,
+    signature_for_receiver: Signature,
     delegating_key_signed: bool,
     receiving_key_signed: bool,
 }
@@ -64,7 +64,7 @@ impl SerializableToArray for KeyFragProof {
         self.commitment
             .to_array()
             .concat(self.signature_for_proxy.to_array())
-            .concat(self.signature_for_bob.to_array())
+            .concat(self.signature_for_receiver.to_array())
             .concat(self.delegating_key_signed.to_array())
             .concat(self.receiving_key_signed.to_array())
     }
@@ -72,13 +72,13 @@ impl SerializableToArray for KeyFragProof {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
         let (commitment, rest) = CurvePoint::take(*arr)?;
         let (signature_for_proxy, rest) = Signature::take(rest)?;
-        let (signature_for_bob, rest) = Signature::take(rest)?;
+        let (signature_for_receiver, rest) = Signature::take(rest)?;
         let (delegating_key_signed, rest) = bool::take(rest)?;
         let receiving_key_signed = bool::take_last(rest)?;
         Some(Self {
             commitment,
             signature_for_proxy,
-            signature_for_bob,
+            signature_for_receiver,
             delegating_key_signed,
             receiving_key_signed,
         })
@@ -94,52 +94,47 @@ fn none_unless<T>(x: Option<T>, predicate: bool) -> Option<T> {
 }
 
 impl KeyFragProof {
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        params: &Parameters,
+    fn from_base(
+        base: &KeyFragBase,
         kfrag_id: &KeyFragID,
         kfrag_key: &CurveScalar,
-        kfrag_precursor: &CurvePoint,
-        signing_sk: &SecretKey,
-        delegating_pk: &PublicKey,
-        receiving_pk: &PublicKey,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
-        let commitment = &params.u * kfrag_key;
+        let commitment = &base.params.u * kfrag_key;
 
-        let maybe_delegating_pk = Some(delegating_pk);
-        let maybe_receiving_pk = Some(receiving_pk);
+        let maybe_delegating_pk = Some(&base.delegating_pk);
+        let maybe_receiving_pk = Some(&base.receiving_pk);
 
-        let signature_for_bob = hash_to_cfrag_signature(
+        let signature_for_receiver = hash_to_cfrag_signature(
             &kfrag_id,
             &commitment,
-            &kfrag_precursor,
+            &base.precursor,
             maybe_delegating_pk,
             maybe_receiving_pk,
         )
-        .sign(signing_sk);
+        .sign(&base.signing_sk);
 
         let signature_for_proxy = hash_to_cfrag_signature(
             &kfrag_id,
             &commitment,
-            &kfrag_precursor,
+            &base.precursor,
             none_unless(maybe_delegating_pk, sign_delegating_key),
             none_unless(maybe_receiving_pk, sign_receiving_key),
         )
-        .sign(&signing_sk);
+        .sign(&base.signing_sk);
 
         Self {
             commitment,
             signature_for_proxy,
-            signature_for_bob,
+            signature_for_receiver,
             delegating_key_signed: sign_delegating_key,
             receiving_key_signed: sign_receiving_key,
         }
     }
 
-    pub(crate) fn signature_for_bob(&self) -> Signature {
-        self.signature_for_bob.clone()
+    pub(crate) fn signature_for_receiver(&self) -> Signature {
+        self.signature_for_receiver.clone()
     }
 }
 
@@ -183,7 +178,7 @@ impl SerializableToArray for KeyFrag {
 }
 
 impl KeyFrag {
-    fn new(factory: &KeyFragFactory, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
+    fn from_base(base: &KeyFragBase, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
         let kfrag_id = KeyFragID::random();
 
         // The index of the re-encryption key share (which in Shamir's Secret
@@ -191,33 +186,29 @@ impl KeyFrag {
         // generating polynomial), is used to prevent reconstruction of the
         // re-encryption key without Bob's intervention
         let share_index = hash_to_polynomial_arg(
-            &factory.precursor,
-            &factory.bob_pubkey_point,
-            &factory.dh_point,
+            &base.precursor,
+            &base.receiving_pk.to_point(),
+            &base.dh_point,
             &kfrag_id,
         );
 
         // The re-encryption key share is the result of evaluating the generating
         // polynomial for the index value
-        let rk = poly_eval(&factory.coefficients, &share_index);
+        let rk = poly_eval(&base.coefficients, &share_index);
 
-        let proof = KeyFragProof::new(
-            &factory.params,
+        let proof = KeyFragProof::from_base(
+            &base,
             &kfrag_id,
             &rk,
-            &factory.precursor,
-            &factory.signing_sk,
-            &factory.delegating_pk,
-            &factory.receiving_pk,
             sign_delegating_key,
             sign_receiving_key,
         );
 
         Self {
-            params: factory.params,
+            params: base.params,
             id: kfrag_id,
             key: rk,
-            precursor: factory.precursor,
+            precursor: base.precursor,
             proof,
         }
     }
@@ -242,33 +233,36 @@ impl KeyFrag {
         let precursor = self.precursor;
 
         // We check that the commitment is well-formed
-        let correct_commitment = commitment == &u * &key;
+        if commitment != &u * &key {
+            return false;
+        }
 
         // A shortcut, perhaps not necessary
-        let delegating_key_provided =
-            !(maybe_delegating_pk.is_none() && self.proof.delegating_key_signed);
-        let receiving_key_provided =
-            !(maybe_receiving_pk.is_none() && self.proof.receiving_key_signed);
 
-        let valid_kfrag_signature = delegating_key_provided
-            && receiving_key_provided
-            && hash_to_cfrag_signature(
-                &kfrag_id,
-                &commitment,
-                &precursor,
-                none_unless(maybe_delegating_pk, self.proof.delegating_key_signed),
-                none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
-            )
-            .verify(&signing_pk, &self.proof.signature_for_proxy);
+        if maybe_delegating_pk.is_none() && self.proof.delegating_key_signed {
+            return false;
+        }
 
-        correct_commitment & valid_kfrag_signature
+        if maybe_receiving_pk.is_none() && self.proof.receiving_key_signed {
+            return false;
+        }
+
+        // Check the signature
+
+        hash_to_cfrag_signature(
+            &kfrag_id,
+            &commitment,
+            &precursor,
+            none_unless(maybe_delegating_pk, self.proof.delegating_key_signed),
+            none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
+        )
+        .verify(&signing_pk, &self.proof.signature_for_proxy)
     }
 }
 
-struct KeyFragFactory {
+struct KeyFragBase {
     signing_sk: SecretKey,
     precursor: CurvePoint,
-    bob_pubkey_point: CurvePoint,
     dh_point: CurvePoint,
     params: Parameters,
     delegating_pk: PublicKey,
@@ -276,7 +270,7 @@ struct KeyFragFactory {
     coefficients: Box<[CurveScalar]>,
 }
 
-impl KeyFragFactory {
+impl KeyFragBase {
     pub fn new(
         delegating_sk: &SecretKey,
         receiving_pk: &PublicKey,
@@ -288,7 +282,7 @@ impl KeyFragFactory {
 
         let delegating_pk = PublicKey::from_secret_key(delegating_sk);
 
-        let bob_pubkey_point = receiving_pk.to_point();
+        let receiving_pk_point = receiving_pk.to_point();
 
         let (d, precursor, dh_point) = loop {
             // The precursor point is used as an ephemeral public key in a DH key exchange,
@@ -296,10 +290,10 @@ impl KeyFragFactory {
             let private_precursor = CurveScalar::random_nonzero();
             let precursor = &g * &private_precursor;
 
-            let dh_point = &bob_pubkey_point * &private_precursor;
+            let dh_point = &receiving_pk_point * &private_precursor;
 
             // Secret value 'd' allows to make Umbral non-interactive
-            let d = hash_to_shared_secret(&precursor, &bob_pubkey_point, &dh_point);
+            let d = hash_to_shared_secret(&precursor, &receiving_pk_point, &dh_point);
 
             // At the moment we cannot statically ensure `d` is a `NonZeroScalar`,
             // but we need it to be non-zero for the algorithm to work.
@@ -321,7 +315,6 @@ impl KeyFragFactory {
         Self {
             signing_sk: signing_sk.clone(),
             precursor,
-            bob_pubkey_point,
             dh_point,
             params,
             delegating_pk,
@@ -367,11 +360,15 @@ pub fn generate_kfrags(
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[KeyFrag]> {
-    let base = KeyFragFactory::new(delegating_sk, receiving_pk, signing_sk, threshold);
+    let base = KeyFragBase::new(delegating_sk, receiving_pk, signing_sk, threshold);
 
     let mut result = Vec::<KeyFrag>::new();
     for _ in 0..num_kfrags {
-        result.push(KeyFrag::new(&base, sign_delegating_key, sign_receiving_key));
+        result.push(KeyFrag::from_base(
+            &base,
+            sign_delegating_key,
+            sign_receiving_key,
+        ));
     }
 
     result.into_boxed_slice()
