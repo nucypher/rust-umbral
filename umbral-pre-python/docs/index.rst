@@ -26,6 +26,18 @@ API reference
 
         Generates a new secret key.
 
+.. py:class:: SecretKeyFactory
+
+    A deterministic generator of :py:class:`SecretKey` objects.
+
+    .. py:staticmethod:: random() -> SecretKeyFactory
+
+        Generates a new random factory.
+
+    .. py:method:: secret_key_by_label(label: bytes) -> SecretKey
+
+        Generates a new :py:class:`SecretKey` using ``label`` as a seed.
+
 .. py:class:: PublicKey
 
     An ``umbral-pre`` public key object.
@@ -37,7 +49,6 @@ API reference
 .. py:class:: Capsule
 
     An encapsulated symmetric key.
-
 
 .. py:function:: encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
 

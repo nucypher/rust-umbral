@@ -1,5 +1,6 @@
 from ._umbral import (
     SecretKey,
+    SecretKeyFactory,
     PublicKey,
     Capsule,
     KeyFrag,

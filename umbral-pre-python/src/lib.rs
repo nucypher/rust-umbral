@@ -8,6 +8,7 @@ use pyo3::PyObjectProtocol;
 use umbral_pre::SerializableToArray;
 
 #[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct SecretKey {
     backend: umbral_pre::SecretKey,
 }
@@ -31,6 +32,52 @@ impl SecretKey {
         let backend_key = umbral_pre::SecretKey::from_bytes(bytes)?;
         Some(Self {
             backend: backend_key,
+        })
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for SecretKey {
+    fn __richcmp__(&self, other: PyRef<SecretKey>, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self == &*other),
+            CompareOp::Ne => Ok(self != &*other),
+            _ => Err(PyTypeError::new_err("SecretKey objects are not ordered")),
+        }
+    }
+}
+
+#[pyclass(module = "umbral")]
+pub struct SecretKeyFactory {
+    backend: umbral_pre::SecretKeyFactory,
+}
+
+#[pymethods]
+impl SecretKeyFactory {
+    #[staticmethod]
+    pub fn random() -> Self {
+        Self {
+            backend: umbral_pre::SecretKeyFactory::random(),
+        }
+    }
+
+    pub fn secret_key_by_label(&self, label: &[u8]) -> Option<SecretKey> {
+        let backend_sk = self.backend.secret_key_by_label(label)?;
+        Some(SecretKey {
+            backend: backend_sk,
+        })
+    }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_factory = umbral_pre::SecretKeyFactory::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_factory,
         })
     }
 }
@@ -254,6 +301,7 @@ pub fn decrypt_reencrypted(
 #[pymodule]
 fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
+    m.add_class::<SecretKeyFactory>()?;
     m.add_class::<PublicKey>()?;
     m.add_class::<Capsule>()?;
     m.add_class::<KeyFrag>()?;
