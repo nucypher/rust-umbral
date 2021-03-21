@@ -3,22 +3,25 @@ use alloc::boxed::Box;
 use aead::{Aead, AeadInPlace, Payload};
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
-use generic_array::{typenum::Unsigned, GenericArray};
+use generic_array::{ArrayLength, GenericArray};
 use hkdf::Hkdf;
 use rand_core::OsRng;
 use rand_core::RngCore;
 use sha2::Sha256;
+use typenum::Unsigned;
 
-type KdfSize = <XChaCha20Poly1305 as NewAead>::KeySize;
-
-fn kdf(seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> GenericArray<u8, KdfSize> {
+pub(crate) fn kdf<T: ArrayLength<u8>>(
+    seed: &[u8],
+    salt: Option<&[u8]>,
+    info: Option<&[u8]>,
+) -> GenericArray<u8, T> {
     let hk = Hkdf::<Sha256>::new(salt, &seed);
 
-    let mut okm = GenericArray::<u8, KdfSize>::default();
+    let mut okm = GenericArray::<u8, T>::default();
 
     let def_info = info.unwrap_or(&[]);
 
-    // We can only get an error here if `KdfSize` is too large, and it's known at compile-time.
+    // We can only get an error here if `T` is too large, and it's known at compile-time.
     hk.expand(&def_info, &mut okm).unwrap();
 
     okm
@@ -32,7 +35,8 @@ pub(crate) struct DEM {
 
 impl DEM {
     pub fn new(key_seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> Self {
-        let key_bytes = kdf(&key_seed, salt, info);
+        type KeySize = <XChaCha20Poly1305 as NewAead>::KeySize;
+        let key_bytes = kdf::<KeySize>(&key_seed, salt, info);
         let key = Key::from_slice(&key_bytes);
         let cipher = XChaCha20Poly1305::new(key);
         Self { cipher }
@@ -85,17 +89,18 @@ mod tests {
     use super::kdf;
     use crate::curve::CurvePoint;
     use crate::SerializableToArray;
+    use typenum::U32;
 
     #[test]
     fn test_kdf() {
         let p1 = CurvePoint::generator();
         let salt = b"abcdefg";
         let info = b"sdasdasd";
-        let key = kdf(&p1.to_array(), Some(&salt[..]), Some(&info[..]));
-        let key_same = kdf(&p1.to_array(), Some(&salt[..]), Some(&info[..]));
+        let key = kdf::<U32>(&p1.to_array(), Some(&salt[..]), Some(&info[..]));
+        let key_same = kdf::<U32>(&p1.to_array(), Some(&salt[..]), Some(&info[..]));
         assert_eq!(key, key_same);
 
-        let key_diff = kdf(&p1.to_array(), None, Some(&info[..]));
+        let key_diff = kdf::<U32>(&p1.to_array(), None, Some(&info[..]));
         assert_ne!(key, key_diff);
     }
 }
