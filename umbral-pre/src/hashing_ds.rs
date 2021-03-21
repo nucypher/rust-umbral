@@ -1,11 +1,8 @@
 //! This module contains hashing sequences with included domain separation tags
 //! shared between different parts of the code.
 
-use generic_array::GenericArray;
-
-use crate::capsule_frag::HashedMetadata;
 use crate::curve::{CurvePoint, CurveScalar, PublicKey};
-use crate::hashing::{BytesDigest, HashOutputSize, ScalarDigest, SignatureDigest};
+use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::key_frag::KeyFragID;
 
 // TODO (#39): Ideally this should return a non-zero scalar.
@@ -35,12 +32,6 @@ pub(crate) fn hash_to_shared_secret(
         .finalize()
 }
 
-pub(crate) fn hash_metadata(bytes: &[u8]) -> GenericArray<u8, HashOutputSize> {
-    BytesDigest::new_with_dst(b"METADATA")
-        .chain_bytes(bytes)
-        .finalize()
-}
-
 pub(crate) fn hash_capsule_points(capsule_e: &CurvePoint, capsule_v: &CurvePoint) -> CurveScalar {
     ScalarDigest::new_with_dst(b"CAPSULE_POINTS")
         .chain_point(capsule_e)
@@ -50,12 +41,16 @@ pub(crate) fn hash_capsule_points(capsule_e: &CurvePoint, capsule_v: &CurvePoint
 
 pub(crate) fn hash_to_cfrag_verification(
     points: &[CurvePoint],
-    metadata: &HashedMetadata,
+    metadata: Option<&[u8]>,
 ) -> CurveScalar {
-    ScalarDigest::new_with_dst(b"CFRAG_VERIFICATION")
-        .chain_points(points)
-        .chain_bytes(metadata)
-        .finalize()
+    let digest = ScalarDigest::new_with_dst(b"CFRAG_VERIFICATION").chain_points(points);
+
+    let digest = match metadata {
+        Some(s) => digest.chain_bytes(s),
+        None => digest,
+    };
+
+    digest.finalize()
 }
 
 pub(crate) fn hash_to_cfrag_signature(

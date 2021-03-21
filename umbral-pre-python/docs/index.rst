@@ -56,8 +56,7 @@ API reference
 .. py:function:: reencrypt(capsule: Capsule, kfrag: KeyFrag, metadata: Optional[bytes]) -> CapsuleFrag
 
     Reencrypts a capsule using a key fragment.
-    May include optional ``metadata`` in the resulting capsule fragment.
-
+    May include optional ``metadata`` to sign.
 
 .. py:function:: decrypt_reencrypted(decrypting_sk: SecretKey, delegating_pk: PublicKey, capsule: Capsule, cfrags: Sequence[CapsuleFrag], ciphertext: bytes) -> Optional[bytes]
 
@@ -75,7 +74,7 @@ API reference
 
     A reencrypted fragment of an encapsulated symmetric key.
 
-    .. py:method:: verify(capsule: Capsule, signing_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey) -> bool
+    .. py:method:: verify(capsule: Capsule, signing_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey, metadata: Optional[bytes]) -> bool
 
         Verifies the integrity of the fragment.
 

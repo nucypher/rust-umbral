@@ -66,12 +66,16 @@ impl CapsuleFrag {
         signing_pubkey: &PublicKey,
         delegating_pubkey: &PublicKey,
         receiving_pubkey: &PublicKey,
+        metadata: Option<Box<[u8]>>,
     ) -> bool {
+        // feels like there should be a better way...
+        let metadata_ref: Option<&[u8]> = metadata.as_ref().map(|s| s.as_ref());
         self.0.verify(
             &capsule.0,
             &signing_pubkey.0,
             &delegating_pubkey.0,
             &receiving_pubkey.0,
+            metadata_ref,
         )
     }
 }

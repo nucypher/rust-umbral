@@ -131,9 +131,10 @@ mod tests {
         )));
 
         // Bob requests re-encryption to some set of `threshold` ursulas
+        let metadata = b"metadata";
         let cfrags: Vec<CapsuleFrag> = kfrags[0..threshold]
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .map(|kfrag| reencrypt(&capsule, &kfrag, Some(metadata)))
             .collect();
 
         // Bob checks that the received cfrags are valid
@@ -142,6 +143,7 @@ mod tests {
             &delegating_pk,
             &receiving_pk,
             &signing_pk,
+            Some(metadata),
         )));
 
         // Decryption by Bob

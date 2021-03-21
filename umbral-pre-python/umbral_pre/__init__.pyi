@@ -52,6 +52,7 @@ class CapsuleFrag:
             signing_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
+            metadata: Optional[bytes],
             ) -> bool:
         ...
 

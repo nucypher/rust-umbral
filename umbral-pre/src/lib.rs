@@ -60,11 +60,13 @@
 //!
 //! // Ursula 0
 //! assert!(kfrags[0].verify(&signing_pk, Some(&alice_pk), Some(&bob_pk)));
-//! let cfrag0 = reencrypt(&capsule, &kfrags[0], None);
+//! let metadata0 = b"metadata0";
+//! let cfrag0 = reencrypt(&capsule, &kfrags[0], Some(metadata0));
 //!
 //! // Ursula 1
 //! assert!(kfrags[1].verify(&signing_pk, Some(&alice_pk), Some(&bob_pk)));
-//! let cfrag1 = reencrypt(&capsule, &kfrags[1], None);
+//! let metadata1 = b"metadata1";
+//! let cfrag1 = reencrypt(&capsule, &kfrags[1], Some(metadata1));
 //!
 //! // ...
 //!
@@ -72,8 +74,8 @@
 //! // and then decrypts the re-encrypted ciphertext.
 //!
 //! // Bob can optionally check that cfrags are valid
-//! assert!(cfrag0.verify(&capsule, &alice_pk, &bob_pk, &signing_pk));
-//! assert!(cfrag1.verify(&capsule, &alice_pk, &bob_pk, &signing_pk));
+//! assert!(cfrag0.verify(&capsule, &alice_pk, &bob_pk, &signing_pk, Some(metadata0)));
+//! assert!(cfrag1.verify(&capsule, &alice_pk, &bob_pk, &signing_pk, Some(metadata1)));
 //!
 //! let plaintext_bob = decrypt_reencrypted(
 //!     &bob_sk, &alice_pk, &capsule, &[cfrag0, cfrag1], &ciphertext).unwrap();
