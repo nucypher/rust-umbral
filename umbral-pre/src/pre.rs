@@ -13,7 +13,7 @@ use alloc::boxed::Box;
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
 pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<(Capsule, Box<[u8]>)> {
-    let (capsule, key_seed) = Capsule::from_pubkey(pk);
+    let (capsule, key_seed) = Capsule::from_public_key(pk);
     // TODO (#43): add salt and info here?
     let dem = DEM::new(&key_seed.to_array(), None, None);
     let capsule_bytes = capsule.to_array();

@@ -73,7 +73,7 @@ impl Capsule {
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    pub(crate) fn from_pubkey(pk: &PublicKey) -> (Capsule, CurvePoint) {
+    pub(crate) fn from_public_key(pk: &PublicKey) -> (Capsule, CurvePoint) {
         let g = CurvePoint::generator();
 
         let priv_r = CurveScalar::random_nonzero();
@@ -205,7 +205,7 @@ mod tests {
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
-        let (capsule, key_seed) = Capsule::from_pubkey(&delegating_pk);
+        let (capsule, key_seed) = Capsule::from_public_key(&delegating_pk);
 
         let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
 
@@ -242,7 +242,7 @@ mod tests {
             .is_none());
 
         // Mismatched capsule
-        let (capsule2, _key_seed) = Capsule::from_pubkey(&delegating_pk);
+        let (capsule2, _key_seed) = Capsule::from_public_key(&delegating_pk);
         assert!(capsule2
             .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
             .is_none());
