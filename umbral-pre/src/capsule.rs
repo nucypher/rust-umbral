@@ -1,6 +1,7 @@
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
+use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
+use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 

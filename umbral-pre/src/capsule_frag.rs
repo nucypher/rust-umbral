@@ -1,8 +1,8 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{PublicKey, Signature};
 use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_cfrag_verification};
 use crate::key_frag::{KeyFrag, KeyFragID};
+use crate::keys::{PublicKey, Signature};
 use crate::traits::SerializableToArray;
 
 use generic_array::sequence::Concat;

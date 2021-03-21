@@ -1,6 +1,6 @@
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{PublicKey, SecretKey, Signature};
 use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_polynomial_arg, hash_to_shared_secret};
+use crate::keys::{PublicKey, SecretKey, Signature};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 

@@ -102,6 +102,7 @@ mod dem;
 mod hashing;
 mod hashing_ds;
 mod key_frag;
+mod keys;
 mod params;
 mod pre;
 mod traits;
@@ -111,6 +112,6 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
 pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
-pub use curve::{PublicKey, SecretKey};
 pub use key_frag::KeyFrag;
+pub use keys::{PublicKey, SecretKey};
 pub use traits::SerializableToArray;

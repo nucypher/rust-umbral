@@ -2,9 +2,9 @@
 
 use crate::capsule::Capsule;
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{PublicKey, SecretKey};
 use crate::dem::DEM;
 use crate::key_frag::KeyFrag;
+use crate::keys::{PublicKey, SecretKey};
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;

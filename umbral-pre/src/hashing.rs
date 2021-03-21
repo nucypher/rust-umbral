@@ -4,7 +4,8 @@ use generic_array::GenericArray;
 use sha2::Sha256;
 use typenum::U1;
 
-use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
+use crate::curve::{CurvePoint, CurveScalar};
+use crate::keys::{PublicKey, SecretKey, Signature};
 use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data with the given domain separation tag
@@ -157,7 +158,8 @@ impl BytesDigest {
 mod tests {
 
     use super::{unsafe_hash_to_point, BytesDigest, HashOutputSize, ScalarDigest, SignatureDigest};
-    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
+    use crate::curve::{CurvePoint, CurveScalar};
+    use crate::keys::{PublicKey, SecretKey, Signature};
     use generic_array::GenericArray;
 
     #[test]

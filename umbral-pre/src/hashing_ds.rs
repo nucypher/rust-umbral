@@ -1,9 +1,10 @@
 //! This module contains hashing sequences with included domain separation tags
 //! shared between different parts of the code.
 
-use crate::curve::{CurvePoint, CurveScalar, PublicKey};
+use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing::{ScalarDigest, SignatureDigest};
 use crate::key_frag::KeyFragID;
+use crate::keys::PublicKey;
 
 // TODO (#39): Ideally this should return a non-zero scalar.
 pub(crate) fn hash_to_polynomial_arg(
