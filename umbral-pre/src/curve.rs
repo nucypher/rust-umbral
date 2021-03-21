@@ -19,7 +19,7 @@ use crate::traits::SerializableToArray;
 pub(crate) type CurveType = Secp256k1;
 
 type BackendScalar = Scalar<CurveType>;
-type BackendNonZeroScalar = NonZeroScalar<CurveType>;
+pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 
 // We have to define newtypes for scalar and point here because the compiler
 // is not currently smart enough to resolve `BackendScalar` and `BackendPoint`
@@ -35,6 +35,10 @@ pub struct CurveScalar(BackendScalar);
 impl CurveScalar {
     pub(crate) fn from_backend_scalar(scalar: &BackendScalar) -> Self {
         Self(*scalar)
+    }
+
+    pub(crate) fn to_backend_scalar(&self) -> BackendScalar {
+        self.0
     }
 
     pub(crate) fn invert(&self) -> CtOption<Self> {

@@ -1,12 +1,16 @@
+use alloc::vec::Vec;
+
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
 use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
 use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use generic_array::GenericArray;
-use rand_core::OsRng;
+use rand_core::{OsRng, RngCore};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
-use typenum::U32;
+use typenum::{U32, U64};
 
-use crate::curve::{CurvePoint, CurveScalar, CurveType};
+use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
+use crate::dem::kdf;
+use crate::hashing::ScalarDigest;
 use crate::traits::SerializableToArray;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,6 +47,11 @@ impl SecretKey {
     pub fn random() -> Self {
         let secret_key = BackendSecretKey::<CurveType>::random(&mut OsRng);
         Self(secret_key)
+    }
+
+    pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
+        let nz_scalar = BackendNonZeroScalar::new(scalar.to_backend_scalar())?;
+        Some(Self(BackendSecretKey::<CurveType>::new(nz_scalar)))
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
@@ -121,13 +130,59 @@ impl SerializableToArray for PublicKey {
     }
 }
 
+type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
+type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
+
+/// This class handles keyring material for Umbral, by allowing deterministic
+/// derivation of `SecretKey` objects based on labels.
+#[derive(Clone, Copy, PartialEq)] // No Debug derivation, to avoid exposing the key accidentally.
+pub struct SecretKeyFactory(GenericArray<u8, SecretKeyFactorySeedSize>);
+
+impl SecretKeyFactory {
+    /// Creates a random factory.
+    pub fn random() -> Self {
+        let mut bytes = GenericArray::<u8, SecretKeyFactorySeedSize>::default();
+        OsRng.fill_bytes(&mut bytes);
+        Self(bytes)
+    }
+
+    /// Creates a `SecretKey` from the given label.
+    pub fn secret_key_by_label(&self, label: &[u8]) -> Option<SecretKey> {
+        let prefix = b"KEY_DERIVATION/";
+        let info: Vec<u8> = prefix
+            .iter()
+            .cloned()
+            .chain(label.iter().cloned())
+            .collect();
+        let key = kdf::<SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
+        let scalar = ScalarDigest::new_with_dst(&info)
+            .chain_bytes(&key)
+            .finalize();
+        // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Option
+        SecretKey::from_scalar(&scalar)
+    }
+}
+
+impl SerializableToArray for SecretKeyFactory {
+    type Size = SecretKeyFactorySeedSize;
+
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        // TODO (#8): a copy of secret data is created.
+        self.0
+    }
+
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        Some(Self(*arr))
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use sha2::Sha256;
     use signature::digest::Digest;
 
-    use super::{PublicKey, SecretKey};
+    use super::{PublicKey, SecretKey, SecretKeyFactory};
     use crate::SerializableToArray;
 
     #[test]
@@ -136,6 +191,25 @@ mod tests {
         let sk_arr = sk.to_array();
         let sk_back = SecretKey::from_array(&sk_arr).unwrap();
         assert_eq!(sk.to_secret_scalar(), sk_back.to_secret_scalar());
+    }
+
+    #[test]
+    fn test_serialize_secret_key_factory() {
+        let skf = SecretKeyFactory::random();
+        let skf_arr = skf.to_array();
+        let skf_back = SecretKeyFactory::from_array(&skf_arr).unwrap();
+        assert!(skf == skf_back);
+    }
+
+    #[test]
+    fn test_secret_key_factory() {
+        let skf = SecretKeyFactory::random();
+        let sk1 = skf.secret_key_by_label(b"foo");
+        let sk2 = skf.secret_key_by_label(b"foo");
+        let sk3 = skf.secret_key_by_label(b"bar");
+
+        assert!(sk1 == sk2);
+        assert!(sk1 != sk3);
     }
 
     #[test]

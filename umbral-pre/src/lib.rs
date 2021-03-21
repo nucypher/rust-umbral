@@ -113,5 +113,5 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
 pub use key_frag::KeyFrag;
-pub use keys::{PublicKey, SecretKey};
+pub use keys::{PublicKey, SecretKey, SecretKeyFactory};
 pub use traits::SerializableToArray;
