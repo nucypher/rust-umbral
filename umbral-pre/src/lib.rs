@@ -104,11 +104,10 @@ mod params;
 mod pre;
 mod traits;
 
-pub use key_frag::generate_kfrags;
-pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
-
-pub use capsule::Capsule;
+pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::CapsuleFrag;
-pub use key_frag::KeyFrag;
-pub use keys::{PublicKey, SecretKey, SecretKeyFactory};
-pub use traits::SerializableToArray;
+pub use dem::{DecryptionError, EncryptionError};
+pub use key_frag::{generate_kfrags, KeyFrag};
+pub use keys::{PublicKey, SecretKey, SecretKeyFactory, SecretKeyFactoryError};
+pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt, ReencryptionError};
+pub use traits::{DeserializationError, SerializableToArray};

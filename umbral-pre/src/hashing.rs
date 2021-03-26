@@ -40,8 +40,8 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
         let maybe_point_bytes = sign_prefix.concat(result);
 
         let maybe_point = CurvePoint::from_bytes(&maybe_point_bytes);
-        if maybe_point.is_some() {
-            return maybe_point;
+        if maybe_point.is_ok() {
+            return maybe_point.ok();
         }
 
         i += 1

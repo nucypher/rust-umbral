@@ -10,6 +10,26 @@ use rand_core::RngCore;
 use sha2::Sha256;
 use typenum::Unsigned;
 
+/// Errors that can happen during symmetric encryption.
+#[derive(Debug, PartialEq)]
+pub enum EncryptionError {
+    /// Given plaintext is too large for the backend to handle.
+    PlaintextTooLarge,
+}
+
+/// Errors that can happend during symmetric decryption.
+#[derive(Debug, PartialEq)]
+pub enum DecryptionError {
+    /// Ciphertext (which should be prepended by the nonce) is shorter than the nonce length.
+    CiphertextTooShort,
+    /// The ciphertext and the attached authentication data are inconsistent.
+    /// This can happen if:
+    /// - an incorrect key is used,
+    /// - the ciphertext is modified or cut short,
+    /// - an incorrect authentication data is provided on decryption.
+    AuthenticationFailed,
+}
+
 pub(crate) fn kdf<T: ArrayLength<u8>>(
     seed: &[u8],
     salt: Option<&[u8]>,
@@ -42,7 +62,11 @@ impl DEM {
         Self { cipher }
     }
 
-    pub fn encrypt(&self, data: &[u8], authenticated_data: &[u8]) -> Option<Box<[u8]>> {
+    pub fn encrypt(
+        &self,
+        data: &[u8],
+        authenticated_data: &[u8],
+    ) -> Result<Box<[u8]>, EncryptionError> {
         let mut nonce = GenericArray::<u8, NonceSize>::default();
         OsRng.fill_bytes(&mut nonce);
         let nonce = XNonce::from_slice(&nonce);
@@ -52,23 +76,27 @@ impl DEM {
         };
 
         let mut result = nonce.to_vec();
-        let enc_data = self.cipher.encrypt(nonce, payload).ok()?;
+        let enc_data = self
+            .cipher
+            .encrypt(nonce, payload)
+            .or(Err(EncryptionError::PlaintextTooLarge))?;
+
         // Somewhat inefficient, but it doesn't seem that you can pass
         // a mutable view of a vector to encrypt_in_place().
         result.extend(enc_data);
-        Some(result.into_boxed_slice())
+        Ok(result.into_boxed_slice())
     }
 
     pub fn decrypt(
         &self,
         ciphertext: impl AsRef<[u8]>,
         authenticated_data: &[u8],
-    ) -> Option<Box<[u8]>> {
+    ) -> Result<Box<[u8]>, DecryptionError> {
         let nonce_size = <NonceSize as Unsigned>::to_usize();
         let buf_size = ciphertext.as_ref().len();
 
         if buf_size < nonce_size {
-            return None;
+            return Err(DecryptionError::CiphertextTooShort);
         }
 
         let nonce = XNonce::from_slice(&ciphertext.as_ref()[..nonce_size]);
@@ -78,8 +106,8 @@ impl DEM {
         };
         self.cipher
             .decrypt(nonce, payload)
-            .ok()
             .map(|pt| pt.into_boxed_slice())
+            .or(Err(DecryptionError::AuthenticationFailed))
     }
 }
 

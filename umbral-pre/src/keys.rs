@@ -11,7 +11,7 @@ use typenum::{U32, U64};
 use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::ScalarDigest;
-use crate::traits::SerializableToArray;
+use crate::traits::{DeserializationError, SerializableToArray};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature(BackendSignature<CurveType>);
@@ -23,12 +23,12 @@ impl SerializableToArray for Signature {
         *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
-            .ok()
             .map(Self)
+            .or(Err(DeserializationError::ConstructionFailure))
     }
 }
 
@@ -83,10 +83,10 @@ impl SerializableToArray for SecretKey {
         self.0.to_bytes()
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
-            .ok()
             .map(Self)
+            .or(Err(DeserializationError::ConstructionFailure))
     }
 }
 
@@ -123,11 +123,20 @@ impl SerializableToArray for PublicKey {
         self.to_point().to_array()
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let cp = CurvePoint::from_array(&arr)?;
-        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine()).ok()?;
-        Some(Self(backend_pk))
+        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine())
+            .or(Err(DeserializationError::ConstructionFailure))?;
+        Ok(Self(backend_pk))
     }
+}
+
+/// Errors that can happen when using a [`SecretKeyFactory`].
+#[derive(Debug, PartialEq)]
+pub enum SecretKeyFactoryError {
+    /// An internally hashed value is zero.
+    /// See [rust-umbral#39](https://github.com/nucypher/rust-umbral/issues/39).
+    ZeroHash,
 }
 
 type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
@@ -147,7 +156,7 @@ impl SecretKeyFactory {
     }
 
     /// Creates a `SecretKey` from the given label.
-    pub fn secret_key_by_label(&self, label: &[u8]) -> Option<SecretKey> {
+    pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
         let prefix = b"KEY_DERIVATION/";
         let info: Vec<u8> = prefix
             .iter()
@@ -158,8 +167,8 @@ impl SecretKeyFactory {
         let scalar = ScalarDigest::new_with_dst(&info)
             .chain_bytes(&key)
             .finalize();
-        // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Option
-        SecretKey::from_scalar(&scalar)
+        // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
+        SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)
     }
 }
 
@@ -171,8 +180,8 @@ impl SerializableToArray for SecretKeyFactory {
         self.0
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        Some(Self(*arr))
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+        Ok(Self(*arr))
     }
 }
 

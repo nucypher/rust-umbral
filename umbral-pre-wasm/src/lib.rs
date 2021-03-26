@@ -114,6 +114,7 @@ impl CapsuleWithFrags {
             backend_cfrags.as_slice(),
             ciphertext,
         )
+        .ok()
     }
 }
 

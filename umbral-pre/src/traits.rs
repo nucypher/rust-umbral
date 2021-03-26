@@ -1,7 +1,19 @@
+use core::cmp::Ordering;
 use core::ops::Sub;
 use generic_array::sequence::Split;
 use generic_array::{ArrayLength, GenericArray};
 use typenum::{Diff, Unsigned, U1};
+
+/// Errors that can happen during object deserialization.
+#[derive(Debug, PartialEq)]
+pub enum DeserializationError {
+    /// Failed to construct the object from a given bytestring (with the correct length).
+    ConstructionFailure,
+    /// The given bytestring is too short.
+    NotEnoughBytes,
+    /// The given bytestring is too long.
+    TooManyBytes,
+}
 
 /// A trait denoting that the object can be serialized to/from an array of bytes
 /// with size known at compile time.
@@ -20,16 +32,19 @@ where
     fn to_array(&self) -> GenericArray<u8, Self::Size>;
 
     /// Attempts to produce the object back from the serialized form.
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self>;
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError>;
 
     /// Attempts to produce the object back from a dynamically sized byte array,
     /// checking that its length is correct.
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Option<Self> {
+    fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
         let bytes_slice = bytes.as_ref();
-        if bytes_slice.len() != Self::Size::to_usize() {
-            return None;
+        match bytes_slice.len().cmp(&Self::Size::to_usize()) {
+            Ordering::Greater => Err(DeserializationError::TooManyBytes),
+            Ordering::Less => Err(DeserializationError::NotEnoughBytes),
+            Ordering::Equal => {
+                Self::from_array(GenericArray::<u8, Self::Size>::from_slice(bytes_slice))
+            }
         }
-        Self::from_array(GenericArray::<u8, Self::Size>::from_slice(bytes_slice))
     }
 
     /// Used to implement [`from_array()`](`Self::from_array()`) for structs whose fields
@@ -39,7 +54,9 @@ where
     /// [`from_array()`](`Self::from_array()`),
     /// and if it succeeds, returns the resulting object and the rest of the array.
     #[allow(clippy::type_complexity)]
-    fn take<U>(arr: GenericArray<u8, U>) -> Option<(Self, GenericArray<u8, Diff<U, Self::Size>>)>
+    fn take<U>(
+        arr: GenericArray<u8, U>,
+    ) -> Result<(Self, GenericArray<u8, Diff<U, Self::Size>>), DeserializationError>
     where
         U: ArrayLength<u8> + Sub<Self::Size>,
         Diff<U, Self::Size>: ArrayLength<u8>,
@@ -51,7 +68,7 @@ where
 
     /// A variant of [`take()`](`Self::take()`) to be called for the last field of the struct,
     /// where no remainder of the array is expected.
-    fn take_last(arr: GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn take_last(arr: GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         Self::from_array(&arr)
     }
 }
@@ -63,12 +80,12 @@ impl SerializableToArray for bool {
         GenericArray::<u8, Self::Size>::from([*self as u8])
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let bytes_slice = arr.as_slice();
         match bytes_slice[0] {
-            0u8 => Some(false),
-            1u8 => Some(true),
-            _ => None,
+            0u8 => Ok(false),
+            1u8 => Ok(true),
+            _ => Err(DeserializationError::ConstructionFailure),
         }
     }
 }
@@ -80,7 +97,7 @@ mod tests {
     use generic_array::GenericArray;
     use typenum::{op, U1, U2};
 
-    use super::SerializableToArray;
+    use super::{DeserializationError, SerializableToArray};
 
     impl SerializableToArray for u8 {
         type Size = U1;
@@ -89,8 +106,8 @@ mod tests {
             GenericArray::<u8, Self::Size>::from([*self])
         }
 
-        fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-            Some(arr.as_slice()[0])
+        fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+            Ok(arr.as_slice()[0])
         }
     }
 
@@ -101,10 +118,10 @@ mod tests {
             GenericArray::<u8, Self::Size>::from([(self >> 8) as u8, *self as u8])
         }
 
-        fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
             let b1 = arr.as_slice()[0];
             let b2 = arr.as_slice()[1];
-            Some(((b1 as u16) << 8) + (b2 as u16))
+            Ok(((b1 as u16) << 8) + (b2 as u16))
         }
     }
 
@@ -131,12 +148,12 @@ mod tests {
                 .concat(self.f4.to_array())
         }
 
-        fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+        fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
             let (f1, rest) = u16::take(*arr)?;
             let (f2, rest) = u8::take(rest)?;
             let (f3, rest) = u16::take(rest)?;
             let f4 = bool::take_last(rest)?;
-            Some(Self { f1, f2, f3, f4 })
+            Ok(Self { f1, f2, f3, f4 })
         }
     }
 
@@ -165,14 +182,14 @@ mod tests {
         // invalid value for `f4` (`bool` must be either 0 or 1)
         let s_arr: [u8; 6] = [0x00, 0x01, 0x02, 0x00, 0x03, 0x02];
         let s = SomeStruct::from_bytes(&s_arr);
-        assert!(s.is_none())
+        assert_eq!(s, Err(DeserializationError::ConstructionFailure))
     }
 
     #[test]
     fn test_invalid_length() {
-        // invalid value for `f4` (`bool` must be either 0 or 1)
+        // An excessive byte at the end
         let s_arr: [u8; 7] = [0x00, 0x01, 0x02, 0x00, 0x03, 0x01, 0x00];
         let s = SomeStruct::from_bytes(&s_arr);
-        assert!(s.is_none())
+        assert_eq!(s, Err(DeserializationError::TooManyBytes))
     }
 }
