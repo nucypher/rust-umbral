@@ -91,9 +91,6 @@
 
 extern crate alloc;
 
-#[macro_use]
-extern crate typenum;
-
 pub mod bench; // Re-export some internals for benchmarks.
 mod capsule;
 mod capsule_frag;
