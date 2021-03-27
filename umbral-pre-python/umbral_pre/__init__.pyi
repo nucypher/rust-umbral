@@ -60,9 +60,9 @@ class CapsuleFrag:
     def verify(
             self,
             capsule: Capsule,
-            signing_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
+            signing_pk: PublicKey,
             metadata: Optional[bytes],
             ) -> bool:
         ...

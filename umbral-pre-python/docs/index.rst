@@ -85,7 +85,7 @@ API reference
 
     A reencrypted fragment of an encapsulated symmetric key.
 
-    .. py:method:: verify(capsule: Capsule, signing_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey, metadata: Optional[bytes]) -> bool
+    .. py:method:: verify(capsule: Capsule, delegating_pk: PublicKey, receiving_pk: PublicKey, signing_pk: PublicKey, metadata: Optional[bytes]) -> bool
 
         Verifies the integrity of the fragment.
 
