@@ -38,6 +38,14 @@ API reference
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> SecretKey
+
+        Restores the object from a bytestring.
+
 .. py:class:: PublicKey
 
     An ``umbral-pre`` public key object.
@@ -46,9 +54,33 @@ API reference
 
         Creates a public key corresponding to the given secret key.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> PublicKey
+
+        Restores the object from a bytestring.
+
+    .. py:method:: __hash__() -> int
+
+        Returns a hash of self.
+
 .. py:class:: Capsule
 
     An encapsulated symmetric key.
+
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> Capsule
+
+        Restores the object from a bytestring.
+
+    .. py:method:: __hash__() -> int
+
+        Returns a hash of self.
 
 .. py:function:: encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
 
@@ -81,6 +113,18 @@ API reference
 
         Verifies the integrity of the fragment using the signing key and, optionally, the delegating and the receiving keys (if they were included in the signature in :py:func:`generate_kfrags`).
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> KeyFrag
+
+        Restores the object from a bytestring.
+
+    .. py:method:: __hash__() -> int
+
+        Returns a hash of self.
+
 .. py:class:: CapsuleFrag
 
     A reencrypted fragment of an encapsulated symmetric key.
@@ -88,6 +132,18 @@ API reference
     .. py:method:: verify(capsule: Capsule, delegating_pk: PublicKey, receiving_pk: PublicKey, signing_pk: PublicKey, metadata: Optional[bytes]) -> bool
 
         Verifies the integrity of the fragment.
+
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> CapsuleFrag
+
+        Restores the object from a bytestring.
+
+    .. py:method:: __hash__() -> int
+
+        Returns a hash of self.
 
 
 Indices and tables
