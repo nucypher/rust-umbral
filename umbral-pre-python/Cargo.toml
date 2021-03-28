@@ -11,3 +11,4 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.13", features = ["extension-module"] }
 umbral-pre = { path = "../umbral-pre" }
 generic-array = "0.14"
+hex = "0.4"
