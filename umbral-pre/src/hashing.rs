@@ -30,12 +30,10 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
     while i < <u32>::MAX {
-        let ibytes = (i as u32).to_be_bytes();
-
         let result = BytesDigest::new_with_dst(dst)
             .chain_bytes(&data_len)
             .chain_bytes(data)
-            .chain_bytes(&ibytes)
+            .chain_bytes(&i.to_be_bytes())
             .finalize();
 
         // Set the sign byte
@@ -67,7 +65,7 @@ impl Hash {
     }
 
     pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
-        Self(digest::Digest::chain(self.0, bytes.as_ref()))
+        Self(self.0.chain(bytes.as_ref()))
     }
 
     pub fn digest(self) -> Sha256 {
