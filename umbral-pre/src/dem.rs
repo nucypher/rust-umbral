@@ -34,9 +34,9 @@ pub(crate) struct DEM {
 }
 
 impl DEM {
-    pub fn new(key_seed: &[u8], salt: Option<&[u8]>, info: Option<&[u8]>) -> Self {
+    pub fn new(key_seed: &[u8]) -> Self {
         type KeySize = <XChaCha20Poly1305 as NewAead>::KeySize;
-        let key_bytes = kdf::<KeySize>(&key_seed, salt, info);
+        let key_bytes = kdf::<KeySize>(&key_seed, None, None);
         let key = Key::from_slice(&key_bytes);
         let cipher = XChaCha20Poly1305::new(key);
         Self { cipher }

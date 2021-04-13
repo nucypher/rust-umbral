@@ -14,8 +14,7 @@ use alloc::boxed::Box;
 /// Returns the KEM [`Capsule`] and the ciphertext.
 pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<(Capsule, Box<[u8]>)> {
     let (capsule, key_seed) = Capsule::from_public_key(pk);
-    // TODO (#43): add salt and info here?
-    let dem = DEM::new(&key_seed.to_array(), None, None);
+    let dem = DEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes)?;
     Some((capsule, ciphertext))
@@ -29,8 +28,7 @@ pub fn decrypt_original(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_original(decrypting_sk);
-    // TODO (#43): add salt and info here?
-    let dem = DEM::new(&key_seed.to_array(), None, None);
+    let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
@@ -62,8 +60,7 @@ pub fn decrypt_reencrypted(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags)?;
-    // TODO (#43): add salt and info here?
-    let dem = DEM::new(&key_seed.to_array(), None, None);
+    let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())
 }
 
