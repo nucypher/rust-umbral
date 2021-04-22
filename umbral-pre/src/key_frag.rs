@@ -178,7 +178,11 @@ impl SerializableToArray for KeyFrag {
 }
 
 impl KeyFrag {
-    fn from_base(base: &KeyFragBase, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
+    pub(crate) fn from_base(
+        base: &KeyFragBase,
+        sign_delegating_key: bool,
+        sign_receiving_key: bool,
+    ) -> Self {
         let kfrag_id = KeyFragID::random();
 
         // The index of the re-encryption key share (which in Shamir's Secret
@@ -260,7 +264,7 @@ impl KeyFrag {
     }
 }
 
-struct KeyFragBase {
+pub(crate) struct KeyFragBase {
     signing_sk: SecretKey,
     precursor: CurvePoint,
     dh_point: CurvePoint,
@@ -333,53 +337,12 @@ fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
     result
 }
 
-/// Creates `num_kfrags` fragments of `delegating_sk`,
-/// which will be possible to reencrypt to allow the creator of `receiving_pk`
-/// decrypt the ciphertext encrypted with `delegating_sk`.
-///
-/// `threshold` sets the number of fragments necessary for decryption
-/// (that is, fragments created with `threshold > num_frags` will be useless).
-///
-/// `signing_sk` is used to sign the resulting [`KeyFrag`] and
-/// reencrypted [`CapsuleFrag`](`crate::CapsuleFrag`) objects, which can be later verified
-/// by the associated public key.
-///
-/// If `sign_delegating_key` or `sign_receiving_key` are `true`,
-/// the reencrypting party will be able to verify that a [`KeyFrag`]
-/// corresponds to given delegating or receiving public keys
-/// by supplying them to [`KeyFrag::verify()`].
-///
-/// Returns a boxed slice of `num_kfrags` KeyFrags
-#[allow(clippy::too_many_arguments)]
-pub fn generate_kfrags(
-    delegating_sk: &SecretKey,
-    receiving_pk: &PublicKey,
-    signing_sk: &SecretKey,
-    threshold: usize,
-    num_kfrags: usize,
-    sign_delegating_key: bool,
-    sign_receiving_key: bool,
-) -> Box<[KeyFrag]> {
-    let base = KeyFragBase::new(delegating_sk, receiving_pk, signing_sk, threshold);
-
-    let mut result = Vec::<KeyFrag>::new();
-    for _ in 0..num_kfrags {
-        result.push(KeyFrag::from_base(
-            &base,
-            sign_delegating_key,
-            sign_receiving_key,
-        ));
-    }
-
-    result.into_boxed_slice()
-}
-
 #[cfg(test)]
 mod tests {
 
     use alloc::boxed::Box;
 
-    use super::{generate_kfrags, KeyFrag};
+    use super::{KeyFrag, KeyFragBase};
     use crate::{PublicKey, SecretKey, SerializableToArray};
 
     fn prepare_kfrags(
@@ -395,17 +358,14 @@ mod tests {
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
-        let kfrags = generate_kfrags(
-            &delegating_sk,
-            &receiving_pk,
-            &signing_sk,
-            2,
-            3,
-            sign_delegating_key,
-            sign_receiving_key,
-        );
+        let base = KeyFragBase::new(&delegating_sk, &receiving_pk, &signing_sk, 2);
+        let kfrags = [
+            KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+            KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+            KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+        ];
 
-        (delegating_pk, receiving_pk, signing_pk, kfrags)
+        (delegating_pk, receiving_pk, signing_pk, Box::new(kfrags))
     }
 
     #[test]

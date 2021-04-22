@@ -3,11 +3,12 @@
 use crate::capsule::{Capsule, OpenReencryptedError};
 use crate::capsule_frag::CapsuleFrag;
 use crate::dem::{DecryptionError, EncryptionError, DEM};
-use crate::key_frag::KeyFrag;
+use crate::key_frag::{KeyFrag, KeyFragBase};
 use crate::keys::{PublicKey, SecretKey};
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 /// Errors that can happen when decrypting a reencrypted ciphertext.
 #[derive(Debug, PartialEq)]
@@ -39,6 +40,47 @@ pub fn decrypt_original(
     let key_seed = capsule.open_original(decrypting_sk);
     let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
+}
+
+/// Creates `num_kfrags` fragments of `delegating_sk`,
+/// which will be possible to reencrypt to allow the creator of `receiving_pk`
+/// decrypt the ciphertext encrypted with `delegating_sk`.
+///
+/// `threshold` sets the number of fragments necessary for decryption
+/// (that is, fragments created with `threshold > num_frags` will be useless).
+///
+/// `signing_sk` is used to sign the resulting [`KeyFrag`] and
+/// reencrypted [`CapsuleFrag`](`crate::CapsuleFrag`) objects, which can be later verified
+/// by the associated public key.
+///
+/// If `sign_delegating_key` or `sign_receiving_key` are `true`,
+/// the reencrypting party will be able to verify that a [`KeyFrag`]
+/// corresponds to given delegating or receiving public keys
+/// by supplying them to [`KeyFrag::verify()`].
+///
+/// Returns a boxed slice of `num_kfrags` KeyFrags
+#[allow(clippy::too_many_arguments)]
+pub fn generate_kfrags(
+    delegating_sk: &SecretKey,
+    receiving_pk: &PublicKey,
+    signing_sk: &SecretKey,
+    threshold: usize,
+    num_kfrags: usize,
+    sign_delegating_key: bool,
+    sign_receiving_key: bool,
+) -> Box<[KeyFrag]> {
+    let base = KeyFragBase::new(delegating_sk, receiving_pk, signing_sk, threshold);
+
+    let mut result = Vec::<KeyFrag>::new();
+    for _ in 0..num_kfrags {
+        result.push(KeyFrag::from_base(
+            &base,
+            sign_delegating_key,
+            sign_receiving_key,
+        ));
+    }
+
+    result.into_boxed_slice()
 }
 
 /// Reencrypts a [`Capsule`] object with a key fragment, creating a capsule fragment.
@@ -81,11 +123,9 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::capsule_frag::CapsuleFrag;
-    use crate::key_frag::generate_kfrags;
-    use crate::{PublicKey, SecretKey};
+    use crate::{CapsuleFrag, PublicKey, SecretKey};
 
-    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
+    use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
 
     #[test]
     fn test_simple_api() {
