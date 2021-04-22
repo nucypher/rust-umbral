@@ -306,13 +306,10 @@ fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<Capsule>()?;
     m.add_class::<KeyFrag>()?;
     m.add_class::<CapsuleFrag>()?;
-    m.add_function(wrap_pyfunction!(encrypt, m)?).unwrap();
-    m.add_function(wrap_pyfunction!(decrypt_original, m)?)
-        .unwrap();
-    m.add_function(wrap_pyfunction!(generate_kfrags, m)?)
-        .unwrap();
-    m.add_function(wrap_pyfunction!(reencrypt, m)?).unwrap();
-    m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)
-        .unwrap();
+    m.add_function(wrap_pyfunction!(encrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(decrypt_original, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_kfrags, m)?)?;
+    m.add_function(wrap_pyfunction!(reencrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)?;
     Ok(())
 }
