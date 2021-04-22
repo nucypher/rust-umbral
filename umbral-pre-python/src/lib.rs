@@ -16,6 +16,9 @@ use umbral_pre::{
 trait HasSerializableBackend<T> {
     fn as_backend(&self) -> &T;
     fn from_backend(backend: T) -> Self;
+}
+
+trait HasName {
     fn name() -> &'static str;
 }
 
@@ -26,7 +29,9 @@ fn to_bytes<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> Py
     })
 }
 
-fn from_bytes<T: HasSerializableBackend<U>, U: SerializableToArray>(bytes: &[u8]) -> PyResult<T> {
+fn from_bytes<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+    bytes: &[u8],
+) -> PyResult<T> {
     U::from_bytes(bytes)
         .map(T::from_backend)
         .map_err(|err| match err {
@@ -42,7 +47,9 @@ fn from_bytes<T: HasSerializableBackend<U>, U: SerializableToArray>(bytes: &[u8]
         })
 }
 
-fn hash<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResult<isize> {
+fn hash<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+    obj: &T,
+) -> PyResult<isize> {
     let serialized = obj.as_backend().to_array();
 
     // call `hash((class_name, bytes(obj)))`
@@ -58,12 +65,14 @@ fn hash<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResu
 // remove when CI is updated to a newer Rust version.
 #[allow(clippy::unknown_clippy_lints)]
 #[allow(clippy::unnecessary_wraps)] // Don't want to wrap it in Ok() on every call
-fn hexstr<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResult<String> {
+fn hexstr<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+    obj: &T,
+) -> PyResult<String> {
     let hex_str = hex::encode(obj.as_backend().to_array().as_slice());
     Ok(format!("{}:{}", T::name(), &hex_str[0..16]))
 }
 
-fn richcmp<T: HasSerializableBackend<U> + PyClass + PartialEq, U>(
+fn richcmp<T: HasName + PyClass + PartialEq>(
     obj: &T,
     other: PyRef<T>,
     op: CompareOp,
@@ -94,7 +103,9 @@ impl HasSerializableBackend<umbral_pre::SecretKey> for SecretKey {
     fn from_backend(backend: umbral_pre::SecretKey) -> Self {
         Self { backend }
     }
+}
 
+impl HasName for SecretKey {
     fn name() -> &'static str {
         "SecretKey"
     }
@@ -144,7 +155,9 @@ impl HasSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
     fn from_backend(backend: umbral_pre::SecretKeyFactory) -> Self {
         Self { backend }
     }
+}
 
+impl HasName for SecretKeyFactory {
     fn name() -> &'static str {
         "SecretKeyFactory"
     }
@@ -208,7 +221,9 @@ impl HasSerializableBackend<umbral_pre::PublicKey> for PublicKey {
     fn from_backend(backend: umbral_pre::PublicKey) -> Self {
         Self { backend }
     }
+}
 
+impl HasName for PublicKey {
     fn name() -> &'static str {
         "PublicKey"
     }
@@ -262,7 +277,9 @@ impl HasSerializableBackend<umbral_pre::Capsule> for Capsule {
     fn from_backend(backend: umbral_pre::Capsule) -> Self {
         Self { backend }
     }
+}
 
+impl HasName for Capsule {
     fn name() -> &'static str {
         "Capsule"
     }
@@ -352,7 +369,9 @@ impl HasSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
     fn from_backend(backend: umbral_pre::KeyFrag) -> Self {
         Self { backend }
     }
+}
 
+impl HasName for KeyFrag {
     fn name() -> &'static str {
         "KeyFrag"
     }
@@ -440,7 +459,9 @@ impl HasSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
     fn from_backend(backend: umbral_pre::CapsuleFrag) -> Self {
         Self { backend }
     }
+}
 
+impl HasName for CapsuleFrag {
     fn name() -> &'static str {
         "CapsuleFrag"
     }
