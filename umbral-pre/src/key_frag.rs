@@ -225,7 +225,7 @@ impl KeyFrag {
     /// is not provided, the verification fails.
     pub fn verify(
         &self,
-        signing_pk: &PublicKey,
+        verifying_pk: &PublicKey,
         maybe_delegating_pk: Option<&PublicKey>,
         maybe_receiving_pk: Option<&PublicKey>,
     ) -> bool {
@@ -260,7 +260,7 @@ impl KeyFrag {
             none_unless(maybe_delegating_pk, self.proof.delegating_key_signed),
             none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
         )
-        .verify(&signing_pk, &self.proof.signature_for_proxy)
+        .verify(&verifying_pk, &self.proof.signature_for_proxy)
     }
 }
 
@@ -353,7 +353,7 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
-        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
@@ -365,7 +365,7 @@ mod tests {
             KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
         ];
 
-        (delegating_pk, receiving_pk, signing_pk, Box::new(kfrags))
+        (delegating_pk, receiving_pk, verifying_pk, Box::new(kfrags))
     }
 
     #[test]
@@ -378,23 +378,23 @@ mod tests {
 
     #[test]
     fn test_verify() {
-        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(true, true);
-        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(!kfrags[0].verify(&signing_pk, None, Some(&receiving_pk)));
+        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(true, true);
+        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(!kfrags[0].verify(&verifying_pk, None, Some(&receiving_pk)));
 
-        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(false, true);
-        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(kfrags[0].verify(&signing_pk, None, Some(&receiving_pk)));
-        assert!(!kfrags[0].verify(&signing_pk, Some(&delegating_pk), None));
+        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(false, true);
+        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(kfrags[0].verify(&verifying_pk, None, Some(&receiving_pk)));
+        assert!(!kfrags[0].verify(&verifying_pk, Some(&delegating_pk), None));
 
-        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(true, false);
-        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(!kfrags[0].verify(&signing_pk, None, Some(&receiving_pk)));
-        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), None));
+        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(true, false);
+        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(!kfrags[0].verify(&verifying_pk, None, Some(&receiving_pk)));
+        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), None));
 
-        let (delegating_pk, receiving_pk, signing_pk, kfrags) = prepare_kfrags(false, false);
-        assert!(kfrags[0].verify(&signing_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(kfrags[0].verify(&signing_pk, None, None));
+        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(false, false);
+        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
+        assert!(kfrags[0].verify(&verifying_pk, None, None));
         assert!(!kfrags[0].verify(&delegating_pk, None, None));
     }
 }

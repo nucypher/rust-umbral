@@ -131,7 +131,7 @@ API reference
 
     A fragment of a public key used by proxies during reencryption.
 
-    .. py:method:: verify(signing_pk: PublicKey, delegating_pk: Optional[PublicKey], receiving_pk: Optional[PublicKey]) -> bool:
+    .. py:method:: verify(verifying_pk: PublicKey, delegating_pk: Optional[PublicKey], receiving_pk: Optional[PublicKey]) -> bool:
 
         Verifies the integrity of the fragment using the signing key and, optionally, the delegating and the receiving keys (if they were included in the signature in :py:func:`generate_kfrags`).
 
@@ -151,7 +151,7 @@ API reference
 
     A reencrypted fragment of an encapsulated symmetric key.
 
-    .. py:method:: verify(capsule: Capsule, delegating_pk: PublicKey, receiving_pk: PublicKey, signing_pk: PublicKey, metadata: Optional[bytes]) -> bool
+    .. py:method:: verify(capsule: Capsule, delegating_pk: PublicKey, receiving_pk: PublicKey, verifying_pk: PublicKey, metadata: Optional[bytes]) -> bool
 
         Verifies the integrity of the fragment.
 

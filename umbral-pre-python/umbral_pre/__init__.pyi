@@ -55,7 +55,7 @@ def decrypt_original(sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> byte
 class KeyFrag:
     def verify(
             self,
-            signing_pk: PublicKey,
+            verifying_pk: PublicKey,
             delegating_pk: Optional[PublicKey],
             receiving_pk: Optional[PublicKey],
             ) -> bool:
@@ -80,7 +80,7 @@ class CapsuleFrag:
             capsule: Capsule,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
-            signing_pk: PublicKey,
+            verifying_pk: PublicKey,
             metadata: Optional[bytes],
             ) -> bool:
         ...

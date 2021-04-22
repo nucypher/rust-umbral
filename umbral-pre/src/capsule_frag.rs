@@ -165,7 +165,7 @@ impl CapsuleFrag {
         capsule: &Capsule,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        signing_pk: &PublicKey,
+        verifying_pk: &PublicKey,
         metadata: Option<&[u8]>,
     ) -> bool {
         let params = capsule.params;
@@ -200,7 +200,7 @@ impl CapsuleFrag {
             Some(delegating_pk),
             Some(receiving_pk),
         )
-        .verify(signing_pk, &self.proof.kfrag_signature);
+        .verify(verifying_pk, &self.proof.kfrag_signature);
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);
@@ -237,7 +237,7 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
-        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
@@ -256,7 +256,7 @@ mod tests {
         (
             delegating_pk,
             receiving_pk,
-            signing_pk,
+            verifying_pk,
             capsule,
             cfrags.into_boxed_slice(),
             Box::new(*metadata),
@@ -273,12 +273,13 @@ mod tests {
 
     #[test]
     fn test_verify() {
-        let (delegating_pk, receiving_pk, signing_pk, capsule, cfrags, metadata) = prepare_cfrags();
+        let (delegating_pk, receiving_pk, verifying_pk, capsule, cfrags, metadata) =
+            prepare_cfrags();
         assert!(cfrags.iter().all(|cfrag| cfrag.verify(
             &capsule,
             &delegating_pk,
             &receiving_pk,
-            &signing_pk,
+            &verifying_pk,
             Some(&metadata)
         )));
     }

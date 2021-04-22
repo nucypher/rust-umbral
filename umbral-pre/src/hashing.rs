@@ -222,7 +222,7 @@ mod tests {
         let pk = PublicKey::from_secret_key(&SecretKey::random());
 
         let signing_sk = SecretKey::random();
-        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         let signature: Signature = SignatureDigest::new_with_dst(b"abc")
             .chain_point(&p2)
@@ -236,7 +236,7 @@ mod tests {
             .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
-            .verify(&signing_pk, &signature);
+            .verify(&verifying_pk, &signature);
         assert!(same_values_same_key);
 
         let same_values_different_key = SignatureDigest::new_with_dst(b"abc")
@@ -252,7 +252,7 @@ mod tests {
             .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
-            .verify(&signing_pk, &signature);
+            .verify(&verifying_pk, &signature);
         assert!(!different_values_same_key);
 
         let same_values_different_tag = SignatureDigest::new_with_dst(b"def")
@@ -260,7 +260,7 @@ mod tests {
             .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
-            .verify(&signing_pk, &signature);
+            .verify(&verifying_pk, &signature);
         assert!(!same_values_different_tag);
     }
 

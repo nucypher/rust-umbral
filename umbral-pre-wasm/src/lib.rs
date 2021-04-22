@@ -92,18 +92,18 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
-        signing_pubkey: &PublicKey,
-        delegating_pubkey: &PublicKey,
-        receiving_pubkey: &PublicKey,
+        verifying_pk: &PublicKey,
+        delegating_pk: &PublicKey,
+        receiving_pk: &PublicKey,
         metadata: Option<Box<[u8]>>,
     ) -> bool {
         // feels like there should be a better way...
         let metadata_ref: Option<&[u8]> = metadata.as_ref().map(|s| s.as_ref());
         self.0.verify(
             &capsule.0,
-            &signing_pubkey.0,
-            &delegating_pubkey.0,
-            &receiving_pubkey.0,
+            &verifying_pk.0,
+            &delegating_pk.0,
+            &receiving_pk.0,
             metadata_ref,
         )
     }
@@ -130,14 +130,14 @@ impl CapsuleWithFrags {
     #[wasm_bindgen]
     pub fn decrypt_reencrypted(
         &self,
-        decrypting_key: &SecretKey,
+        decrypting_sk: &SecretKey,
         delegating_pk: &PublicKey,
         ciphertext: &[u8],
     ) -> Option<Box<[u8]>> {
         let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
             self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
-            &decrypting_key.0,
+            &decrypting_sk.0,
             &delegating_pk.0,
             &self.capsule.0,
             backend_cfrags.as_slice(),
@@ -171,19 +171,19 @@ impl EncryptionResult {
 }
 
 #[wasm_bindgen]
-pub fn encrypt(alice_pubkey: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
-    let backend_pubkey = alice_pubkey.0;
-    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pubkey, plaintext).unwrap();
+pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
+    let backend_pk = pk.0;
+    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pk, plaintext).unwrap();
     Some(EncryptionResult::new(ciphertext, Capsule(capsule)))
 }
 
 #[wasm_bindgen]
 pub fn decrypt_original(
-    decrypting_key: &SecretKey,
+    decrypting_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Box<[u8]> {
-    umbral_pre::decrypt_original(&decrypting_key.0, &capsule.0, ciphertext).unwrap()
+    umbral_pre::decrypt_original(&decrypting_sk.0, &capsule.0, ciphertext).unwrap()
 }
 
 #[wasm_bindgen]
@@ -196,48 +196,48 @@ impl KeyFrag {
     // So we have to use 4 functions instead of 1. Yikes.
 
     #[wasm_bindgen]
-    pub fn verify(&self, signing_pubkey: &PublicKey) -> bool {
-        self.0.verify(&signing_pubkey.0, None, None)
+    pub fn verify(&self, verifying_pk: &PublicKey) -> bool {
+        self.0.verify(&verifying_pk.0, None, None)
     }
 
     #[wasm_bindgen]
     pub fn verify_with_delegating_key(
         &self,
-        signing_pubkey: &PublicKey,
-        delegating_pubkey: &PublicKey,
+        verifying_pk: &PublicKey,
+        delegating_pk: &PublicKey,
     ) -> bool {
-        let backend_delegating_pubkey = delegating_pubkey.0;
+        let backend_delegating_pk = delegating_pk.0;
 
         self.0
-            .verify(&signing_pubkey.0, Some(&backend_delegating_pubkey), None)
+            .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
     }
 
     #[wasm_bindgen]
     pub fn verify_with_receiving_key(
         &self,
-        signing_pubkey: &PublicKey,
-        receiving_pubkey: &PublicKey,
+        verifying_pk: &PublicKey,
+        receiving_pk: &PublicKey,
     ) -> bool {
-        let backend_receiving_pubkey = receiving_pubkey.0;
+        let backend_receiving_pk = receiving_pk.0;
 
         self.0
-            .verify(&signing_pubkey.0, None, Some(&backend_receiving_pubkey))
+            .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
     }
 
     #[wasm_bindgen]
     pub fn verify_with_delegating_and_receiving_keys(
         &self,
-        signing_pubkey: &PublicKey,
-        delegating_pubkey: &PublicKey,
-        receiving_pubkey: &PublicKey,
+        verifying_pk: &PublicKey,
+        delegating_pk: &PublicKey,
+        receiving_pk: &PublicKey,
     ) -> bool {
-        let backend_delegating_pubkey = delegating_pubkey.0;
-        let backend_receiving_pubkey = receiving_pubkey.0;
+        let backend_delegating_pk = delegating_pk.0;
+        let backend_receiving_pk = receiving_pk.0;
 
         self.0.verify(
-            &signing_pubkey.0,
-            Some(&backend_delegating_pubkey),
-            Some(&backend_receiving_pubkey),
+            &verifying_pk.0,
+            Some(&backend_delegating_pk),
+            Some(&backend_receiving_pk),
         )
     }
 }
@@ -246,7 +246,7 @@ impl KeyFrag {
 #[wasm_bindgen]
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
-    receiving_pubkey: &PublicKey,
+    receiving_pk: &PublicKey,
     signing_sk: &SecretKey,
     threshold: usize,
     num_kfrags: usize,
@@ -255,7 +255,7 @@ pub fn generate_kfrags(
 ) -> Vec<JsValue> {
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.0,
-        &receiving_pubkey.0,
+        &receiving_pk.0,
         &signing_sk.0,
         threshold,
         num_kfrags,

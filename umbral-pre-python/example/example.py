@@ -9,7 +9,7 @@ import umbral_pre
 alice_sk = umbral_pre.SecretKey.random()
 alice_pk = umbral_pre.PublicKey.from_secret_key(alice_sk)
 signing_sk = umbral_pre.SecretKey.random()
-signing_pk = umbral_pre.PublicKey.from_secret_key(signing_sk)
+verifying_pk = umbral_pre.PublicKey.from_secret_key(signing_sk)
 
 # Key Generation (on Bob's side)
 bob_sk = umbral_pre.SecretKey.random()
@@ -61,12 +61,12 @@ kfrags = umbral_pre.generate_kfrags(
 
 # Ursula 0
 metadata0 = b"metadata0"
-assert kfrags[0].verify(signing_pk, alice_pk, bob_pk)
+assert kfrags[0].verify(verifying_pk, alice_pk, bob_pk)
 cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0], metadata0)
 
 # Ursula 1
 metadata1 = b"metadata1"
-assert kfrags[1].verify(signing_pk, alice_pk, bob_pk)
+assert kfrags[1].verify(verifying_pk, alice_pk, bob_pk)
 cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata1)
 
 # ...
@@ -75,8 +75,8 @@ cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata1)
 # and then decrypts the re-encrypted ciphertext.
 
 # Bob can optionally check that cfrags are valid
-assert cfrag0.verify(capsule, alice_pk, bob_pk, signing_pk, metadata0)
-assert cfrag1.verify(capsule, alice_pk, bob_pk, signing_pk, metadata1)
+assert cfrag0.verify(capsule, alice_pk, bob_pk, verifying_pk, metadata0)
+assert cfrag1.verify(capsule, alice_pk, bob_pk, verifying_pk, metadata1)
 
 # Decryption by Bob
 plaintext_bob = umbral_pre.decrypt_reencrypted(

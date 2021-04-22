@@ -147,7 +147,7 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
-        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         // Key Generation (Bob)
         let receiving_sk = SecretKey::random();
@@ -174,7 +174,7 @@ mod tests {
 
         // Ursulas check that the received kfrags are valid
         assert!(kfrags.iter().all(|kfrag| kfrag.verify(
-            &signing_pk,
+            &verifying_pk,
             Some(&delegating_pk),
             Some(&receiving_pk)
         )));
@@ -191,7 +191,7 @@ mod tests {
             &capsule,
             &delegating_pk,
             &receiving_pk,
-            &signing_pk,
+            &verifying_pk,
             Some(metadata),
         )));
 
