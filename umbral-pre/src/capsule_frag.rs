@@ -1,6 +1,6 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_cfrag_verification};
+use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
 use crate::traits::{DeserializationError, SerializableToArray};
@@ -193,14 +193,17 @@ impl CapsuleFrag {
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        let valid_kfrag_signature = hash_to_cfrag_signature(
-            &kfrag_id,
-            &u1,
-            &precursor,
-            Some(delegating_pk),
-            Some(receiving_pk),
-        )
-        .verify(verifying_pk, &self.proof.kfrag_signature);
+        let valid_kfrag_signature = self.proof.kfrag_signature.verify(
+            verifying_pk,
+            kfrag_signature_message(
+                &kfrag_id,
+                &u1,
+                &precursor,
+                Some(delegating_pk),
+                Some(receiving_pk),
+            )
+            .as_ref(),
+        );
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);
@@ -223,6 +226,7 @@ mod tests {
     use super::CapsuleFrag;
     use crate::{
         encrypt, generate_kfrags, reencrypt, Capsule, PublicKey, SecretKey, SerializableToArray,
+        Signer,
     };
 
     fn prepare_cfrags() -> (
@@ -237,6 +241,7 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
+        let signer = Signer::new(&signing_sk);
         let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         let receiving_sk = SecretKey::random();
@@ -245,7 +250,7 @@ mod tests {
         let plaintext = b"peace at dawn";
         let (capsule, _ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
 
-        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
+        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
         let metadata = b"metadata";
         let cfrags: Vec<CapsuleFrag> = kfrags

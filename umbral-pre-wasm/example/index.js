@@ -11,6 +11,7 @@ let dec = new TextDecoder("utf-8");
 let alice_sk = umbral.SecretKey.random();
 let alice_pk = umbral.PublicKey.from_secret_key(alice_sk);
 let signing_sk = umbral.SecretKey.random();
+let signer = new umbral.Signer(signing_sk);
 let verifying_pk = umbral.PublicKey.from_secret_key(signing_sk);
 
 // Key Generation (on Bob's side)
@@ -44,7 +45,7 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generate_kfrags(
-    alice_sk, bob_pk, signing_sk, m, n,
+    alice_sk, bob_pk, signer, m, n,
     true, // add the delegating key (alice_pk) to the signature
     true, // add the receiving key (bob_pk) to the signature
     );

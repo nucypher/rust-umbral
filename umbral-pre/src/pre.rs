@@ -4,7 +4,7 @@ use crate::capsule::{Capsule, OpenReencryptedError};
 use crate::capsule_frag::CapsuleFrag;
 use crate::dem::{DecryptionError, EncryptionError, DEM};
 use crate::key_frag::{KeyFrag, KeyFragBase};
-use crate::keys::{PublicKey, SecretKey};
+use crate::keys::{PublicKey, SecretKey, Signer};
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
@@ -63,13 +63,13 @@ pub fn decrypt_original(
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
-    signing_sk: &SecretKey,
+    signer: &Signer,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[KeyFrag]> {
-    let base = KeyFragBase::new(delegating_sk, receiving_pk, signing_sk, threshold);
+    let base = KeyFragBase::new(delegating_sk, receiving_pk, signer, threshold);
 
     let mut result = Vec::<KeyFrag>::new();
     for _ in 0..num_kfrags {
@@ -123,7 +123,7 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::{CapsuleFrag, PublicKey, SecretKey};
+    use crate::{CapsuleFrag, PublicKey, SecretKey, Signer};
 
     use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
 
@@ -147,6 +147,7 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
+        let signer = Signer::new(&signing_sk);
         let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         // Key Generation (Bob)
@@ -165,7 +166,7 @@ mod tests {
         let kfrags = generate_kfrags(
             &delegating_sk,
             &receiving_pk,
-            &signing_sk,
+            &signer,
             threshold,
             num_frags,
             true,

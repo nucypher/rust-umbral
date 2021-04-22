@@ -9,6 +9,7 @@ import umbral_pre
 alice_sk = umbral_pre.SecretKey.random()
 alice_pk = umbral_pre.PublicKey.from_secret_key(alice_sk)
 signing_sk = umbral_pre.SecretKey.random()
+signer = umbral_pre.Signer(signing_sk)
 verifying_pk = umbral_pre.PublicKey.from_secret_key(signing_sk)
 
 # Key Generation (on Bob's side)
@@ -41,7 +42,7 @@ m = 2 # how many should be enough to decrypt
 
 # Split Re-Encryption Key Generation (aka Delegation)
 kfrags = umbral_pre.generate_kfrags(
-    alice_sk, bob_pk, signing_sk, m, n,
+    alice_sk, bob_pk, signer, m, n,
     True, # add the delegating key (alice_pk) to the signature
     True, # add the receiving key (bob_pk) to the signature
 )

@@ -22,6 +22,7 @@ let dec = new TextDecoder("utf-8");
 let alice_sk = umbral.SecretKey.random();
 let alice_pk = umbral.PublicKey.from_secret_key(alice_sk);
 let signing_sk = umbral.SecretKey.random();
+let signer = new umbral.Signer(signing_sk);
 let verifying_pk = umbral.PublicKey.from_secret_key(signing_sk);
 
 // Key Generation (on Bob's side)
@@ -55,7 +56,7 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generate_kfrags(
-    alice_sk, bob_pk, signing_sk, m, n, true, true);
+    alice_sk, bob_pk, signer, m, n, true, true);
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,

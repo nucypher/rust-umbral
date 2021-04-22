@@ -247,7 +247,7 @@ impl KeyFrag {
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
-    signing_sk: &SecretKey,
+    signer: &Signer,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
@@ -256,7 +256,7 @@ pub fn generate_kfrags(
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.0,
         &receiving_pk.0,
-        &signing_sk.0,
+        &signer.0,
         threshold,
         num_kfrags,
         sign_delegating_key,

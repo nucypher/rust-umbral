@@ -200,7 +200,8 @@ mod tests {
 
     use super::{Capsule, OpenReencryptedError};
     use crate::{
-        encrypt, generate_kfrags, reencrypt, CapsuleFrag, PublicKey, SecretKey, SerializableToArray,
+        encrypt, generate_kfrags, reencrypt, CapsuleFrag, PublicKey, SecretKey,
+        SerializableToArray, Signer,
     };
 
     #[test]
@@ -222,13 +223,14 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
+        let signer = Signer::new(&signing_sk);
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         let (capsule, key_seed) = Capsule::from_public_key(&delegating_pk);
 
-        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
+        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
         let cfrags: Vec<CapsuleFrag> = kfrags
             .iter()
@@ -247,7 +249,7 @@ mod tests {
         );
 
         // Mismatched cfrags - each `generate_kfrags()` uses new randoms.
-        let kfrags2 = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
+        let kfrags2 = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
         let cfrags2: Vec<CapsuleFrag> = kfrags2
             .iter()

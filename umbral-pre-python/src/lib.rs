@@ -520,7 +520,7 @@ impl PyObjectProtocol for KeyFrag {
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
-    signing_sk: &SecretKey,
+    signer: &Signer,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
@@ -529,7 +529,7 @@ pub fn generate_kfrags(
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.backend,
         &receiving_pk.backend,
-        &signing_sk.backend,
+        &signer.backend,
         threshold,
         num_kfrags,
         sign_delegating_key,

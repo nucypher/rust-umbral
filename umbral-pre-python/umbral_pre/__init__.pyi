@@ -65,7 +65,7 @@ class KeyFrag:
 def generate_kfrags(
         delegating_sk: SecretKey,
         receiving_pk: PublicKey,
-        signing_sk: SecretKey,
+        signer: SecretKey,
         threshold: int,
         num_kfrags: int,
         sign_delegating_key: bool,

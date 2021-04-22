@@ -1,6 +1,6 @@
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_polynomial_arg, hash_to_shared_secret};
-use crate::keys::{PublicKey, SecretKey, Signature};
+use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
+use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
 use crate::traits::{DeserializationError, SerializableToArray};
 
@@ -106,23 +106,27 @@ impl KeyFragProof {
         let maybe_delegating_pk = Some(&base.delegating_pk);
         let maybe_receiving_pk = Some(&base.receiving_pk);
 
-        let signature_for_receiver = hash_to_cfrag_signature(
-            &kfrag_id,
-            &commitment,
-            &base.precursor,
-            maybe_delegating_pk,
-            maybe_receiving_pk,
-        )
-        .sign(&base.signing_sk);
+        let signature_for_receiver = base.signer.sign(
+            kfrag_signature_message(
+                &kfrag_id,
+                &commitment,
+                &base.precursor,
+                maybe_delegating_pk,
+                maybe_receiving_pk,
+            )
+            .as_ref(),
+        );
 
-        let signature_for_proxy = hash_to_cfrag_signature(
-            &kfrag_id,
-            &commitment,
-            &base.precursor,
-            none_unless(maybe_delegating_pk, sign_delegating_key),
-            none_unless(maybe_receiving_pk, sign_receiving_key),
-        )
-        .sign(&base.signing_sk);
+        let signature_for_proxy = base.signer.sign(
+            kfrag_signature_message(
+                &kfrag_id,
+                &commitment,
+                &base.precursor,
+                none_unless(maybe_delegating_pk, sign_delegating_key),
+                none_unless(maybe_receiving_pk, sign_receiving_key),
+            )
+            .as_ref(),
+        );
 
         Self {
             commitment,
@@ -253,19 +257,22 @@ impl KeyFrag {
 
         // Check the signature
 
-        hash_to_cfrag_signature(
-            &kfrag_id,
-            &commitment,
-            &precursor,
-            none_unless(maybe_delegating_pk, self.proof.delegating_key_signed),
-            none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
+        self.proof.signature_for_proxy.verify(
+            verifying_pk,
+            kfrag_signature_message(
+                &kfrag_id,
+                &commitment,
+                &precursor,
+                none_unless(maybe_delegating_pk, self.proof.delegating_key_signed),
+                none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
+            )
+            .as_ref(),
         )
-        .verify(&verifying_pk, &self.proof.signature_for_proxy)
     }
 }
 
 pub(crate) struct KeyFragBase {
-    signing_sk: SecretKey,
+    signer: Signer,
     precursor: CurvePoint,
     dh_point: CurvePoint,
     params: Parameters,
@@ -278,7 +285,7 @@ impl KeyFragBase {
     pub fn new(
         delegating_sk: &SecretKey,
         receiving_pk: &PublicKey,
-        signing_sk: &SecretKey,
+        signer: &Signer,
         threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
@@ -317,7 +324,7 @@ impl KeyFragBase {
         }
 
         Self {
-            signing_sk: signing_sk.clone(),
+            signer: signer.clone(),
             precursor,
             dh_point,
             params,
@@ -343,7 +350,7 @@ mod tests {
     use alloc::boxed::Box;
 
     use super::{KeyFrag, KeyFragBase};
-    use crate::{PublicKey, SecretKey, SerializableToArray};
+    use crate::{PublicKey, SecretKey, SerializableToArray, Signer};
 
     fn prepare_kfrags(
         sign_delegating_key: bool,
@@ -353,12 +360,13 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
+        let signer = Signer::new(&signing_sk);
         let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
-        let base = KeyFragBase::new(&delegating_sk, &receiving_pk, &signing_sk, 2);
+        let base = KeyFragBase::new(&delegating_sk, &receiving_pk, &signer, 2);
         let kfrags = [
             KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
             KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
