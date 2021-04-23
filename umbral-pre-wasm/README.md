@@ -65,31 +65,18 @@ let kfrags = umbral.generate_kfrags(
 // Bob collects the resulting cfrags from several Ursulas.
 // Bob must gather at least `m` cfrags in order to open the capsule.
 
-// Ursulas can optionally check that the received kfrags are valid
-// and perform the reencryption
-
 // Ursula 0
 let metadata0 = enc.encode("metadata0")
-console.assert(
-    kfrags[0].verify_with_delegating_and_receiving_keys(verifying_pk, alice_pk, bob_pk),
-    "kfrag0 is invalid");
 let cfrag0 = umbral.reencrypt(capsule, kfrags[0], metadata0);
 
 // Ursula 1
 let metadata1 = enc.encode("metadata1");
-console.assert(
-    kfrags[1].verify_with_delegating_and_receiving_keys(verifying_pk, alice_pk, bob_pk),
-    "kfrag1 is invalid");
 let cfrag1 = umbral.reencrypt(capsule, kfrags[1], metadata1);
 
 // ...
 
 // Finally, Bob opens the capsule by using at least `m` cfrags,
 // and then decrypts the re-encrypted ciphertext.
-
-// Bob can optionally check that cfrags are valid
-console.assert(cfrag0.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata0), "cfrag0 is invalid");
-console.assert(cfrag1.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata1), "cfrag1 is invalid");
 
 // Another deviation from the Rust API.
 // wasm-pack does not support taking arrays as arguments,

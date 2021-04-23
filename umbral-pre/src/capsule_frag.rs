@@ -150,8 +150,17 @@ impl DeserializableFromArray for CapsuleFrag {
     }
 }
 
+/// Possible errors that can be returned by [`CapsuleFrag::verify`].
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum CapsuleFragVerificationError {
+    /// Inconsistent internal state leading to signature verification failure.
+    IncorrectKeyFragSignature,
+    /// Inconsistent internal state leading to commitment verification failure.
+    IncorrectReencryption,
+}
+
 impl CapsuleFrag {
-    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
+    fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
@@ -175,7 +184,7 @@ impl CapsuleFrag {
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
         metadata: Option<&[u8]>,
-    ) -> bool {
+    ) -> Result<VerifiedCapsuleFrag, CapsuleFragVerificationError> {
         let params = capsule.params;
 
         // Here are the formulaic constituents shared with
@@ -201,7 +210,7 @@ impl CapsuleFrag {
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        let valid_kfrag_signature = self.proof.kfrag_signature.verify(
+        if !self.proof.kfrag_signature.verify(
             verifying_pk,
             kfrag_signature_message(
                 &kfrag_id,
@@ -211,17 +220,48 @@ impl CapsuleFrag {
                 Some(receiving_pk),
             )
             .as_ref(),
-        );
+        ) {
+            return Err(CapsuleFragVerificationError::IncorrectKeyFragSignature);
+        }
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);
         let correct_reencryption_of_v = &v * &z3 == &v2 + &(&v1 * &h);
         let correct_rk_commitment = &u * &z3 == &u2 + &(&u1 * &h);
 
-        valid_kfrag_signature
-            & correct_reencryption_of_e
-            & correct_reencryption_of_v
-            & correct_rk_commitment
+        if !(correct_reencryption_of_e & correct_reencryption_of_v & correct_rk_commitment) {
+            return Err(CapsuleFragVerificationError::IncorrectReencryption);
+        }
+
+        Ok(VerifiedCapsuleFrag {
+            cfrag: self.clone(),
+        })
+    }
+}
+
+/// Verified capsule fragment, good for dencryption.
+/// Can be serialized, but cannot be deserialized directly.
+/// It can only be obtained from [`CapsuleFrag::verify`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerifiedCapsuleFrag {
+    pub(crate) cfrag: CapsuleFrag,
+}
+
+impl RepresentableAsArray for VerifiedCapsuleFrag {
+    type Size = <CapsuleFrag as RepresentableAsArray>::Size;
+}
+
+impl SerializableToArray for VerifiedCapsuleFrag {
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.cfrag.to_array()
+    }
+}
+
+impl VerifiedCapsuleFrag {
+    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
+        VerifiedCapsuleFrag {
+            cfrag: CapsuleFrag::reencrypted(capsule, kfrag, metadata),
+        }
     }
 }
 
@@ -231,7 +271,7 @@ mod tests {
     use alloc::boxed::Box;
     use alloc::vec::Vec;
 
-    use super::CapsuleFrag;
+    use super::{CapsuleFrag, VerifiedCapsuleFrag};
     use crate::{
         encrypt, generate_kfrags, reencrypt, Capsule, DeserializableFromArray, PublicKey,
         SecretKey, SerializableToArray, Signer,
@@ -242,7 +282,7 @@ mod tests {
         PublicKey,
         PublicKey,
         Capsule,
-        Box<[CapsuleFrag]>,
+        Box<[VerifiedCapsuleFrag]>,
         Box<[u8]>,
     ) {
         let delegating_sk = SecretKey::random();
@@ -261,7 +301,7 @@ mod tests {
         let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
         let metadata = b"metadata";
-        let cfrags: Vec<CapsuleFrag> = kfrags
+        let verified_cfrags: Vec<_> = kfrags
             .iter()
             .map(|kfrag| reencrypt(&capsule, &kfrag, Some(metadata)))
             .collect();
@@ -271,29 +311,33 @@ mod tests {
             receiving_pk,
             verifying_pk,
             capsule,
-            cfrags.into_boxed_slice(),
+            verified_cfrags.into_boxed_slice(),
             Box::new(*metadata),
         )
     }
 
     #[test]
-    fn test_serialize() {
-        let (_, _, _, _, cfrags, _) = prepare_cfrags();
-        let cfrag_arr = cfrags[0].to_array();
-        let cfrag_back = CapsuleFrag::from_array(&cfrag_arr).unwrap();
-        assert_eq!(cfrags[0], cfrag_back);
-    }
-
-    #[test]
     fn test_verify() {
-        let (delegating_pk, receiving_pk, verifying_pk, capsule, cfrags, metadata) =
+        let (delegating_pk, receiving_pk, verifying_pk, capsule, verified_cfrags, metadata) =
             prepare_cfrags();
-        assert!(cfrags.iter().all(|cfrag| cfrag.verify(
-            &capsule,
-            &verifying_pk,
-            &delegating_pk,
-            &receiving_pk,
-            Some(&metadata)
-        )));
+
+        for verified_cfrag in verified_cfrags.iter().cloned() {
+            let cfrag_array = verified_cfrag.to_array();
+            let cfrag_back = CapsuleFrag::from_array(&cfrag_array).unwrap();
+
+            assert_eq!(cfrag_back.to_array(), cfrag_array);
+
+            let verified_cfrag_back = cfrag_back
+                .verify(
+                    &capsule,
+                    &verifying_pk,
+                    &delegating_pk,
+                    &receiving_pk,
+                    Some(&metadata),
+                )
+                .unwrap();
+
+            assert_eq!(verified_cfrag_back, verified_cfrag);
+        }
     }
 }

@@ -194,12 +194,23 @@ impl DeserializableFromArray for KeyFrag {
     }
 }
 
+/// Possible errors that can be returned by [`KeyFrag::verify`].
+#[derive(Debug, PartialEq)]
+pub enum KeyFragVerificationError {
+    /// Inconsistent internal state leading to commitment verification failure.
+    IncorrectCommitment,
+    /// A delegating key was included in the signature when [`KeyFrag`] was created,
+    /// but no delegating key was provided during verification.
+    DelegatingKeyNotProvided,
+    /// A receiving key was included in the signature when [`KeyFrag`] was created,
+    /// but no receiving key was provided during verification.
+    ReceivingKeyNotProvided,
+    /// Inconsistent internal state leading to signature verification failure.
+    IncorrectSignature,
+}
+
 impl KeyFrag {
-    pub(crate) fn from_base(
-        base: &KeyFragBase,
-        sign_delegating_key: bool,
-        sign_receiving_key: bool,
-    ) -> Self {
+    fn from_base(base: &KeyFragBase, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
         let kfrag_id = KeyFragID::random();
 
         // The index of the re-encryption key share (which in Shamir's Secret
@@ -245,7 +256,7 @@ impl KeyFrag {
         verifying_pk: &PublicKey,
         maybe_delegating_pk: Option<&PublicKey>,
         maybe_receiving_pk: Option<&PublicKey>,
-    ) -> bool {
+    ) -> Result<VerifiedKeyFrag, KeyFragVerificationError> {
         let u = self.params.u;
 
         let kfrag_id = self.id;
@@ -255,22 +266,22 @@ impl KeyFrag {
 
         // We check that the commitment is well-formed
         if commitment != &u * &key {
-            return false;
+            return Err(KeyFragVerificationError::IncorrectCommitment);
         }
 
         // A shortcut, perhaps not necessary
 
         if maybe_delegating_pk.is_none() && self.proof.delegating_key_signed {
-            return false;
+            return Err(KeyFragVerificationError::DelegatingKeyNotProvided);
         }
 
         if maybe_receiving_pk.is_none() && self.proof.receiving_key_signed {
-            return false;
+            return Err(KeyFragVerificationError::ReceivingKeyNotProvided);
         }
 
         // Check the signature
 
-        self.proof.signature_for_proxy.verify(
+        if !self.proof.signature_for_proxy.verify(
             verifying_pk,
             kfrag_signature_message(
                 &kfrag_id,
@@ -280,7 +291,43 @@ impl KeyFrag {
                 none_unless(maybe_receiving_pk, self.proof.receiving_key_signed),
             )
             .as_ref(),
-        )
+        ) {
+            return Err(KeyFragVerificationError::IncorrectSignature);
+        }
+
+        Ok(VerifiedKeyFrag {
+            kfrag: self.clone(),
+        })
+    }
+}
+
+/// Verified key fragment, good for reencryption.
+/// Can be serialized, but cannot be deserialized directly.
+/// It can only be obtained from [`KeyFrag::verify`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerifiedKeyFrag {
+    pub(crate) kfrag: KeyFrag,
+}
+
+impl RepresentableAsArray for VerifiedKeyFrag {
+    type Size = <KeyFrag as RepresentableAsArray>::Size;
+}
+
+impl SerializableToArray for VerifiedKeyFrag {
+    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+        self.kfrag.to_array()
+    }
+}
+
+impl VerifiedKeyFrag {
+    pub(crate) fn from_base(
+        base: &KeyFragBase,
+        sign_delegating_key: bool,
+        sign_receiving_key: bool,
+    ) -> Self {
+        Self {
+            kfrag: KeyFrag::from_base(base, sign_delegating_key, sign_receiving_key),
+        }
     }
 }
 
@@ -362,13 +409,13 @@ mod tests {
 
     use alloc::boxed::Box;
 
-    use super::{KeyFrag, KeyFragBase};
+    use super::{KeyFrag, KeyFragBase, KeyFragVerificationError, VerifiedKeyFrag};
     use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
 
     fn prepare_kfrags(
         sign_delegating_key: bool,
         sign_receiving_key: bool,
-    ) -> (PublicKey, PublicKey, PublicKey, Box<[KeyFrag]>) {
+    ) -> (PublicKey, PublicKey, PublicKey, Box<[VerifiedKeyFrag]>) {
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
@@ -380,42 +427,55 @@ mod tests {
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         let base = KeyFragBase::new(&delegating_sk, &receiving_pk, &signer, 2);
-        let kfrags = [
-            KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
-            KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
-            KeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+        let vkfrags = [
+            VerifiedKeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+            VerifiedKeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+            VerifiedKeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
         ];
 
-        (delegating_pk, receiving_pk, verifying_pk, Box::new(kfrags))
-    }
-
-    #[test]
-    fn test_serialize() {
-        let (_, _, _, kfrags) = prepare_kfrags(true, true);
-        let kfrag_arr = kfrags[0].to_array();
-        let kfrag_back = KeyFrag::from_array(&kfrag_arr).unwrap();
-        assert_eq!(kfrags[0], kfrag_back);
+        (delegating_pk, receiving_pk, verifying_pk, Box::new(vkfrags))
     }
 
     #[test]
     fn test_verify() {
-        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(true, true);
-        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(!kfrags[0].verify(&verifying_pk, None, Some(&receiving_pk)));
+        for sign_dk in [false, true].iter().copied() {
+            for sign_rk in [false, true].iter().copied() {
+                let (delegating_pk, receiving_pk, verifying_pk, vkfrags) =
+                    prepare_kfrags(sign_dk, sign_rk);
 
-        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(false, true);
-        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(kfrags[0].verify(&verifying_pk, None, Some(&receiving_pk)));
-        assert!(!kfrags[0].verify(&verifying_pk, Some(&delegating_pk), None));
+                let kfrag_arr = vkfrags[0].to_array();
+                let kfrag = KeyFrag::from_array(&kfrag_arr).unwrap();
 
-        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(true, false);
-        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(!kfrags[0].verify(&verifying_pk, None, Some(&receiving_pk)));
-        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), None));
+                // Check that the kfrag serializes to the same thing as the verified kfrag
+                assert_eq!(kfrag.to_array(), kfrag_arr);
 
-        let (delegating_pk, receiving_pk, verifying_pk, kfrags) = prepare_kfrags(false, false);
-        assert!(kfrags[0].verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk)));
-        assert!(kfrags[0].verify(&verifying_pk, None, None));
-        assert!(!kfrags[0].verify(&delegating_pk, None, None));
+                for supply_dk in [false, true].iter().copied() {
+                    for supply_rk in [false, true].iter().copied() {
+                        let maybe_dk = if supply_dk {
+                            Some(&delegating_pk)
+                        } else {
+                            None
+                        };
+                        let maybe_rk = if supply_rk { Some(&receiving_pk) } else { None };
+                        let res = kfrag.verify(&verifying_pk, maybe_dk, maybe_rk);
+
+                        let sufficient_dk = !sign_dk || (supply_dk == sign_dk);
+                        let sufficient_rk = !sign_rk || (supply_rk == sign_rk);
+
+                        if sufficient_dk && sufficient_rk {
+                            assert!(res.is_ok());
+                            assert_eq!(res.unwrap().kfrag, kfrag);
+                        } else if !sufficient_dk {
+                            assert_eq!(
+                                res,
+                                Err(KeyFragVerificationError::DelegatingKeyNotProvided)
+                            );
+                        } else if !sufficient_rk {
+                            assert_eq!(res, Err(KeyFragVerificationError::ReceivingKeyNotProvided));
+                        }
+                    }
+                }
+            }
+        }
     }
 }

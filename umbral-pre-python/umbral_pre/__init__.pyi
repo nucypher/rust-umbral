@@ -58,8 +58,12 @@ class KeyFrag:
             verifying_pk: PublicKey,
             delegating_pk: Optional[PublicKey],
             receiving_pk: Optional[PublicKey],
-            ) -> bool:
+            ) -> VerifiedKeyFrag:
         ...
+
+
+class VerifiedKeyFrag:
+    ...
 
 
 def generate_kfrags(
@@ -70,7 +74,7 @@ def generate_kfrags(
         num_kfrags: int,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
-        ) -> List[KeyFrag]:
+        ) -> List[VerifiedKeyFrag]:
     ...
 
 
@@ -82,11 +86,15 @@ class CapsuleFrag:
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
             metadata: Optional[bytes],
-            ) -> bool:
+            ) -> VerifiedCapsuleFrag:
         ...
 
 
-def reencrypt(capsule: Capsule, kfrag: KeyFrag, metadata: Optional[bytes]) -> CapsuleFrag:
+class VerifiedCapsuleFrag:
+    ...
+
+
+def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag, metadata: Optional[bytes]) -> VerifiedCapsuleFrag:
     ...
 
 
@@ -94,7 +102,7 @@ def decrypt_reencrypted(
         decrypting_sk: SecretKey,
         delegating_pk: PublicKey,
         capsule: Capsule,
-        cfrags: Sequence[CapsuleFrag],
+        cfrags: Sequence[VerifiedCapsuleFrag],
         ciphertext: bytes,
         ) -> Optional[bytes]:
     ...

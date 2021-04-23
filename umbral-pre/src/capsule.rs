@@ -205,8 +205,8 @@ mod tests {
 
     use super::{Capsule, OpenReencryptedError};
     use crate::{
-        encrypt, generate_kfrags, reencrypt, CapsuleFrag, DeserializableFromArray, PublicKey,
-        SecretKey, SerializableToArray, Signer,
+        encrypt, generate_kfrags, reencrypt, DeserializableFromArray, PublicKey, SecretKey,
+        SerializableToArray, Signer,
     };
 
     #[test]
@@ -237,10 +237,12 @@ mod tests {
 
         let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
-        let cfrags: Vec<CapsuleFrag> = kfrags
+        let vcfrags: Vec<_> = kfrags
             .iter()
             .map(|kfrag| reencrypt(&capsule, &kfrag, None))
             .collect();
+
+        let cfrags: Vec<_> = vcfrags.iter().cloned().map(|vcfrag| vcfrag.cfrag).collect();
 
         let key_seed_reenc = capsule
             .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
@@ -256,16 +258,18 @@ mod tests {
         // Mismatched cfrags - each `generate_kfrags()` uses new randoms.
         let kfrags2 = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
-        let cfrags2: Vec<CapsuleFrag> = kfrags2
+        let vcfrags2: Vec<_> = kfrags2
             .iter()
             .map(|kfrag| reencrypt(&capsule, &kfrag, None))
             .collect();
 
-        let mismatched_cfrags: Vec<CapsuleFrag> = cfrags[0..1]
+        let mismatched_cfrags: Vec<_> = vcfrags[0..1]
             .iter()
             .cloned()
-            .chain(cfrags2[1..2].iter().cloned())
+            .chain(vcfrags2[1..2].iter().cloned())
+            .map(|vcfrag| vcfrag.cfrag)
             .collect();
+
         assert_eq!(
             capsule.open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags),
             Err(OpenReencryptedError::MismatchedCapsuleFrags)
