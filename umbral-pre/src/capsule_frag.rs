@@ -3,14 +3,16 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use typenum::op;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CapsuleFragProof {
+pub(crate) struct CapsuleFragProof {
     point_e2: CurvePoint,
     point_v2: CurvePoint,
     kfrag_commitment: CurvePoint,
@@ -19,15 +21,17 @@ pub struct CapsuleFragProof {
     kfrag_signature: Signature,
 }
 
-type PointSize = <CurvePoint as SerializableToArray>::Size;
-type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type SignatureSize = <Signature as SerializableToArray>::Size;
+type PointSize = <CurvePoint as RepresentableAsArray>::Size;
+type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
+type SignatureSize = <Signature as RepresentableAsArray>::Size;
 type CapsuleFragProofSize =
     op!(PointSize + PointSize + PointSize + PointSize + ScalarSize + SignatureSize);
 
-impl SerializableToArray for CapsuleFragProof {
+impl RepresentableAsArray for CapsuleFragProof {
     type Size = CapsuleFragProofSize;
+}
 
+impl SerializableToArray for CapsuleFragProof {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.point_e2
             .to_array()
@@ -37,7 +41,9 @@ impl SerializableToArray for CapsuleFragProof {
             .concat(self.signature.to_array())
             .concat(self.kfrag_signature.to_array())
     }
+}
 
+impl DeserializableFromArray for CapsuleFragProof {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (point_e2, rest) = CurvePoint::take(*arr)?;
         let (point_v2, rest) = CurvePoint::take(rest)?;
@@ -112,11 +118,11 @@ pub struct CapsuleFrag {
     pub(crate) proof: CapsuleFragProof,
 }
 
-type CapsuleFragSize = op!(PointSize + PointSize + ScalarSize + PointSize + CapsuleFragProofSize);
+impl RepresentableAsArray for CapsuleFrag {
+    type Size = op!(PointSize + PointSize + ScalarSize + PointSize + CapsuleFragProofSize);
+}
 
 impl SerializableToArray for CapsuleFrag {
-    type Size = CapsuleFragSize;
-
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.point_e1
             .to_array()
@@ -125,7 +131,9 @@ impl SerializableToArray for CapsuleFrag {
             .concat(self.precursor.to_array())
             .concat(self.proof.to_array())
     }
+}
 
+impl DeserializableFromArray for CapsuleFrag {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (point_e1, rest) = CurvePoint::take(*arr)?;
         let (point_v1, rest) = CurvePoint::take(rest)?;
@@ -225,8 +233,8 @@ mod tests {
 
     use super::CapsuleFrag;
     use crate::{
-        encrypt, generate_kfrags, reencrypt, Capsule, PublicKey, SecretKey, SerializableToArray,
-        Signer,
+        encrypt, generate_kfrags, reencrypt, Capsule, DeserializableFromArray, PublicKey,
+        SecretKey, SerializableToArray, Signer,
     };
 
     fn prepare_cfrags() -> (

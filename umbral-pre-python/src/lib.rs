@@ -8,8 +8,8 @@ use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
 use umbral_pre::{
-    DecryptionError, DeserializationError, EncryptionError, OpenReencryptedError,
-    ReencryptionError, SecretKeyFactoryError, SerializableToArray,
+    DecryptionError, DeserializableFromArray, DeserializationError, EncryptionError,
+    OpenReencryptedError, ReencryptionError, SecretKeyFactoryError, SerializableToArray,
 };
 
 // A helper trait to generalize implementing various Python protocol functions for our types.
@@ -29,7 +29,7 @@ fn to_bytes<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> Py
     })
 }
 
-fn from_bytes<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+fn from_bytes<T: HasSerializableBackend<U> + HasName, U: DeserializableFromArray>(
     bytes: &[u8],
 ) -> PyResult<T> {
     U::from_bytes(bytes)

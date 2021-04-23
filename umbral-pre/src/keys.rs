@@ -11,19 +11,25 @@ use typenum::{U32, U64};
 use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
 /// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature(BackendSignature<CurveType>);
 
-impl SerializableToArray for Signature {
+impl RepresentableAsArray for Signature {
     type Size = SignatureSize<CurveType>;
+}
 
+impl SerializableToArray for Signature {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
     }
+}
 
+impl DeserializableFromArray for Signature {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
@@ -84,14 +90,18 @@ impl SecretKey {
     }
 }
 
-impl SerializableToArray for SecretKey {
-    type Size = <CurveScalar as SerializableToArray>::Size;
+impl RepresentableAsArray for SecretKey {
+    type Size = <CurveScalar as RepresentableAsArray>::Size;
+}
 
+impl SerializableToArray for SecretKey {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         // TODO (#8): a copy of secret data is created in `to_bytes()`.
         self.0.to_bytes()
     }
+}
 
+impl DeserializableFromArray for SecretKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
@@ -152,13 +162,17 @@ impl PublicKey {
     }
 }
 
-impl SerializableToArray for PublicKey {
-    type Size = <CurvePoint as SerializableToArray>::Size;
+impl RepresentableAsArray for PublicKey {
+    type Size = <CurvePoint as RepresentableAsArray>::Size;
+}
 
+impl SerializableToArray for PublicKey {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.to_point().to_array()
     }
+}
 
+impl DeserializableFromArray for PublicKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let cp = CurvePoint::from_array(&arr)?;
         let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine())
@@ -208,14 +222,18 @@ impl SecretKeyFactory {
     }
 }
 
-impl SerializableToArray for SecretKeyFactory {
+impl RepresentableAsArray for SecretKeyFactory {
     type Size = SecretKeyFactorySeedSize;
+}
 
+impl SerializableToArray for SecretKeyFactory {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         // TODO (#8): a copy of secret data is created.
         self.0
     }
+}
 
+impl DeserializableFromArray for SecretKeyFactory {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         Ok(Self(*arr))
     }
@@ -225,7 +243,7 @@ impl SerializableToArray for SecretKeyFactory {
 mod tests {
 
     use super::{PublicKey, SecretKey, SecretKeyFactory, Signer};
-    use crate::SerializableToArray;
+    use crate::{DeserializableFromArray, SerializableToArray};
 
     #[test]
     fn test_serialize_secret_key() {

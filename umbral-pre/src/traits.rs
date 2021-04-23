@@ -15,22 +15,27 @@ pub enum DeserializationError {
     TooManyBytes,
 }
 
-/// A trait denoting that the object can be serialized to/from an array of bytes
+/// A trait denoting that the object can be represented as an array of bytes
 /// with size known at compile time.
-pub trait SerializableToArray
-where
-    Self: Sized,
-{
+pub trait RepresentableAsArray: Sized {
     /// Resulting array length.
     type Size: ArrayLength<u8>;
 
     // It would be nice to have a dependent type
     // type Array = GenericArray<u8, Self::Size>;
     // but it's currently an unstable feature or Rust.
+}
 
+/// A trait denoting that the object can be serialized to an array of bytes
+/// with size known at compile time.
+pub trait SerializableToArray: RepresentableAsArray {
     /// Produces a byte array with the object's contents.
     fn to_array(&self) -> GenericArray<u8, Self::Size>;
+}
 
+/// A trait denoting that the object can be deserialized from an array of bytes
+/// with size known at compile time.
+pub trait DeserializableFromArray: RepresentableAsArray {
     /// Attempts to produce the object back from the serialized form.
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError>;
 
@@ -73,13 +78,17 @@ where
     }
 }
 
-impl SerializableToArray for bool {
+impl RepresentableAsArray for bool {
     type Size = U1;
+}
 
+impl SerializableToArray for bool {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         GenericArray::<u8, Self::Size>::from([*self as u8])
     }
+}
 
+impl DeserializableFromArray for bool {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let bytes_slice = arr.as_slice();
         match bytes_slice[0] {
@@ -97,27 +106,37 @@ mod tests {
     use generic_array::GenericArray;
     use typenum::{op, U1, U2};
 
-    use super::{DeserializationError, SerializableToArray};
+    use super::{
+        DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    };
+
+    impl RepresentableAsArray for u8 {
+        type Size = U1;
+    }
 
     impl SerializableToArray for u8 {
-        type Size = U1;
-
         fn to_array(&self) -> GenericArray<u8, Self::Size> {
             GenericArray::<u8, Self::Size>::from([*self])
         }
+    }
 
+    impl DeserializableFromArray for u8 {
         fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
             Ok(arr.as_slice()[0])
         }
     }
 
-    impl SerializableToArray for u16 {
+    impl RepresentableAsArray for u16 {
         type Size = U2;
+    }
 
+    impl SerializableToArray for u16 {
         fn to_array(&self) -> GenericArray<u8, Self::Size> {
             GenericArray::<u8, Self::Size>::from([(self >> 8) as u8, *self as u8])
         }
+    }
 
+    impl DeserializableFromArray for u16 {
         fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
             let b1 = arr.as_slice()[0];
             let b2 = arr.as_slice()[1];
@@ -133,13 +152,15 @@ mod tests {
         f4: bool,
     }
 
-    type U8Size = <u8 as SerializableToArray>::Size;
-    type U16Size = <u16 as SerializableToArray>::Size;
-    type BoolSize = <bool as SerializableToArray>::Size;
+    type U8Size = <u8 as RepresentableAsArray>::Size;
+    type U16Size = <u16 as RepresentableAsArray>::Size;
+    type BoolSize = <bool as RepresentableAsArray>::Size;
+
+    impl RepresentableAsArray for SomeStruct {
+        type Size = op!(U16Size + U8Size + U16Size + BoolSize);
+    }
 
     impl SerializableToArray for SomeStruct {
-        type Size = op!(U16Size + U8Size + U16Size + BoolSize);
-
         fn to_array(&self) -> GenericArray<u8, Self::Size> {
             self.f1
                 .to_array()
@@ -147,7 +168,9 @@ mod tests {
                 .concat(self.f3.to_array())
                 .concat(self.f4.to_array())
         }
+    }
 
+    impl DeserializableFromArray for SomeStruct {
         fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
             let (f1, rest) = u16::take(*arr)?;
             let (f2, rest) = u8::take(rest)?;

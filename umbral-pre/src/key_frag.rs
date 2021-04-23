@@ -2,7 +2,9 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
 use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -10,7 +12,7 @@ use alloc::vec::Vec;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{OsRng, RngCore};
-use typenum::{op, U1, U32};
+use typenum::{op, U32};
 
 type KeyFragIDSize = U32;
 
@@ -31,13 +33,17 @@ impl AsRef<[u8]> for KeyFragID {
     }
 }
 
-impl SerializableToArray for KeyFragID {
+impl RepresentableAsArray for KeyFragID {
     type Size = KeyFragIDSize;
+}
 
+impl SerializableToArray for KeyFragID {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.0
     }
+}
 
+impl DeserializableFromArray for KeyFragID {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         Ok(Self(*arr))
     }
@@ -52,14 +58,17 @@ pub(crate) struct KeyFragProof {
     receiving_key_signed: bool,
 }
 
-type SignatureSize = <Signature as SerializableToArray>::Size;
-type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type PointSize = <CurvePoint as SerializableToArray>::Size;
-type KeyFragProofSize = op!(PointSize + SignatureSize + SignatureSize + U1 + U1);
+type SignatureSize = <Signature as RepresentableAsArray>::Size;
+type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
+type PointSize = <CurvePoint as RepresentableAsArray>::Size;
+type BoolSize = <bool as RepresentableAsArray>::Size;
+type KeyFragProofSize = op!(PointSize + SignatureSize + SignatureSize + BoolSize + BoolSize);
+
+impl RepresentableAsArray for KeyFragProof {
+    type Size = KeyFragProofSize;
+}
 
 impl SerializableToArray for KeyFragProof {
-    type Size = KeyFragProofSize;
-
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.commitment
             .to_array()
@@ -68,7 +77,9 @@ impl SerializableToArray for KeyFragProof {
             .concat(self.delegating_key_signed.to_array())
             .concat(self.receiving_key_signed.to_array())
     }
+}
 
+impl DeserializableFromArray for KeyFragProof {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (commitment, rest) = CurvePoint::take(*arr)?;
         let (signature_for_proxy, rest) = Signature::take(rest)?;
@@ -152,11 +163,11 @@ pub struct KeyFrag {
     pub(crate) proof: KeyFragProof,
 }
 
-type KeyFragSize = op!(ScalarSize + ScalarSize + PointSize + KeyFragProofSize);
+impl RepresentableAsArray for KeyFrag {
+    type Size = op!(ScalarSize + ScalarSize + PointSize + KeyFragProofSize);
+}
 
 impl SerializableToArray for KeyFrag {
-    type Size = KeyFragSize;
-
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.id
             .to_array()
@@ -164,7 +175,9 @@ impl SerializableToArray for KeyFrag {
             .concat(self.precursor.to_array())
             .concat(self.proof.to_array())
     }
+}
 
+impl DeserializableFromArray for KeyFrag {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let params = Parameters::new();
         let (id, rest) = KeyFragID::take(*arr)?;
@@ -350,7 +363,7 @@ mod tests {
     use alloc::boxed::Box;
 
     use super::{KeyFrag, KeyFragBase};
-    use crate::{PublicKey, SecretKey, SerializableToArray, Signer};
+    use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
 
     fn prepare_kfrags(
         sign_delegating_key: bool,

@@ -5,7 +5,7 @@ use sha2::Sha256;
 use typenum::U1;
 
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::traits::SerializableToArray;
+use crate::traits::{DeserializableFromArray, SerializableToArray};
 
 /// Hashes arbitrary data with the given domain separation tag
 /// into a valid EC point of the specified curve,

@@ -3,7 +3,9 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
 use alloc::vec::Vec;
 
@@ -39,20 +41,23 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-type PointSize = <CurvePoint as SerializableToArray>::Size;
-type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type CapsuleSize = op!(PointSize + PointSize + ScalarSize);
+type PointSize = <CurvePoint as RepresentableAsArray>::Size;
+type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
+
+impl RepresentableAsArray for Capsule {
+    type Size = op!(PointSize + PointSize + ScalarSize);
+}
 
 impl SerializableToArray for Capsule {
-    type Size = CapsuleSize;
-
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.point_e
             .to_array()
             .concat(self.point_v.to_array())
             .concat(self.signature.to_array())
     }
+}
 
+impl DeserializableFromArray for Capsule {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (point_e, rest) = CurvePoint::take(*arr)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
@@ -200,8 +205,8 @@ mod tests {
 
     use super::{Capsule, OpenReencryptedError};
     use crate::{
-        encrypt, generate_kfrags, reencrypt, CapsuleFrag, PublicKey, SecretKey,
-        SerializableToArray, Signer,
+        encrypt, generate_kfrags, reencrypt, CapsuleFrag, DeserializableFromArray, PublicKey,
+        SecretKey, SerializableToArray, Signer,
     };
 
     #[test]
