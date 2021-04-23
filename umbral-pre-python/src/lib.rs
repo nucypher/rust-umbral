@@ -570,16 +570,16 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
+        verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        verifying_pk: &PublicKey,
         metadata: Option<&[u8]>,
     ) -> bool {
         self.backend.verify(
             &capsule.backend,
+            &verifying_pk.backend,
             &delegating_pk.backend,
             &receiving_pk.backend,
-            &verifying_pk.backend,
             metadata,
         )
     }

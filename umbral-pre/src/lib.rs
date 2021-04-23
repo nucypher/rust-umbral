@@ -74,8 +74,8 @@
 //! // and then decrypts the re-encrypted ciphertext.
 //!
 //! // Bob can optionally check that cfrags are valid
-//! assert!(cfrag0.verify(&capsule, &alice_pk, &bob_pk, &verifying_pk, Some(metadata0)));
-//! assert!(cfrag1.verify(&capsule, &alice_pk, &bob_pk, &verifying_pk, Some(metadata1)));
+//! assert!(cfrag0.verify(&capsule, &verifying_pk, &alice_pk, &bob_pk, Some(metadata0)));
+//! assert!(cfrag1.verify(&capsule, &verifying_pk, &alice_pk, &bob_pk, Some(metadata1)));
 //!
 //! let plaintext_bob = decrypt_reencrypted(
 //!     &bob_sk, &alice_pk, &capsule, &[cfrag0, cfrag1], &ciphertext).unwrap();

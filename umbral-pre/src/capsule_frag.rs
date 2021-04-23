@@ -163,9 +163,9 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
+        verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        verifying_pk: &PublicKey,
         metadata: Option<&[u8]>,
     ) -> bool {
         let params = capsule.params;
@@ -277,9 +277,9 @@ mod tests {
             prepare_cfrags();
         assert!(cfrags.iter().all(|cfrag| cfrag.verify(
             &capsule,
+            &verifying_pk,
             &delegating_pk,
             &receiving_pk,
-            &verifying_pk,
             Some(&metadata)
         )));
     }

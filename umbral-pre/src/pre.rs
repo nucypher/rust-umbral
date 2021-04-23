@@ -189,9 +189,9 @@ mod tests {
         // Bob checks that the received cfrags are valid
         assert!(cfrags.iter().all(|cfrag| cfrag.verify(
             &capsule,
+            &verifying_pk,
             &delegating_pk,
             &receiving_pk,
-            &verifying_pk,
             Some(metadata),
         )));
 

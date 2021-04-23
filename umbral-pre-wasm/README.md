@@ -87,8 +87,8 @@ let cfrag1 = umbral.reencrypt(capsule, kfrags[1], metadata1);
 // and then decrypts the re-encrypted ciphertext.
 
 // Bob can optionally check that cfrags are valid
-console.assert(cfrag0.verify(capsule, alice_pk, bob_pk, verifying_pk, metadata0), "cfrag0 is invalid");
-console.assert(cfrag1.verify(capsule, alice_pk, bob_pk, verifying_pk, metadata1), "cfrag1 is invalid");
+console.assert(cfrag0.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata0), "cfrag0 is invalid");
+console.assert(cfrag1.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata1), "cfrag1 is invalid");
 
 // Another deviation from the Rust API.
 // wasm-pack does not support taking arrays as arguments,

@@ -75,8 +75,8 @@ cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata1)
 # and then decrypts the re-encrypted ciphertext.
 
 # Bob can optionally check that cfrags are valid
-assert cfrag0.verify(capsule, alice_pk, bob_pk, verifying_pk, metadata0)
-assert cfrag1.verify(capsule, alice_pk, bob_pk, verifying_pk, metadata1)
+assert cfrag0.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata0)
+assert cfrag1.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata1)
 
 # Decryption by Bob
 plaintext_bob = umbral_pre.decrypt_reencrypted(
