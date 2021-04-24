@@ -115,6 +115,20 @@ impl CurvePoint {
     pub(crate) fn to_affine(&self) -> BackendPointAffine {
         self.0.to_affine()
     }
+
+    pub(crate) fn from_compressed_array(
+        arr: &GenericArray<u8, CompressedPointSize<CurveType>>,
+    ) -> Option<Self> {
+        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
+        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
+        cp_opt.map(Self)
+    }
+
+    fn to_compressed_array(&self) -> GenericArray<u8, CompressedPointSize<CurveType>> {
+        *GenericArray::<u8, CompressedPointSize<CurveType>>::from_slice(
+            self.0.to_affine().to_encoded_point(true).as_bytes(),
+        )
+    }
 }
 
 impl Add<&CurveScalar> for &CurveScalar {
@@ -163,21 +177,12 @@ impl RepresentableAsArray for CurvePoint {
 
 impl SerializableToArray for CurvePoint {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        // NOTE: a point has to be serialized in a compressed format,
-        // or `unsafe_hash_to_point` becomes unusable.
-        *GenericArray::<u8, Self::Size>::from_slice(
-            self.0.to_affine().to_encoded_point(true).as_bytes(),
-        )
+        self.to_compressed_array()
     }
 }
 
 impl DeserializableFromArray for CurvePoint {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice())
-            .or(Err(DeserializationError::ConstructionFailure))?;
-        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
-        cp_opt
-            .map(Self)
-            .ok_or(DeserializationError::ConstructionFailure)
+        Self::from_compressed_array(arr).ok_or(DeserializationError::ConstructionFailure)
     }
 }

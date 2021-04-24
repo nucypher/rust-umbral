@@ -5,7 +5,7 @@ use sha2::Sha256;
 use typenum::U1;
 
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::traits::{DeserializableFromArray, SerializableToArray};
+use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data with the given domain separation tag
 /// into a valid EC point of the specified curve,
@@ -38,9 +38,9 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
         // Set the sign byte
         let maybe_point_bytes = sign_prefix.concat(result);
 
-        let maybe_point = CurvePoint::from_bytes(&maybe_point_bytes);
-        if maybe_point.is_ok() {
-            return maybe_point.ok();
+        let maybe_point = CurvePoint::from_compressed_array(&maybe_point_bytes);
+        if let Some(point) = maybe_point {
+            return Some(point);
         }
 
         i += 1
