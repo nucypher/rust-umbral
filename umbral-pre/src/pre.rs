@@ -49,14 +49,13 @@ pub fn decrypt_original(
 /// `threshold` sets the number of fragments necessary for decryption
 /// (that is, fragments created with `threshold > num_frags` will be useless).
 ///
-/// `signing_sk` is used to sign the resulting [`KeyFrag`] and
-/// reencrypted [`CapsuleFrag`](`crate::CapsuleFrag`) objects, which can be later verified
-/// by the associated public key.
+/// `signer` is used to sign the resulting [`KeyFrag`](`crate::KeyFrag`) objects,
+/// which can be later verified by the associated public key.
 ///
 /// If `sign_delegating_key` or `sign_receiving_key` are `true`,
-/// the reencrypting party will be able to verify that a [`KeyFrag`]
+/// the reencrypting party will be able to verify that a [`KeyFrag`](`crate::KeyFrag`)
 /// corresponds to given delegating or receiving public keys
-/// by supplying them to [`KeyFrag::verify()`].
+/// by supplying them to [`KeyFrag::verify()`](`crate::KeyFrag::verify`).
 ///
 /// Returns a boxed slice of `num_kfrags` KeyFrags
 #[allow(clippy::too_many_arguments)]
@@ -89,7 +88,8 @@ pub fn generate_kfrags(
 /// distinct fragments (along with the original capsule and the corresponding secret key)
 /// allows one to decrypt the original plaintext.
 ///
-/// One can call [`KeyFrag::verify()`] before reencryption to check its integrity.
+/// One can call [`KeyFrag::verify()`](`crate::KeyFrag::verify`)
+/// before reencryption to check its integrity.
 pub fn reencrypt(
     capsule: &Capsule,
     verified_kfrag: &VerifiedKeyFrag,
@@ -106,7 +106,8 @@ pub fn reencrypt(
 /// `delegating_pk` is the public key of the encrypting party.
 /// Used to check the validity of decryption.
 ///
-/// One can call [`CapsuleFrag::verify()`] before reencryption to check its integrity.
+/// One can call [`CapsuleFrag::verify()`](`crate::CapsuleFrag::verify`)
+/// before reencryption to check its integrity.
 pub fn decrypt_reencrypted(
     decrypting_sk: &SecretKey,
     delegating_pk: &PublicKey,
