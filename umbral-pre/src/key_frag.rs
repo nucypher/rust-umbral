@@ -2,7 +2,7 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey, Signature};
 use crate::params::Parameters;
-use crate::traits::SerializableToArray;
+use crate::traits::{DeserializationError, SerializableToArray};
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -38,8 +38,8 @@ impl SerializableToArray for KeyFragID {
         self.0
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        Some(Self(*arr))
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+        Ok(Self(*arr))
     }
 }
 
@@ -69,13 +69,13 @@ impl SerializableToArray for KeyFragProof {
             .concat(self.receiving_key_signed.to_array())
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (commitment, rest) = CurvePoint::take(*arr)?;
         let (signature_for_proxy, rest) = Signature::take(rest)?;
         let (signature_for_receiver, rest) = Signature::take(rest)?;
         let (delegating_key_signed, rest) = bool::take(rest)?;
         let receiving_key_signed = bool::take_last(rest)?;
-        Some(Self {
+        Ok(Self {
             commitment,
             signature_for_proxy,
             signature_for_receiver,
@@ -161,13 +161,13 @@ impl SerializableToArray for KeyFrag {
             .concat(self.proof.to_array())
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let params = Parameters::new();
         let (id, rest) = KeyFragID::take(*arr)?;
         let (key, rest) = CurveScalar::take(rest)?;
         let (precursor, rest) = CurvePoint::take(rest)?;
         let proof = KeyFragProof::take_last(rest)?;
-        Some(Self {
+        Ok(Self {
             params,
             id,
             key,

@@ -14,7 +14,7 @@ use k256::Secp256k1;
 use rand_core::OsRng;
 use subtle::CtOption;
 
-use crate::traits::SerializableToArray;
+use crate::traits::{DeserializationError, SerializableToArray};
 
 pub(crate) type CurveType = Secp256k1;
 
@@ -80,8 +80,10 @@ impl SerializableToArray for CurveScalar {
         self.0.to_bytes()
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        Scalar::<CurveType>::from_repr(*arr).map(Self)
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+        Scalar::<CurveType>::from_repr(*arr)
+            .map(Self)
+            .ok_or(DeserializationError::ConstructionFailure)
     }
 }
 
@@ -160,9 +162,12 @@ impl SerializableToArray for CurvePoint {
         )
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice())
+            .or(Err(DeserializationError::ConstructionFailure))?;
         let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
-        cp_opt.map(Self)
+        cp_opt
+            .map(Self)
+            .ok_or(DeserializationError::ConstructionFailure)
     }
 }

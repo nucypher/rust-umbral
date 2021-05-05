@@ -3,7 +3,7 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_cfrag_verification};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
-use crate::traits::SerializableToArray;
+use crate::traits::{DeserializationError, SerializableToArray};
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
@@ -38,14 +38,14 @@ impl SerializableToArray for CapsuleFragProof {
             .concat(self.kfrag_signature.to_array())
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (point_e2, rest) = CurvePoint::take(*arr)?;
         let (point_v2, rest) = CurvePoint::take(rest)?;
         let (kfrag_commitment, rest) = CurvePoint::take(rest)?;
         let (kfrag_pok, rest) = CurvePoint::take(rest)?;
         let (signature, rest) = CurveScalar::take(rest)?;
         let kfrag_signature = Signature::take_last(rest)?;
-        Some(Self {
+        Ok(Self {
             point_e2,
             point_v2,
             kfrag_commitment,
@@ -126,13 +126,13 @@ impl SerializableToArray for CapsuleFrag {
             .concat(self.proof.to_array())
     }
 
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (point_e1, rest) = CurvePoint::take(*arr)?;
         let (point_v1, rest) = CurvePoint::take(rest)?;
         let (kfrag_id, rest) = KeyFragID::take(rest)?;
         let (precursor, rest) = CurvePoint::take(rest)?;
         let proof = CapsuleFragProof::take_last(rest)?;
-        Some(Self {
+        Ok(Self {
             point_e1,
             point_v1,
             kfrag_id,

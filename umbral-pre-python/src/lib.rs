@@ -1,16 +1,114 @@
 use pyo3::class::basic::CompareOp;
-use pyo3::exceptions::PyTypeError;
+use pyo3::create_exception;
+use pyo3::exceptions::{PyException, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::PyBytes;
+use pyo3::pyclass::PyClass;
+use pyo3::types::{PyBytes, PyUnicode};
 use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
-use umbral_pre::SerializableToArray;
+use umbral_pre::{
+    DecryptionError, DeserializationError, EncryptionError, OpenReencryptedError,
+    ReencryptionError, SecretKeyFactoryError, SerializableToArray,
+};
+
+// A helper trait to generalize implementing various Python protocol functions for our types.
+trait HasSerializableBackend<T> {
+    fn as_backend(&self) -> &T;
+    fn from_backend(backend: T) -> Self;
+}
+
+trait HasName {
+    fn name() -> &'static str;
+}
+
+fn to_bytes<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResult<PyObject> {
+    let serialized = obj.as_backend().to_array();
+    Python::with_gil(|py| -> PyResult<PyObject> {
+        Ok(PyBytes::new(py, serialized.as_slice()).into())
+    })
+}
+
+fn from_bytes<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+    bytes: &[u8],
+) -> PyResult<T> {
+    U::from_bytes(bytes)
+        .map(T::from_backend)
+        .map_err(|err| match err {
+            DeserializationError::ConstructionFailure => {
+                PyValueError::new_err(format!("Failed to deserialize a {} object", T::name()))
+            }
+            DeserializationError::TooManyBytes => {
+                PyValueError::new_err("The given bytestring is too long")
+            }
+            DeserializationError::NotEnoughBytes => {
+                PyValueError::new_err("The given bytestring is too short")
+            }
+        })
+}
+
+fn hash<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+    obj: &T,
+) -> PyResult<isize> {
+    let serialized = obj.as_backend().to_array();
+
+    // call `hash((class_name, bytes(obj)))`
+    Python::with_gil(|py| {
+        let builtins = PyModule::import(py, "builtins")?;
+        let arg1 = PyUnicode::new(py, T::name());
+        let arg2: PyObject = PyBytes::new(py, serialized.as_slice()).into();
+        builtins.getattr("hash")?.call1(((arg1, arg2),))?.extract()
+    })
+}
+
+// For some reason this lint is not recognized in Rust 1.46 (the one in CI)
+// remove when CI is updated to a newer Rust version.
+#[allow(clippy::unknown_clippy_lints)]
+#[allow(clippy::unnecessary_wraps)] // Don't want to wrap it in Ok() on every call
+fn hexstr<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+    obj: &T,
+) -> PyResult<String> {
+    let hex_str = hex::encode(obj.as_backend().to_array().as_slice());
+    Ok(format!("{}:{}", T::name(), &hex_str[0..16]))
+}
+
+fn richcmp<T: HasName + PyClass + PartialEq>(
+    obj: &T,
+    other: PyRef<T>,
+    op: CompareOp,
+) -> PyResult<bool> {
+    match op {
+        CompareOp::Eq => Ok(obj == &*other),
+        CompareOp::Ne => Ok(obj != &*other),
+        _ => Err(PyTypeError::new_err(format!(
+            "{} objects are not ordered",
+            T::name()
+        ))),
+    }
+}
+
+create_exception!(umbral, GenericError, PyException);
 
 #[pyclass(module = "umbral")]
 #[derive(PartialEq)]
 pub struct SecretKey {
     backend: umbral_pre::SecretKey,
+}
+
+impl HasSerializableBackend<umbral_pre::SecretKey> for SecretKey {
+    fn as_backend(&self) -> &umbral_pre::SecretKey {
+        &self.backend
+    }
+
+    fn from_backend(backend: umbral_pre::SecretKey) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for SecretKey {
+    fn name() -> &'static str {
+        "SecretKey"
+    }
 }
 
 #[pymethods]
@@ -22,34 +120,47 @@ impl SecretKey {
         }
     }
 
-    pub fn __bytes__(&self, py: Python) -> PyObject {
-        let serialized = self.backend.to_array();
-        PyBytes::new(py, serialized.as_slice()).into()
-    }
-
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let backend_key = umbral_pre::SecretKey::from_bytes(bytes)?;
-        Some(Self {
-            backend: backend_key,
-        })
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
     }
 }
 
 #[pyproto]
 impl PyObjectProtocol for SecretKey {
     fn __richcmp__(&self, other: PyRef<SecretKey>, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self == &*other),
-            CompareOp::Ne => Ok(self != &*other),
-            _ => Err(PyTypeError::new_err("SecretKey objects are not ordered")),
-        }
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{}:...", Self::name()))
     }
 }
 
 #[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct SecretKeyFactory {
     backend: umbral_pre::SecretKeyFactory,
+}
+
+impl HasSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
+    fn as_backend(&self) -> &umbral_pre::SecretKeyFactory {
+        &self.backend
+    }
+
+    fn from_backend(backend: umbral_pre::SecretKeyFactory) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for SecretKeyFactory {
+    fn name() -> &'static str {
+        "SecretKeyFactory"
+    }
 }
 
 #[pymethods]
@@ -61,24 +172,38 @@ impl SecretKeyFactory {
         }
     }
 
-    pub fn secret_key_by_label(&self, label: &[u8]) -> Option<SecretKey> {
-        let backend_sk = self.backend.secret_key_by_label(label)?;
-        Some(SecretKey {
-            backend: backend_sk,
-        })
-    }
-
-    pub fn __bytes__(&self, py: Python) -> PyObject {
-        let serialized = self.backend.to_array();
-        PyBytes::new(py, serialized.as_slice()).into()
+    pub fn secret_key_by_label(&self, label: &[u8]) -> PyResult<SecretKey> {
+        self.backend
+            .secret_key_by_label(label)
+            .map(|backend_sk| SecretKey {
+                backend: backend_sk,
+            })
+            .map_err(|err| match err {
+                // Will be removed when #39 is fixed
+                SecretKeyFactoryError::ZeroHash => {
+                    GenericError::new_err("Resulting secret key is zero")
+                }
+            })
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let backend_factory = umbral_pre::SecretKeyFactory::from_bytes(bytes)?;
-        Some(Self {
-            backend: backend_factory,
-        })
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for SecretKeyFactory {
+    fn __richcmp__(&self, other: PyRef<SecretKeyFactory>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{}:...", Self::name()))
     }
 }
 
@@ -86,6 +211,22 @@ impl SecretKeyFactory {
 #[derive(PartialEq)]
 pub struct PublicKey {
     backend: umbral_pre::PublicKey,
+}
+
+impl HasSerializableBackend<umbral_pre::PublicKey> for PublicKey {
+    fn as_backend(&self) -> &umbral_pre::PublicKey {
+        &self.backend
+    }
+
+    fn from_backend(backend: umbral_pre::PublicKey) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for PublicKey {
+    fn name() -> &'static str {
+        "PublicKey"
+    }
 }
 
 #[pymethods]
@@ -97,59 +238,109 @@ impl PublicKey {
         }
     }
 
-    pub fn __bytes__(&self, py: Python) -> PyObject {
-        let serialized = self.backend.to_array();
-        PyBytes::new(py, serialized.as_slice()).into()
-    }
-
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let backend_pubkey = umbral_pre::PublicKey::from_bytes(bytes)?;
-        Some(Self {
-            backend: backend_pubkey,
-        })
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
     }
 }
 
 #[pyproto]
 impl PyObjectProtocol for PublicKey {
     fn __richcmp__(&self, other: PyRef<PublicKey>, op: CompareOp) -> PyResult<bool> {
-        match op {
-            CompareOp::Eq => Ok(self == &*other),
-            CompareOp::Ne => Ok(self != &*other),
-            _ => Err(PyTypeError::new_err("PublicKey objects are not ordered")),
-        }
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
     }
 }
 
 #[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct Capsule {
     backend: umbral_pre::Capsule,
 }
 
-#[pymethods]
-impl Capsule {
-    pub fn __bytes__(&self, py: Python) -> PyObject {
-        let serialized = self.backend.to_array();
-        PyBytes::new(py, serialized.as_slice()).into()
+impl HasSerializableBackend<umbral_pre::Capsule> for Capsule {
+    fn as_backend(&self) -> &umbral_pre::Capsule {
+        &self.backend
     }
 
+    fn from_backend(backend: umbral_pre::Capsule) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for Capsule {
+    fn name() -> &'static str {
+        "Capsule"
+    }
+}
+
+#[pymethods]
+impl Capsule {
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let backend_capsule = umbral_pre::Capsule::from_bytes(bytes)?;
-        Some(Self {
-            backend: backend_capsule,
-        })
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for Capsule {
+    fn __richcmp__(&self, other: PyRef<Capsule>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
     }
 }
 
 #[pyfunction]
-pub fn encrypt(py: Python, pk: &PublicKey, plaintext: &[u8]) -> (Capsule, PyObject) {
-    let (capsule, ciphertext) = umbral_pre::encrypt(&pk.backend, plaintext).unwrap();
-    (
-        Capsule { backend: capsule },
-        PyBytes::new(py, &ciphertext).into(),
-    )
+pub fn encrypt(py: Python, pk: &PublicKey, plaintext: &[u8]) -> PyResult<(Capsule, PyObject)> {
+    umbral_pre::encrypt(&pk.backend, plaintext)
+        .map(|(backend_capsule, ciphertext)| {
+            (
+                Capsule {
+                    backend: backend_capsule,
+                },
+                PyBytes::new(py, &ciphertext).into(),
+            )
+        })
+        .map_err(|err| match err {
+            EncryptionError::PlaintextTooLarge => {
+                GenericError::new_err("Plaintext is too large to encrypt")
+            }
+        })
+}
+
+fn map_decryption_err(err: DecryptionError) -> PyErr {
+    match err {
+        DecryptionError::CiphertextTooShort => {
+            PyValueError::new_err("The ciphertext must include the nonce")
+        }
+        DecryptionError::AuthenticationFailed => GenericError::new_err(
+            "Decryption of ciphertext failed: \
+            either someone tampered with the ciphertext or \
+            you are using an incorrect decryption key.",
+        ),
+    }
 }
 
 #[pyfunction]
@@ -158,15 +349,32 @@ pub fn decrypt_original(
     sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
-) -> PyObject {
-    let plaintext =
-        umbral_pre::decrypt_original(&sk.backend, &capsule.backend, &ciphertext).unwrap();
-    PyBytes::new(py, &plaintext).into()
+) -> PyResult<PyObject> {
+    umbral_pre::decrypt_original(&sk.backend, &capsule.backend, &ciphertext)
+        .map(|plaintext| PyBytes::new(py, &plaintext).into())
+        .map_err(map_decryption_err)
 }
 
 #[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct KeyFrag {
     backend: umbral_pre::KeyFrag,
+}
+
+impl HasSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
+    fn as_backend(&self) -> &umbral_pre::KeyFrag {
+        &self.backend
+    }
+
+    fn from_backend(backend: umbral_pre::KeyFrag) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for KeyFrag {
+    fn name() -> &'static str {
+        "KeyFrag"
+    }
 }
 
 #[pymethods]
@@ -184,17 +392,28 @@ impl KeyFrag {
         )
     }
 
-    pub fn __bytes__(&self, py: Python) -> PyObject {
-        let serialized = self.backend.to_array();
-        PyBytes::new(py, serialized.as_slice()).into()
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for KeyFrag {
+    fn __richcmp__(&self, other: PyRef<KeyFrag>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
     }
 
-    #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let backend_kfrag = umbral_pre::KeyFrag::from_bytes(bytes)?;
-        Some(Self {
-            backend: backend_kfrag,
-        })
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
     }
 }
 
@@ -227,9 +446,25 @@ pub fn generate_kfrags(
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct CapsuleFrag {
     backend: umbral_pre::CapsuleFrag,
+}
+
+impl HasSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
+    fn as_backend(&self) -> &umbral_pre::CapsuleFrag {
+        &self.backend
+    }
+
+    fn from_backend(backend: umbral_pre::CapsuleFrag) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for CapsuleFrag {
+    fn name() -> &'static str {
+        "CapsuleFrag"
+    }
 }
 
 #[pymethods]
@@ -251,17 +486,28 @@ impl CapsuleFrag {
         )
     }
 
-    pub fn __bytes__(&self, py: Python) -> PyObject {
-        let serialized = self.backend.to_array();
-        PyBytes::new(py, serialized.as_slice()).into()
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for CapsuleFrag {
+    fn __richcmp__(&self, other: PyRef<CapsuleFrag>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
     }
 
-    #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        let backend_cfrag = umbral_pre::CapsuleFrag::from_bytes(bytes)?;
-        Some(Self {
-            backend: backend_cfrag,
-        })
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
     }
 }
 
@@ -281,31 +527,50 @@ pub fn decrypt_reencrypted(
     capsule: &Capsule,
     cfrags: Vec<CapsuleFrag>,
     ciphertext: &[u8],
-) -> Option<PyObject> {
+) -> PyResult<PyObject> {
     let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
         cfrags.iter().cloned().map(|cfrag| cfrag.backend).collect();
-    let res = umbral_pre::decrypt_reencrypted(
+    umbral_pre::decrypt_reencrypted(
         &decrypting_sk.backend,
         &delegating_pk.backend,
         &capsule.backend,
         &backend_cfrags,
         ciphertext,
-    );
-    match res {
-        Some(plaintext) => Some(PyBytes::new(py, &plaintext).into()),
-        None => None,
-    }
+    )
+    .map(|plaintext| PyBytes::new(py, &plaintext).into())
+    .map_err(|err| match err {
+        ReencryptionError::OnOpen(err) => match err {
+            OpenReencryptedError::NoCapsuleFrags => {
+                PyValueError::new_err("Empty CapsuleFrag sequence")
+            }
+            OpenReencryptedError::MismatchedCapsuleFrags => {
+                PyValueError::new_err("CapsuleFrags are not pairwise consistent")
+            }
+            OpenReencryptedError::RepeatingCapsuleFrags => {
+                PyValueError::new_err("Some of the CapsuleFrags are repeated")
+            }
+            // Will be removed when #39 is fixed
+            OpenReencryptedError::ZeroHash => {
+                GenericError::new_err("An internally hashed value is zero")
+            }
+            OpenReencryptedError::ValidationFailed => {
+                GenericError::new_err("Internal validation failed")
+            }
+        },
+        ReencryptionError::OnDecryption(err) => map_decryption_err(err),
+    })
 }
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _umbral(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<SecretKeyFactory>()?;
     m.add_class::<PublicKey>()?;
     m.add_class::<Capsule>()?;
     m.add_class::<KeyFrag>()?;
     m.add_class::<CapsuleFrag>()?;
+    m.add("GenericError", py.get_type::<GenericError>())?;
     m.add_function(wrap_pyfunction!(encrypt, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt_original, m)?)?;
     m.add_function(wrap_pyfunction!(generate_kfrags, m)?)?;

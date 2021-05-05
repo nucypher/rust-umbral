@@ -5,6 +5,7 @@ from ._umbral import (
     Capsule,
     KeyFrag,
     CapsuleFrag,
+    GenericError,
     encrypt,
     decrypt_original,
     decrypt_reencrypted,

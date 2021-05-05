@@ -1,23 +1,32 @@
 //! The high-level functional reencryption API.
 
-use crate::capsule::Capsule;
+use crate::capsule::{Capsule, OpenReencryptedError};
 use crate::capsule_frag::CapsuleFrag;
-use crate::dem::DEM;
+use crate::dem::{DecryptionError, EncryptionError, DEM};
 use crate::key_frag::KeyFrag;
 use crate::keys::{PublicKey, SecretKey};
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
 
+/// Errors that can happen when decrypting a reencrypted ciphertext.
+#[derive(Debug, PartialEq)]
+pub enum ReencryptionError {
+    /// An error when opening a capsule. See [`OpenReencryptedError`] for the options.
+    OnOpen(OpenReencryptedError),
+    /// An error when decrypting the ciphertext. See [`DecryptionError`] for the options.
+    OnDecryption(DecryptionError),
+}
+
 /// Encrypts the given plaintext message using a DEM scheme,
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
-pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<(Capsule, Box<[u8]>)> {
+pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
     let (capsule, key_seed) = Capsule::from_public_key(pk);
     let dem = DEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
-    let ciphertext = dem.encrypt(plaintext, &capsule_bytes)?;
-    Some((capsule, ciphertext))
+    dem.encrypt(plaintext, &capsule_bytes)
+        .map(|ciphertext| (capsule, ciphertext))
 }
 
 /// Attempts to decrypt the ciphertext using the original encryptor's
@@ -26,7 +35,7 @@ pub fn decrypt_original(
     decrypting_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: impl AsRef<[u8]>,
-) -> Option<Box<[u8]>> {
+) -> Result<Box<[u8]>, DecryptionError> {
     let key_seed = capsule.open_original(decrypting_sk);
     let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
@@ -58,10 +67,13 @@ pub fn decrypt_reencrypted(
     capsule: &Capsule,
     cfrags: &[CapsuleFrag],
     ciphertext: impl AsRef<[u8]>,
-) -> Option<Box<[u8]>> {
-    let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags)?;
+) -> Result<Box<[u8]>, ReencryptionError> {
+    let key_seed = capsule
+        .open_reencrypted(decrypting_sk, delegating_pk, cfrags)
+        .map_err(ReencryptionError::OnOpen)?;
     let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())
+        .map_err(ReencryptionError::OnDecryption)
 }
 
 #[cfg(test)]
