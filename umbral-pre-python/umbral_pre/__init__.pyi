@@ -6,19 +6,27 @@ class SecretKey:
     def random() -> SecretKey:
         ...
 
+
+class SecretKeyFactory:
+
+    @staticmethod
+    def random() -> SecretKeyFactory:
+        ...
+
+    def secret_key_by_label(self, label: bytes) -> SecretKey:
+        ...
+
+
 class PublicKey:
     @staticmethod
     def from_secret_key(sk: SecretKey) -> PublicKey:
         ...
 
 
-class Parameters: ...
-
-
 class Capsule: ...
 
 
-def encrypt(params: Parameters, pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
+def encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
     ...
 
 
@@ -37,7 +45,6 @@ class KeyFrag:
 
 
 def generate_kfrags(
-        params: Parameters,
         delegating_sk: SecretKey,
         receiving_pk: PublicKey,
         signing_sk: SecretKey,
@@ -53,9 +60,10 @@ class CapsuleFrag:
     def verify(
             self,
             capsule: Capsule,
-            signing_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
+            signing_pk: PublicKey,
+            metadata: Optional[bytes],
             ) -> bool:
         ...
 

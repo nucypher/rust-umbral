@@ -1,8 +1,14 @@
+use pyo3::class::basic::CompareOp;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::wrap_pyfunction;
+use pyo3::PyObjectProtocol;
+
+use umbral_pre::SerializableToArray;
 
 #[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct SecretKey {
     backend: umbral_pre::SecretKey,
 }
@@ -15,9 +21,69 @@ impl SecretKey {
             backend: umbral_pre::SecretKey::random(),
         }
     }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_key = umbral_pre::SecretKey::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_key,
+        })
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for SecretKey {
+    fn __richcmp__(&self, other: PyRef<SecretKey>, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self == &*other),
+            CompareOp::Ne => Ok(self != &*other),
+            _ => Err(PyTypeError::new_err("SecretKey objects are not ordered")),
+        }
+    }
 }
 
 #[pyclass(module = "umbral")]
+pub struct SecretKeyFactory {
+    backend: umbral_pre::SecretKeyFactory,
+}
+
+#[pymethods]
+impl SecretKeyFactory {
+    #[staticmethod]
+    pub fn random() -> Self {
+        Self {
+            backend: umbral_pre::SecretKeyFactory::random(),
+        }
+    }
+
+    pub fn secret_key_by_label(&self, label: &[u8]) -> Option<SecretKey> {
+        let backend_sk = self.backend.secret_key_by_label(label)?;
+        Some(SecretKey {
+            backend: backend_sk,
+        })
+    }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_factory = umbral_pre::SecretKeyFactory::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_factory,
+        })
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct PublicKey {
     backend: umbral_pre::PublicKey,
 }
@@ -30,44 +96,56 @@ impl PublicKey {
             backend: umbral_pre::PublicKey::from_secret_key(&sk.backend),
         }
     }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_pubkey = umbral_pre::PublicKey::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_pubkey,
+        })
+    }
 }
 
-#[pyclass(module = "umbral")]
-pub struct Parameters {
-    backend: umbral_pre::Parameters,
-}
-
-#[pymethods]
-impl Parameters {
-    #[new]
-    pub fn new() -> Self {
-        Self {
-            backend: umbral_pre::Parameters::new(),
+#[pyproto]
+impl PyObjectProtocol for PublicKey {
+    fn __richcmp__(&self, other: PyRef<PublicKey>, op: CompareOp) -> PyResult<bool> {
+        match op {
+            CompareOp::Eq => Ok(self == &*other),
+            CompareOp::Ne => Ok(self != &*other),
+            _ => Err(PyTypeError::new_err("PublicKey objects are not ordered")),
         }
     }
 }
 
-impl Default for Parameters {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[pyclass(module = "umbral")]
-#[derive(Clone)]
 pub struct Capsule {
     backend: umbral_pre::Capsule,
 }
 
+#[pymethods]
+impl Capsule {
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_capsule = umbral_pre::Capsule::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_capsule,
+        })
+    }
+}
+
 #[pyfunction]
-pub fn encrypt(
-    py: Python,
-    params: &Parameters,
-    pk: &PublicKey,
-    plaintext: &[u8],
-) -> (Capsule, PyObject) {
-    let (capsule, ciphertext) =
-        umbral_pre::encrypt(&params.backend, &pk.backend, plaintext).unwrap();
+pub fn encrypt(py: Python, pk: &PublicKey, plaintext: &[u8]) -> (Capsule, PyObject) {
+    let (capsule, ciphertext) = umbral_pre::encrypt(&pk.backend, plaintext).unwrap();
     (
         Capsule { backend: capsule },
         PyBytes::new(py, &ciphertext).into(),
@@ -105,12 +183,24 @@ impl KeyFrag {
             receiving_pk.map(|pk| &pk.backend),
         )
     }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_kfrag = umbral_pre::KeyFrag::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_kfrag,
+        })
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
 pub fn generate_kfrags(
-    params: &Parameters,
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
     signing_sk: &SecretKey,
@@ -120,7 +210,6 @@ pub fn generate_kfrags(
     sign_receiving_key: bool,
 ) -> Vec<KeyFrag> {
     let backend_kfrags = umbral_pre::generate_kfrags(
-        &params.backend,
         &delegating_sk.backend,
         &receiving_pk.backend,
         &signing_sk.backend,
@@ -148,16 +237,31 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
-        signing_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
+        signing_pk: &PublicKey,
+        metadata: Option<&[u8]>,
     ) -> bool {
         self.backend.verify(
             &capsule.backend,
-            &signing_pk.backend,
             &delegating_pk.backend,
             &receiving_pk.backend,
+            &signing_pk.backend,
+            metadata,
         )
+    }
+
+    pub fn __bytes__(&self, py: Python) -> PyObject {
+        let serialized = self.backend.to_array();
+        PyBytes::new(py, serialized.as_slice()).into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        let backend_cfrag = umbral_pre::CapsuleFrag::from_bytes(bytes)?;
+        Some(Self {
+            backend: backend_cfrag,
+        })
     }
 }
 
@@ -197,15 +301,15 @@ pub fn decrypt_reencrypted(
 #[pymodule]
 fn _umbral(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
+    m.add_class::<SecretKeyFactory>()?;
     m.add_class::<PublicKey>()?;
-    m.add_class::<Parameters>()?;
-    m.add_function(wrap_pyfunction!(encrypt, m)?).unwrap();
-    m.add_function(wrap_pyfunction!(decrypt_original, m)?)
-        .unwrap();
-    m.add_function(wrap_pyfunction!(generate_kfrags, m)?)
-        .unwrap();
-    m.add_function(wrap_pyfunction!(reencrypt, m)?).unwrap();
-    m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)
-        .unwrap();
+    m.add_class::<Capsule>()?;
+    m.add_class::<KeyFrag>()?;
+    m.add_class::<CapsuleFrag>()?;
+    m.add_function(wrap_pyfunction!(encrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(decrypt_original, m)?)?;
+    m.add_function(wrap_pyfunction!(generate_kfrags, m)?)?;
+    m.add_function(wrap_pyfunction!(reencrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)?;
     Ok(())
 }

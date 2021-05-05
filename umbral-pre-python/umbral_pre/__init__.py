@@ -1,7 +1,10 @@
 from ._umbral import (
     SecretKey,
+    SecretKeyFactory,
     PublicKey,
-    Parameters,
+    Capsule,
+    KeyFrag,
+    CapsuleFrag,
     encrypt,
     decrypt_original,
     decrypt_reencrypted,

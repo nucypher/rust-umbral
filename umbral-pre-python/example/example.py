@@ -21,10 +21,8 @@ bob_pk = umbral_pre.PublicKey.from_secret_key(bob_sk)
 # Note that anyone with Alice's public key
 # can perform this operation.
 
-params = umbral_pre.Parameters()
 plaintext = b"peace at dawn"
-capsule, ciphertext = umbral_pre.encrypt(
-    params, alice_pk, plaintext)
+capsule, ciphertext = umbral_pre.encrypt(alice_pk, plaintext)
 
 # Since data was encrypted with Alice's public key,
 # Alice can open the capsule and decrypt the ciphertext
@@ -43,7 +41,7 @@ m = 2 # how many should be enough to decrypt
 
 # Split Re-Encryption Key Generation (aka Delegation)
 kfrags = umbral_pre.generate_kfrags(
-    params, alice_sk, bob_pk, signing_sk, m, n,
+    alice_sk, bob_pk, signing_sk, m, n,
     True, # add the delegating key (alice_pk) to the signature
     True, # add the receiving key (bob_pk) to the signature
 )
@@ -61,15 +59,15 @@ kfrags = umbral_pre.generate_kfrags(
 # Ursulas can optionally check that the received kfrags
 # are valid and perform the reencryption.
 
-metadata = b"metadata"
-
 # Ursula 0
+metadata0 = b"metadata0"
 assert kfrags[0].verify(signing_pk, alice_pk, bob_pk)
-cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0], metadata)
+cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0], metadata0)
 
 # Ursula 1
+metadata1 = b"metadata1"
 assert kfrags[1].verify(signing_pk, alice_pk, bob_pk)
-cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata)
+cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata1)
 
 # ...
 
@@ -77,8 +75,8 @@ cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata)
 # and then decrypts the re-encrypted ciphertext.
 
 # Bob can optionally check that cfrags are valid
-assert cfrag0.verify(capsule, alice_pk, bob_pk, signing_pk)
-assert cfrag1.verify(capsule, alice_pk, bob_pk, signing_pk)
+assert cfrag0.verify(capsule, alice_pk, bob_pk, signing_pk, metadata0)
+assert cfrag1.verify(capsule, alice_pk, bob_pk, signing_pk, metadata1)
 
 # Decryption by Bob
 plaintext_bob = umbral_pre.decrypt_reencrypted(

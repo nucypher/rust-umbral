@@ -1,7 +1,7 @@
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey};
-use crate::hashing::ScalarDigest;
-use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret};
+use crate::curve::{CurvePoint, CurveScalar};
+use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
+use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::traits::SerializableToArray;
 
@@ -20,44 +20,45 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-type ParametersSize = <Parameters as SerializableToArray>::Size;
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type CapsuleSize = op!(ParametersSize + PointSize + PointSize + ScalarSize);
+type CapsuleSize = op!(PointSize + PointSize + ScalarSize);
 
 impl SerializableToArray for Capsule {
     type Size = CapsuleSize;
 
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.params
+        self.point_e
             .to_array()
-            .concat(self.point_e.to_array())
             .concat(self.point_v.to_array())
             .concat(self.signature.to_array())
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        let (params, rest) = Parameters::take(*arr)?;
-        let (point_e, rest) = CurvePoint::take(rest)?;
+        let (point_e, rest) = CurvePoint::take(*arr)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
         let signature = CurveScalar::take_last(rest)?;
-        Self::new_verified(params, point_e, point_v, signature)
+        Self::new_verified(point_e, point_v, signature)
     }
 }
 
 impl Capsule {
-    pub(crate) fn new_verified(
-        params: Parameters,
-        point_e: CurvePoint,
-        point_v: CurvePoint,
-        signature: CurveScalar,
-    ) -> Option<Self> {
-        let capsule = Self {
+    fn new(point_e: CurvePoint, point_v: CurvePoint, signature: CurveScalar) -> Self {
+        let params = Parameters::new();
+        Self {
             params,
             point_e,
             point_v,
             signature,
-        };
+        }
+    }
+
+    pub(crate) fn new_verified(
+        point_e: CurvePoint,
+        point_v: CurvePoint,
+        signature: CurveScalar,
+    ) -> Option<Self> {
+        let capsule = Self::new(point_e, point_v, signature);
         match capsule.verify() {
             false => None,
             true => Some(capsule),
@@ -67,15 +68,12 @@ impl Capsule {
     /// Verifies the integrity of the capsule.
     fn verify(&self) -> bool {
         let g = CurvePoint::generator();
-        let h = ScalarDigest::new()
-            .chain_point(&self.point_e)
-            .chain_point(&self.point_v)
-            .finalize();
+        let h = hash_capsule_points(&self.point_e, &self.point_v);
         &g * &self.signature == &self.point_v + &(&self.point_e * &h)
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    pub(crate) fn from_pubkey(params: &Parameters, pk: &PublicKey) -> (Capsule, CurvePoint) {
+    pub(crate) fn from_public_key(pk: &PublicKey) -> (Capsule, CurvePoint) {
         let g = CurvePoint::generator();
 
         let priv_r = CurveScalar::random_nonzero();
@@ -84,18 +82,13 @@ impl Capsule {
         let priv_u = CurveScalar::random_nonzero();
         let pub_u = &g * &priv_u;
 
-        let h = ScalarDigest::new().chain_points(&[pub_r, pub_u]).finalize();
+        let h = hash_capsule_points(&pub_r, &pub_u);
 
         let s = &priv_u + &(&priv_r * &h);
 
         let shared_key = &pk.to_point() * &(&priv_r + &priv_u);
 
-        let capsule = Self {
-            params: *params,
-            point_e: pub_r,
-            point_v: pub_u,
-            signature: s,
-        };
+        let capsule = Self::new(pub_r, pub_u, s);
 
         (capsule, shared_key)
     }
@@ -145,10 +138,8 @@ impl Capsule {
         // Secret value 'd' allows to make Umbral non-interactive
         let d = hash_to_shared_secret(&precursor, &pub_key, &dh_point);
 
-        let e = self.point_e;
-        let v = self.point_v;
         let s = self.signature;
-        let h = ScalarDigest::new().chain_points(&[e, v]).finalize();
+        let h = hash_capsule_points(&self.point_e, &self.point_v);
 
         let orig_pub_key = delegating_pk.to_point();
 
@@ -188,19 +179,16 @@ mod tests {
 
     use super::Capsule;
     use crate::{
-        encrypt, generate_kfrags, reencrypt, CapsuleFrag, Parameters, PublicKey, SecretKey,
-        SerializableToArray,
+        encrypt, generate_kfrags, reencrypt, CapsuleFrag, PublicKey, SecretKey, SerializableToArray,
     };
 
     #[test]
     fn test_serialize() {
-        let params = Parameters::new();
-
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let plaintext = b"peace at dawn";
-        let (capsule, _ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+        let (capsule, _ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
 
         let capsule_arr = capsule.to_array();
         let capsule_back = Capsule::from_array(&capsule_arr).unwrap();
@@ -209,8 +197,6 @@ mod tests {
 
     #[test]
     fn test_open_reencrypted() {
-        let params = Parameters::new();
-
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
@@ -219,18 +205,9 @@ mod tests {
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
-        let (capsule, key_seed) = Capsule::from_pubkey(&params, &delegating_pk);
+        let (capsule, key_seed) = Capsule::from_public_key(&delegating_pk);
 
-        let kfrags = generate_kfrags(
-            &params,
-            &delegating_sk,
-            &receiving_pk,
-            &signing_sk,
-            2,
-            3,
-            true,
-            true,
-        );
+        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
 
         let cfrags: Vec<CapsuleFrag> = kfrags
             .iter()
@@ -248,16 +225,7 @@ mod tests {
             .is_none());
 
         // Mismatched cfrags - each `generate_kfrags()` uses new randoms.
-        let kfrags2 = generate_kfrags(
-            &params,
-            &delegating_sk,
-            &receiving_pk,
-            &signing_sk,
-            2,
-            3,
-            true,
-            true,
-        );
+        let kfrags2 = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
 
         let cfrags2: Vec<CapsuleFrag> = kfrags2
             .iter()
@@ -274,7 +242,7 @@ mod tests {
             .is_none());
 
         // Mismatched capsule
-        let (capsule2, _key_seed) = Capsule::from_pubkey(&params, &delegating_pk);
+        let (capsule2, _key_seed) = Capsule::from_public_key(&delegating_pk);
         assert!(capsule2
             .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
             .is_none());

@@ -36,23 +36,6 @@ impl PublicKey {
 }
 
 #[wasm_bindgen]
-pub struct Parameters(umbral_pre::Parameters);
-
-#[wasm_bindgen]
-impl Parameters {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        Self(umbral_pre::Parameters::new())
-    }
-}
-
-impl Default for Parameters {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct Capsule(umbral_pre::Capsule);
 
@@ -83,12 +66,16 @@ impl CapsuleFrag {
         signing_pubkey: &PublicKey,
         delegating_pubkey: &PublicKey,
         receiving_pubkey: &PublicKey,
+        metadata: Option<Box<[u8]>>,
     ) -> bool {
+        // feels like there should be a better way...
+        let metadata_ref: Option<&[u8]> = metadata.as_ref().map(|s| s.as_ref());
         self.0.verify(
             &capsule.0,
             &signing_pubkey.0,
             &delegating_pubkey.0,
             &receiving_pubkey.0,
+            metadata_ref,
         )
     }
 }
@@ -154,15 +141,9 @@ impl EncryptionResult {
 }
 
 #[wasm_bindgen]
-pub fn encrypt(
-    params: &Parameters,
-    alice_pubkey: &PublicKey,
-    plaintext: &[u8],
-) -> Option<EncryptionResult> {
-    let backend_params = params.0;
+pub fn encrypt(alice_pubkey: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
     let backend_pubkey = alice_pubkey.0;
-    let (capsule, ciphertext) =
-        umbral_pre::encrypt(&backend_params, &backend_pubkey, plaintext).unwrap();
+    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pubkey, plaintext).unwrap();
     Some(EncryptionResult::new(ciphertext, Capsule(capsule)))
 }
 
@@ -234,7 +215,6 @@ impl KeyFrag {
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn generate_kfrags(
-    params: &Parameters,
     delegating_sk: &SecretKey,
     receiving_pubkey: &PublicKey,
     signing_sk: &SecretKey,
@@ -244,7 +224,6 @@ pub fn generate_kfrags(
     sign_receiving_key: bool,
 ) -> Vec<JsValue> {
     let backend_kfrags = umbral_pre::generate_kfrags(
-        &params.0,
         &delegating_sk.0,
         &receiving_pubkey.0,
         &signing_sk.0,

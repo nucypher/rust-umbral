@@ -4,7 +4,8 @@ use generic_array::GenericArray;
 use sha2::Sha256;
 use typenum::U1;
 
-use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
+use crate::curve::{CurvePoint, CurveScalar};
+use crate::keys::{PublicKey, SecretKey, Signature};
 use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data with the given domain separation tag
@@ -24,21 +25,16 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
     // and it is always the same.
     let sign_prefix = GenericArray::<u8, U1>::from_slice(&[2u8]);
 
-    let dst_len = (dst.len() as u32).to_be_bytes();
     let data_len = (data.len() as u32).to_be_bytes();
 
     // We use an internal 32-bit counter as additional input
     let mut i = 0u32;
     while i < <u32>::MAX {
-        let ibytes = (i as u32).to_be_bytes();
-
-        let mut digest = Sha256::new();
-        digest.update(&dst_len);
-        digest.update(dst);
-        digest.update(&data_len);
-        digest.update(data);
-        digest.update(&ibytes);
-        let result = digest.finalize();
+        let result = BytesDigest::new_with_dst(dst)
+            .chain_bytes(&data_len)
+            .chain_bytes(data)
+            .chain_bytes(&i.to_be_bytes())
+            .finalize();
 
         // Set the sign byte
         let maybe_point_bytes = sign_prefix.concat(result);
@@ -56,27 +52,40 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
     None
 }
 
-pub(crate) struct ScalarDigest(Sha256);
+// Wraps Sha256 for easier replacement, and standardizes the use of DST.
+struct Hash(Sha256);
 
-impl ScalarDigest {
-    pub fn new() -> Self {
-        Self(Sha256::new())
-    }
+// Can't be put in the `impl` in the current version of Rust.
+pub type HashOutputSize = <Sha256 as Digest>::OutputSize;
 
-    pub fn new_with_dst(bytes: &[u8]) -> Self {
-        Self::new().chain_bytes(bytes)
-    }
-
-    fn chain_impl(self, bytes: &[u8]) -> Self {
-        Self(digest::Digest::chain(self.0, bytes))
+impl Hash {
+    pub fn new_with_dst(dst: &[u8]) -> Self {
+        let dst_len = (dst.len() as u32).to_be_bytes();
+        Self(Sha256::new()).chain_bytes(dst_len).chain_bytes(dst)
     }
 
     pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
-        self.chain_impl(bytes.as_ref())
+        Self(self.0.chain(bytes.as_ref()))
+    }
+
+    pub fn digest(self) -> Sha256 {
+        self.0
+    }
+}
+
+pub(crate) struct ScalarDigest(Hash);
+
+impl ScalarDigest {
+    pub fn new_with_dst(dst: &[u8]) -> Self {
+        Self(Hash::new_with_dst(dst))
+    }
+
+    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
+        Self(self.0.chain_bytes(bytes))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        self.chain_impl(&point.to_array())
+        self.chain_bytes(&point.to_array())
     }
 
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {
@@ -89,80 +98,66 @@ impl ScalarDigest {
 
     pub fn finalize(self) -> CurveScalar {
         // TODO (#35): use the standard method when it is available in RustCrypto.
-        CurveScalar::from_digest(self.0)
+        // TODO (#39): Ideally this should return a non-zero scalar.
+        //     (when it does, the loop in `KeyFragFactory::new()` can be removed)
+        CurveScalar::from_digest(self.0.digest())
     }
 }
 
-pub(crate) struct SignatureDigest(Sha256);
+pub(crate) struct SignatureDigest(Hash);
 
 impl SignatureDigest {
-    pub fn new() -> Self {
-        Self(Sha256::new())
-    }
-
-    fn chain_impl(self, bytes: &[u8]) -> Self {
-        Self(digest::Digest::chain(self.0, bytes))
+    pub fn new_with_dst(dst: &[u8]) -> Self {
+        Self(Hash::new_with_dst(dst))
     }
 
     pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
-        self.chain_impl(bytes.as_ref())
+        Self(self.0.chain_bytes(bytes))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        self.chain_impl(&point.to_array())
+        self.chain_bytes(&point.to_array())
     }
 
     pub fn chain_pubkey(self, pk: &PublicKey) -> Self {
-        self.chain_impl(&pk.to_array())
+        self.chain_bytes(&pk.to_array())
     }
 
     pub fn chain_bool(self, val: bool) -> Self {
-        self.chain_impl(&[val as u8])
+        self.chain_bytes(&[val as u8])
     }
 
     pub fn sign(self, sk: &SecretKey) -> Signature {
-        sk.sign_digest(self.0)
+        sk.sign_digest(self.0.digest())
     }
 
     pub fn verify(self, pk: &PublicKey, signature: &Signature) -> bool {
-        pk.verify_digest(self.0, signature)
+        pk.verify_digest(self.0.digest(), signature)
     }
 }
 
-pub(crate) struct BytesDigest(Sha256);
-
-// Can't be put in the `impl` in the current version of Rust.
-pub type BytesDigestOutputSize = <Sha256 as Digest>::OutputSize;
+pub(crate) struct BytesDigest(Hash);
 
 impl BytesDigest {
-    fn new() -> Self {
-        Self(Sha256::new())
+    pub fn new_with_dst(dst: &[u8]) -> Self {
+        Self(Hash::new_with_dst(dst))
     }
 
-    pub fn new_with_dst(bytes: &[u8]) -> Self {
-        Self::new().chain_bytes(bytes)
+    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
+        Self(self.0.chain_bytes(bytes))
     }
 
-    fn chain_impl(self, bytes: &[u8]) -> Self {
-        Self(digest::Digest::chain(self.0, bytes))
-    }
-
-    pub fn chain_bytes(self, bytes: &[u8]) -> Self {
-        self.chain_impl(bytes)
-    }
-
-    pub fn finalize(self) -> GenericArray<u8, BytesDigestOutputSize> {
-        self.0.finalize()
+    pub fn finalize(self) -> GenericArray<u8, HashOutputSize> {
+        self.0.digest().finalize()
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::{
-        unsafe_hash_to_point, BytesDigest, BytesDigestOutputSize, ScalarDigest, SignatureDigest,
-    };
-    use crate::curve::{CurvePoint, CurveScalar, PublicKey, SecretKey, Signature};
+    use super::{unsafe_hash_to_point, BytesDigest, HashOutputSize, ScalarDigest, SignatureDigest};
+    use crate::curve::{CurvePoint, CurveScalar};
+    use crate::keys::{PublicKey, SecretKey, Signature};
     use generic_array::GenericArray;
 
     #[test]
@@ -188,21 +183,27 @@ mod tests {
         let p2 = &p1 + &p1;
         let bytes: &[u8] = b"foobar";
 
-        let s: CurveScalar = ScalarDigest::new()
+        let s: CurveScalar = ScalarDigest::new_with_dst(b"abc")
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
             .finalize();
-        let s_same: CurveScalar = ScalarDigest::new()
+        let s_same: CurveScalar = ScalarDigest::new_with_dst(b"abc")
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
             .finalize();
         assert_eq!(s, s_same);
 
-        let s_diff: CurveScalar = ScalarDigest::new()
+        let s_diff: CurveScalar = ScalarDigest::new_with_dst(b"abc")
             .chain_points(&[p2, p1])
             .chain_bytes(bytes)
             .finalize();
         assert_ne!(s, s_diff);
+
+        let s_diff_tag: CurveScalar = ScalarDigest::new_with_dst(b"def")
+            .chain_points(&[p1, p2])
+            .chain_bytes(bytes)
+            .finalize();
+        assert_ne!(s, s_diff_tag);
     }
 
     #[test]
@@ -216,14 +217,14 @@ mod tests {
         let signing_sk = SecretKey::random();
         let signing_pk = PublicKey::from_secret_key(&signing_sk);
 
-        let signature: Signature = SignatureDigest::new()
+        let signature: Signature = SignatureDigest::new_with_dst(b"abc")
             .chain_point(&p2)
             .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .sign(&signing_sk);
 
-        let same_values_same_key = SignatureDigest::new()
+        let same_values_same_key = SignatureDigest::new_with_dst(b"abc")
             .chain_point(&p2)
             .chain_bytes(&bytes)
             .chain_bool(b)
@@ -231,23 +232,29 @@ mod tests {
             .verify(&signing_pk, &signature);
         assert!(same_values_same_key);
 
-        let same_values_different_key = SignatureDigest::new()
+        let same_values_different_key = SignatureDigest::new_with_dst(b"abc")
             .chain_point(&p2)
             .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&pk, &signature);
-
         assert!(!same_values_different_key);
 
-        let different_values_same_key = SignatureDigest::new()
+        let different_values_same_key = SignatureDigest::new_with_dst(b"abc")
             .chain_point(&p1)
             .chain_bytes(&bytes)
             .chain_bool(b)
             .chain_pubkey(&pk)
             .verify(&signing_pk, &signature);
-
         assert!(!different_values_same_key);
+
+        let same_values_different_tag = SignatureDigest::new_with_dst(b"def")
+            .chain_point(&p2)
+            .chain_bytes(&bytes)
+            .chain_bool(b)
+            .chain_pubkey(&pk)
+            .verify(&signing_pk, &signature);
+        assert!(!same_values_different_tag);
     }
 
     #[test]
@@ -255,14 +262,22 @@ mod tests {
         let bytes: &[u8] = b"foobar";
         let bytes2: &[u8] = b"barbaz";
 
-        let s: GenericArray<u8, BytesDigestOutputSize> =
-            BytesDigest::new().chain_bytes(bytes).finalize();
-        let s_same: GenericArray<u8, BytesDigestOutputSize> =
-            BytesDigest::new().chain_bytes(bytes).finalize();
+        let s: GenericArray<u8, HashOutputSize> = BytesDigest::new_with_dst(b"abc")
+            .chain_bytes(bytes)
+            .finalize();
+        let s_same: GenericArray<u8, HashOutputSize> = BytesDigest::new_with_dst(b"abc")
+            .chain_bytes(bytes)
+            .finalize();
         assert_eq!(s, s_same);
 
-        let s_diff: GenericArray<u8, BytesDigestOutputSize> =
-            BytesDigest::new().chain_bytes(bytes2).finalize();
+        let s_diff: GenericArray<u8, HashOutputSize> = BytesDigest::new_with_dst(b"abc")
+            .chain_bytes(bytes2)
+            .finalize();
         assert_ne!(s, s_diff);
+
+        let s_diff_tag: GenericArray<u8, HashOutputSize> = BytesDigest::new_with_dst(b"def")
+            .chain_bytes(bytes)
+            .finalize();
+        assert_ne!(s, s_diff_tag);
     }
 }

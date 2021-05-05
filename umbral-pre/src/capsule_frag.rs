@@ -1,46 +1,13 @@
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::curve::{PublicKey, Signature};
-use crate::hashing::{ScalarDigest, SignatureDigest};
-use crate::hashing_ds::hash_metadata;
+use crate::hashing_ds::{hash_to_cfrag_signature, hash_to_cfrag_verification};
 use crate::key_frag::{KeyFrag, KeyFragID};
+use crate::keys::{PublicKey, Signature};
 use crate::traits::SerializableToArray;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
-use typenum::{op, U32};
-
-// The compiler will ensure that's the array length we are getting from the hash function.
-// Hardcoding here for the purposes of the formal specification.
-type HashedMetadataSize = U32;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct HashedMetadata(GenericArray<u8, HashedMetadataSize>);
-
-impl HashedMetadata {
-    fn new(maybe_metadata: Option<&[u8]>) -> Self {
-        let metadata = maybe_metadata.unwrap_or(b"");
-        Self(hash_metadata(metadata))
-    }
-}
-
-impl AsRef<[u8]> for HashedMetadata {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
-    }
-}
-
-impl SerializableToArray for HashedMetadata {
-    type Size = HashedMetadataSize;
-
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.0
-    }
-
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
-        Some(Self(*arr))
-    }
-}
+use typenum::op;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CapsuleFragProof {
@@ -50,14 +17,13 @@ pub struct CapsuleFragProof {
     kfrag_pok: CurvePoint,
     signature: CurveScalar,
     kfrag_signature: Signature,
-    metadata: HashedMetadata,
 }
 
 type PointSize = <CurvePoint as SerializableToArray>::Size;
 type ScalarSize = <CurveScalar as SerializableToArray>::Size;
 type SignatureSize = <Signature as SerializableToArray>::Size;
 type CapsuleFragProofSize =
-    op!(PointSize + PointSize + PointSize + PointSize + ScalarSize + SignatureSize + ScalarSize);
+    op!(PointSize + PointSize + PointSize + PointSize + ScalarSize + SignatureSize);
 
 impl SerializableToArray for CapsuleFragProof {
     type Size = CapsuleFragProofSize;
@@ -70,7 +36,6 @@ impl SerializableToArray for CapsuleFragProof {
             .concat(self.kfrag_pok.to_array())
             .concat(self.signature.to_array())
             .concat(self.kfrag_signature.to_array())
-            .concat(self.metadata.to_array())
     }
 
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Option<Self> {
@@ -79,8 +44,7 @@ impl SerializableToArray for CapsuleFragProof {
         let (kfrag_commitment, rest) = CurvePoint::take(rest)?;
         let (kfrag_pok, rest) = CurvePoint::take(rest)?;
         let (signature, rest) = CurveScalar::take(rest)?;
-        let (kfrag_signature, rest) = Signature::take(rest)?;
-        let metadata = HashedMetadata::take_last(rest)?;
+        let kfrag_signature = Signature::take_last(rest)?;
         Some(Self {
             point_e2,
             point_v2,
@@ -88,7 +52,6 @@ impl SerializableToArray for CapsuleFragProof {
             kfrag_pok,
             signature,
             kfrag_signature,
-            metadata,
         })
     }
 }
@@ -100,7 +63,7 @@ impl CapsuleFragProof {
         kfrag: &KeyFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
-        metadata: &HashedMetadata,
+        metadata: Option<&[u8]>,
     ) -> Self {
         let params = capsule.params;
 
@@ -122,10 +85,7 @@ impl CapsuleFragProof {
         let v2 = &v * &t;
         let u2 = &u * &t;
 
-        let h = ScalarDigest::new()
-            .chain_points(&[e, *e1, e2, v, *v1, v2, u, u1, u2])
-            .chain_bytes(metadata)
-            .finalize();
+        let h = hash_to_cfrag_verification(&[e, *e1, e2, v, *v1, v2, u, u1, u2], metadata);
 
         ////////
 
@@ -137,8 +97,7 @@ impl CapsuleFragProof {
             kfrag_commitment: u1,
             kfrag_pok: u2,
             signature: z3,
-            kfrag_signature: kfrag.proof.signature_for_bob(),
-            metadata: *metadata,
+            kfrag_signature: kfrag.proof.signature_for_receiver(),
         }
     }
 }
@@ -184,16 +143,11 @@ impl SerializableToArray for CapsuleFrag {
 }
 
 impl CapsuleFrag {
-    pub(crate) fn reencrypted(
-        capsule: &Capsule,
-        kfrag: &KeyFrag,
-        maybe_metadata: Option<&[u8]>,
-    ) -> Self {
+    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
-        let metadata = HashedMetadata::new(maybe_metadata);
-        let proof = CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, &metadata);
+        let proof = CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, metadata);
 
         Self {
             point_e1: e1,
@@ -212,6 +166,7 @@ impl CapsuleFrag {
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
         signing_pk: &PublicKey,
+        metadata: Option<&[u8]>,
     ) -> bool {
         let params = capsule.params;
 
@@ -231,23 +186,21 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        let h = ScalarDigest::new()
-            .chain_points(&[e, e1, e2, v, v1, v2, u, u1, u2])
-            .chain_bytes(&self.proof.metadata)
-            .finalize();
+        let h = hash_to_cfrag_verification(&[e, e1, e2, v, v1, v2, u, u1, u2], metadata);
 
         ///////
 
         let precursor = self.precursor;
         let kfrag_id = self.kfrag_id;
 
-        let valid_kfrag_signature = SignatureDigest::new()
-            .chain_bytes(&kfrag_id)
-            .chain_pubkey(delegating_pk)
-            .chain_pubkey(receiving_pk)
-            .chain_point(&u1)
-            .chain_point(&precursor)
-            .verify(signing_pk, &self.proof.kfrag_signature);
+        let valid_kfrag_signature = hash_to_cfrag_signature(
+            &kfrag_id,
+            &u1,
+            &precursor,
+            Some(delegating_pk),
+            Some(receiving_pk),
+        )
+        .verify(signing_pk, &self.proof.kfrag_signature);
 
         let z3 = self.proof.signature;
         let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);
@@ -269,13 +222,17 @@ mod tests {
 
     use super::CapsuleFrag;
     use crate::{
-        encrypt, generate_kfrags, reencrypt, Capsule, Parameters, PublicKey, SecretKey,
-        SerializableToArray,
+        encrypt, generate_kfrags, reencrypt, Capsule, PublicKey, SecretKey, SerializableToArray,
     };
 
-    fn prepare_cfrags() -> (PublicKey, PublicKey, PublicKey, Capsule, Box<[CapsuleFrag]>) {
-        let params = Parameters::new();
-
+    fn prepare_cfrags() -> (
+        PublicKey,
+        PublicKey,
+        PublicKey,
+        Capsule,
+        Box<[CapsuleFrag]>,
+        Box<[u8]>,
+    ) {
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
@@ -286,22 +243,14 @@ mod tests {
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         let plaintext = b"peace at dawn";
-        let (capsule, _ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+        let (capsule, _ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
 
-        let kfrags = generate_kfrags(
-            &params,
-            &delegating_sk,
-            &receiving_pk,
-            &signing_sk,
-            2,
-            3,
-            true,
-            true,
-        );
+        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
 
+        let metadata = b"metadata";
         let cfrags: Vec<CapsuleFrag> = kfrags
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .map(|kfrag| reencrypt(&capsule, &kfrag, Some(metadata)))
             .collect();
 
         (
@@ -310,12 +259,13 @@ mod tests {
             signing_pk,
             capsule,
             cfrags.into_boxed_slice(),
+            Box::new(*metadata),
         )
     }
 
     #[test]
     fn test_serialize() {
-        let (_, _, _, _, cfrags) = prepare_cfrags();
+        let (_, _, _, _, cfrags, _) = prepare_cfrags();
         let cfrag_arr = cfrags[0].to_array();
         let cfrag_back = CapsuleFrag::from_array(&cfrag_arr).unwrap();
         assert_eq!(cfrags[0], cfrag_back);
@@ -323,12 +273,13 @@ mod tests {
 
     #[test]
     fn test_verify() {
-        let (delegating_pk, receiving_pk, signing_pk, capsule, cfrags) = prepare_cfrags();
+        let (delegating_pk, receiving_pk, signing_pk, capsule, cfrags, metadata) = prepare_cfrags();
         assert!(cfrags.iter().all(|cfrag| cfrag.verify(
             &capsule,
             &delegating_pk,
             &receiving_pk,
             &signing_pk,
+            Some(&metadata)
         )));
     }
 }

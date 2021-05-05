@@ -2,10 +2,9 @@
 
 use crate::capsule::Capsule;
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{PublicKey, SecretKey};
-use crate::dem::UmbralDEM;
+use crate::dem::DEM;
 use crate::key_frag::KeyFrag;
-use crate::params::Parameters;
+use crate::keys::{PublicKey, SecretKey};
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
@@ -13,13 +12,9 @@ use alloc::boxed::Box;
 /// Encrypts the given plaintext message using a DEM scheme,
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
-pub fn encrypt(
-    params: &Parameters,
-    pk: &PublicKey,
-    plaintext: &[u8],
-) -> Option<(Capsule, Box<[u8]>)> {
-    let (capsule, key_seed) = Capsule::from_pubkey(params, pk);
-    let dem = UmbralDEM::new(&key_seed.to_array());
+pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<(Capsule, Box<[u8]>)> {
+    let (capsule, key_seed) = Capsule::from_public_key(pk);
+    let dem = DEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
     let ciphertext = dem.encrypt(plaintext, &capsule_bytes)?;
     Some((capsule, ciphertext))
@@ -33,7 +28,7 @@ pub fn decrypt_original(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_original(decrypting_sk);
-    let dem = UmbralDEM::new(&key_seed.to_array());
+    let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
@@ -65,22 +60,20 @@ pub fn decrypt_reencrypted(
     ciphertext: impl AsRef<[u8]>,
 ) -> Option<Box<[u8]>> {
     let key_seed = capsule.open_reencrypted(decrypting_sk, delegating_pk, cfrags)?;
-    let dem = UmbralDEM::new(&key_seed.to_array());
+    let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())
 }
 
 #[cfg(test)]
 mod tests {
 
-    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
-
-    use crate::key_frag::generate_kfrags;
-
-    use crate::capsule_frag::CapsuleFrag;
-
     use alloc::vec::Vec;
 
-    use crate::{Parameters, PublicKey, SecretKey};
+    use crate::capsule_frag::CapsuleFrag;
+    use crate::key_frag::generate_kfrags;
+    use crate::{PublicKey, SecretKey};
+
+    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
     #[test]
     fn test_simple_api() {
@@ -97,9 +90,6 @@ mod tests {
         let threshold: usize = 2;
         let num_frags: usize = threshold + 1;
 
-        // Generation of global parameters
-        let params = Parameters::new();
-
         // Key Generation (Alice)
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
@@ -113,7 +103,7 @@ mod tests {
 
         // Encryption by an unnamed data source
         let plaintext = b"peace at dawn";
-        let (capsule, ciphertext) = encrypt(&params, &delegating_pk, plaintext).unwrap();
+        let (capsule, ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
 
         // Decryption by Alice
         let plaintext_alice = decrypt_original(&delegating_sk, &capsule, &ciphertext).unwrap();
@@ -121,7 +111,6 @@ mod tests {
 
         // Split Re-Encryption Key Generation (aka Delegation)
         let kfrags = generate_kfrags(
-            &params,
             &delegating_sk,
             &receiving_pk,
             &signing_sk,
@@ -139,9 +128,10 @@ mod tests {
         )));
 
         // Bob requests re-encryption to some set of `threshold` ursulas
+        let metadata = b"metadata";
         let cfrags: Vec<CapsuleFrag> = kfrags[0..threshold]
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .map(|kfrag| reencrypt(&capsule, &kfrag, Some(metadata)))
             .collect();
 
         // Bob checks that the received cfrags are valid
@@ -150,6 +140,7 @@ mod tests {
             &delegating_pk,
             &receiving_pk,
             &signing_pk,
+            Some(metadata),
         )));
 
         // Decryption by Bob

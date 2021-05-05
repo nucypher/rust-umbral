@@ -31,9 +31,8 @@
 //! // Invocation of `encrypt()` returns both the ciphertext and a capsule.
 //! // Note that anyone with Alice's public key can perform this operation.
 //!
-//! let params = Parameters::new();
 //! let plaintext = b"peace at dawn";
-//! let (capsule, ciphertext) = encrypt(&params, &alice_pk, plaintext).unwrap();
+//! let (capsule, ciphertext) = encrypt(&alice_pk, plaintext).unwrap();
 //!
 //! // Since data was encrypted with Alice's public key, Alice can open the capsule
 //! // and decrypt the ciphertext with her private key.
@@ -47,7 +46,7 @@
 //!
 //! let n = 3; // how many fragments to create
 //! let m = 2; // how many should be enough to decrypt
-//! let kfrags = generate_kfrags(&params, &alice_sk, &bob_pk, &signing_sk, m, n, true, true);
+//! let kfrags = generate_kfrags(&alice_sk, &bob_pk, &signing_sk, m, n, true, true);
 //!
 //! // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 //! // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -61,11 +60,13 @@
 //!
 //! // Ursula 0
 //! assert!(kfrags[0].verify(&signing_pk, Some(&alice_pk), Some(&bob_pk)));
-//! let cfrag0 = reencrypt(&capsule, &kfrags[0], None);
+//! let metadata0 = b"metadata0";
+//! let cfrag0 = reencrypt(&capsule, &kfrags[0], Some(metadata0));
 //!
 //! // Ursula 1
 //! assert!(kfrags[1].verify(&signing_pk, Some(&alice_pk), Some(&bob_pk)));
-//! let cfrag1 = reencrypt(&capsule, &kfrags[1], None);
+//! let metadata1 = b"metadata1";
+//! let cfrag1 = reencrypt(&capsule, &kfrags[1], Some(metadata1));
 //!
 //! // ...
 //!
@@ -73,8 +74,8 @@
 //! // and then decrypts the re-encrypted ciphertext.
 //!
 //! // Bob can optionally check that cfrags are valid
-//! assert!(cfrag0.verify(&capsule, &alice_pk, &bob_pk, &signing_pk));
-//! assert!(cfrag1.verify(&capsule, &alice_pk, &bob_pk, &signing_pk));
+//! assert!(cfrag0.verify(&capsule, &alice_pk, &bob_pk, &signing_pk, Some(metadata0)));
+//! assert!(cfrag1.verify(&capsule, &alice_pk, &bob_pk, &signing_pk, Some(metadata1)));
 //!
 //! let plaintext_bob = decrypt_reencrypted(
 //!     &bob_sk, &alice_pk, &capsule, &[cfrag0, cfrag1], &ciphertext).unwrap();
@@ -90,9 +91,6 @@
 
 extern crate alloc;
 
-#[macro_use]
-extern crate typenum;
-
 pub mod bench; // Re-export some internals for benchmarks.
 mod capsule;
 mod capsule_frag;
@@ -101,6 +99,7 @@ mod dem;
 mod hashing;
 mod hashing_ds;
 mod key_frag;
+mod keys;
 mod params;
 mod pre;
 mod traits;
@@ -110,7 +109,6 @@ pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
 
 pub use capsule::Capsule;
 pub use capsule_frag::CapsuleFrag;
-pub use curve::{PublicKey, SecretKey};
 pub use key_frag::KeyFrag;
-pub use params::Parameters;
+pub use keys::{PublicKey, SecretKey, SecretKeyFactory};
 pub use traits::SerializableToArray;
