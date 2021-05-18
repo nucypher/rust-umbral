@@ -175,7 +175,7 @@ impl SerializableToArray for PublicKey {
 impl DeserializableFromArray for PublicKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let cp = CurvePoint::from_array(&arr)?;
-        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine())
+        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
             .or(Err(DeserializationError::ConstructionFailure))?;
         Ok(Self(backend_pk))
     }

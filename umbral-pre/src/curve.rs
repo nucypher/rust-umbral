@@ -112,7 +112,7 @@ impl CurvePoint {
         Self(BackendPoint::identity())
     }
 
-    pub(crate) fn to_affine(&self) -> BackendPointAffine {
+    pub(crate) fn to_affine_point(&self) -> BackendPointAffine {
         self.0.to_affine()
     }
 
