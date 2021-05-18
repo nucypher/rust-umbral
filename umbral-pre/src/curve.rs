@@ -5,10 +5,11 @@
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 use digest::Digest;
+use ecdsa::hazmat::FromDigest;
 use elliptic_curve::ff::PrimeField;
-use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
-use elliptic_curve::{AffinePoint, Curve, FromDigest, ProjectiveArithmetic, Scalar};
+use elliptic_curve::NonZeroScalar;
+use elliptic_curve::{AffinePoint, Curve, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;

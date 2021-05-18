@@ -64,9 +64,6 @@ fn hash<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(obj: &T) 
     })
 }
 
-// For some reason this lint is not recognized in Rust 1.46 (the one in CI)
-// remove when CI is updated to a newer Rust version.
-#[allow(clippy::unknown_clippy_lints)]
 #[allow(clippy::unnecessary_wraps)] // Don't want to wrap it in Ok() on every call
 fn hexstr<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(
     obj: &T,

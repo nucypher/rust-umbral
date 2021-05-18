@@ -14,8 +14,10 @@ use generic_array::GenericArray;
 use rand_core::{OsRng, RngCore};
 use typenum::{op, U32};
 
+#[allow(clippy::upper_case_acronyms)]
 type KeyFragIDSize = U32;
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct KeyFragID(GenericArray<u8, KeyFragIDSize>);
 
