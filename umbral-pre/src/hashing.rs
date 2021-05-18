@@ -52,23 +52,30 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
     None
 }
 
-// Wraps Sha256 for easier replacement, and standardizes the use of DST.
-struct Hash(Sha256);
+// Our hash of choice.
+pub(crate) type BackendDigest = Sha256;
+
+// Wraps BackendDigest for easier replacement, and standardizes the use of DST.
+pub(crate) struct Hash(BackendDigest);
 
 // Can't be put in the `impl` in the current version of Rust.
-pub type HashOutputSize = <Sha256 as Digest>::OutputSize;
+pub type HashOutputSize = <BackendDigest as Digest>::OutputSize;
 
 impl Hash {
+    pub fn new() -> Self {
+        Self(BackendDigest::new())
+    }
+
     pub fn new_with_dst(dst: &[u8]) -> Self {
         let dst_len = (dst.len() as u32).to_be_bytes();
-        Self(Sha256::new()).chain_bytes(dst_len).chain_bytes(dst)
+        Self::new().chain_bytes(dst_len).chain_bytes(dst)
     }
 
     pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
         Self(self.0.chain(bytes.as_ref()))
     }
 
-    pub fn digest(self) -> Sha256 {
+    pub fn digest(self) -> BackendDigest {
         self.0
     }
 }

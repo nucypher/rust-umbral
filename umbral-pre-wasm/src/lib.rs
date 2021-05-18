@@ -36,6 +36,35 @@ impl PublicKey {
 }
 
 #[wasm_bindgen]
+pub struct Signer(umbral_pre::Signer);
+
+#[wasm_bindgen]
+impl Signer {
+    #[wasm_bindgen(constructor)]
+    pub fn new(secret_key: &SecretKey) -> Self {
+        Self(umbral_pre::Signer::new(&secret_key.0))
+    }
+
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        Signature(self.0.sign(message))
+    }
+
+    pub fn verifying_key(&self) -> PublicKey {
+        PublicKey(self.0.verifying_key())
+    }
+}
+
+#[wasm_bindgen]
+pub struct Signature(umbral_pre::Signature);
+
+#[wasm_bindgen]
+impl Signature {
+    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
+        self.0.verify(&verifying_key.0, message)
+    }
+}
+
+#[wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct Capsule(umbral_pre::Capsule);
 

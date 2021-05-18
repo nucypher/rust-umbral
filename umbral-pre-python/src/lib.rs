@@ -265,6 +265,104 @@ impl PyObjectProtocol for PublicKey {
 
 #[pyclass(module = "umbral")]
 #[derive(PartialEq)]
+pub struct Signer {
+    backend: umbral_pre::Signer,
+}
+
+impl HasName for Signer {
+    fn name() -> &'static str {
+        "Signer"
+    }
+}
+
+#[pymethods]
+impl Signer {
+    #[new]
+    pub fn new(sk: &SecretKey) -> Self {
+        Self {
+            backend: umbral_pre::Signer::new(&sk.backend),
+        }
+    }
+
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        Signature {
+            backend: self.backend.sign(message),
+        }
+    }
+
+    pub fn verifying_key(&self) -> PublicKey {
+        PublicKey {
+            backend: self.backend.verifying_key(),
+        }
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for Signer {
+    fn __richcmp__(&self, other: PyRef<Signer>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{}:...", Self::name()))
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(PartialEq)]
+pub struct Signature {
+    backend: umbral_pre::Signature,
+}
+
+impl HasSerializableBackend<umbral_pre::Signature> for Signature {
+    fn as_backend(&self) -> &umbral_pre::Signature {
+        &self.backend
+    }
+
+    fn from_backend(backend: umbral_pre::Signature) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for Signature {
+    fn name() -> &'static str {
+        "Signature"
+    }
+}
+
+#[pymethods]
+impl Signature {
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
+    }
+
+    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
+        self.backend.verify(&verifying_key.backend, message)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for Signature {
+    fn __richcmp__(&self, other: PyRef<Signature>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct Capsule {
     backend: umbral_pre::Capsule,
 }
@@ -567,6 +665,8 @@ fn _umbral(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<SecretKeyFactory>()?;
     m.add_class::<PublicKey>()?;
+    m.add_class::<Signer>()?;
+    m.add_class::<Signature>()?;
     m.add_class::<Capsule>()?;
     m.add_class::<KeyFrag>()?;
     m.add_class::<CapsuleFrag>()?;

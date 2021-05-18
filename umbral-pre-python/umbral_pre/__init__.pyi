@@ -23,6 +23,24 @@ class PublicKey:
         ...
 
 
+class Signer:
+
+    def __init__(secret_key: SecretKey):
+        ...
+
+    def sign(message: bytes) -> Signature:
+        ...
+
+    def verifying_key() -> PublicKey:
+        ...
+
+
+class Signature:
+
+    def verify(verifying_key: PublicKey, message: bytes) -> bool:
+        ...
+
+
 class Capsule: ...
 
 

@@ -66,6 +66,28 @@ API reference
 
         Returns a hash of self.
 
+.. py:class:: Signer(secret_key: SecretKey)
+
+    An object possessing the capability to create signatures.
+    For safety reasons serialization is prohibited.
+
+    .. py:method:: sign(message: bytes) -> Signature
+
+        Hashes and signs the message.
+
+    .. py:method:: verifying_key() -> PublicKey
+
+        Returns the public verification key corresponding to the secret key used for signing.
+
+.. py:class:: Signature
+
+    Wrapper for ECDSA signatures.
+
+    .. py:method:: verify(verifying_key: PublicKey, message: bytes) -> bool
+
+        Returns ``True`` if the ``message`` was signed by someone possessing the secret counterpart
+        to ``verifying_key``.
+
 .. py:class:: Capsule
 
     An encapsulated symmetric key.

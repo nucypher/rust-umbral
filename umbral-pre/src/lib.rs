@@ -108,6 +108,6 @@ pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::CapsuleFrag;
 pub use dem::{DecryptionError, EncryptionError};
 pub use key_frag::{generate_kfrags, KeyFrag};
-pub use keys::{PublicKey, SecretKey, SecretKeyFactory, SecretKeyFactoryError};
+pub use keys::{PublicKey, SecretKey, SecretKeyFactory, SecretKeyFactoryError, Signature, Signer};
 pub use pre::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt, ReencryptionError};
 pub use traits::{DeserializationError, SerializableToArray};
