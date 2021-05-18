@@ -177,6 +177,7 @@ impl CapsuleFrag {
 
     /// Verifies the integrity of the capsule fragment, given the original capsule,
     /// the encrypting party's key, the decrypting party's key, and the signing key.
+    #[allow(clippy::many_single_char_names)]
     pub fn verify(
         &self,
         capsule: &Capsule,
@@ -224,10 +225,13 @@ impl CapsuleFrag {
             return Err(CapsuleFragVerificationError::IncorrectKeyFragSignature);
         }
 
-        let z3 = self.proof.signature;
-        let correct_reencryption_of_e = &e * &z3 == &e2 + &(&e1 * &h);
-        let correct_reencryption_of_v = &v * &z3 == &v2 + &(&v1 * &h);
-        let correct_rk_commitment = &u * &z3 == &u2 + &(&u1 * &h);
+        // TODO (#46): if one or more of the values here are incorrect,
+        // we'll get the wrong `h` (since they're all hashed into it),
+        // so perhaps it's enough to check only one of these equations.
+        let z = self.proof.signature;
+        let correct_reencryption_of_e = &e * &z == &e2 + &(&e1 * &h);
+        let correct_reencryption_of_v = &v * &z == &v2 + &(&v1 * &h);
+        let correct_rk_commitment = &u * &z == &u2 + &(&u1 * &h);
 
         if !(correct_reencryption_of_e & correct_reencryption_of_v & correct_rk_commitment) {
             return Err(CapsuleFragVerificationError::IncorrectReencryption);
