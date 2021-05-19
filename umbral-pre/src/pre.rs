@@ -1,13 +1,14 @@
 //! The high-level functional reencryption API.
 
 use crate::capsule::{Capsule, OpenReencryptedError};
-use crate::capsule_frag::CapsuleFrag;
+use crate::capsule_frag::VerifiedCapsuleFrag;
 use crate::dem::{DecryptionError, EncryptionError, DEM};
-use crate::key_frag::KeyFrag;
-use crate::keys::{PublicKey, SecretKey};
+use crate::key_frag::{KeyFragBase, VerifiedKeyFrag};
+use crate::keys::{PublicKey, SecretKey, Signer};
 use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 
 /// Errors that can happen when decrypting a reencrypted ciphertext.
 #[derive(Debug, PartialEq)]
@@ -41,15 +42,60 @@ pub fn decrypt_original(
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
+/// Creates `num_kfrags` fragments of `delegating_sk`,
+/// which will be possible to reencrypt to allow the creator of `receiving_pk`
+/// decrypt the ciphertext encrypted with `delegating_sk`.
+///
+/// `threshold` sets the number of fragments necessary for decryption
+/// (that is, fragments created with `threshold > num_frags` will be useless).
+///
+/// `signer` is used to sign the resulting [`KeyFrag`](`crate::KeyFrag`) objects,
+/// which can be later verified by the associated public key.
+///
+/// If `sign_delegating_key` or `sign_receiving_key` are `true`,
+/// the reencrypting party will be able to verify that a [`KeyFrag`](`crate::KeyFrag`)
+/// corresponds to given delegating or receiving public keys
+/// by supplying them to [`KeyFrag::verify()`](`crate::KeyFrag::verify`).
+///
+/// Returns a boxed slice of `num_kfrags` KeyFrags
+#[allow(clippy::too_many_arguments)]
+pub fn generate_kfrags(
+    delegating_sk: &SecretKey,
+    receiving_pk: &PublicKey,
+    signer: &Signer,
+    threshold: usize,
+    num_kfrags: usize,
+    sign_delegating_key: bool,
+    sign_receiving_key: bool,
+) -> Box<[VerifiedKeyFrag]> {
+    let base = KeyFragBase::new(delegating_sk, receiving_pk, signer, threshold);
+
+    let mut result = Vec::<VerifiedKeyFrag>::new();
+    for _ in 0..num_kfrags {
+        result.push(VerifiedKeyFrag::from_base(
+            &base,
+            sign_delegating_key,
+            sign_receiving_key,
+        ));
+    }
+
+    result.into_boxed_slice()
+}
+
 /// Reencrypts a [`Capsule`] object with a key fragment, creating a capsule fragment.
 ///
 /// Having `threshold` (see [`generate_kfrags()`](`crate::generate_kfrags()`))
 /// distinct fragments (along with the original capsule and the corresponding secret key)
 /// allows one to decrypt the original plaintext.
 ///
-/// One can call [`KeyFrag::verify()`] before reencryption to check its integrity.
-pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> CapsuleFrag {
-    CapsuleFrag::reencrypted(capsule, kfrag, metadata)
+/// One can call [`KeyFrag::verify()`](`crate::KeyFrag::verify`)
+/// before reencryption to check its integrity.
+pub fn reencrypt(
+    capsule: &Capsule,
+    verified_kfrag: &VerifiedKeyFrag,
+    metadata: Option<&[u8]>,
+) -> VerifiedCapsuleFrag {
+    VerifiedCapsuleFrag::reencrypted(capsule, &verified_kfrag.kfrag, metadata)
 }
 
 /// Decrypts the ciphertext using previously reencrypted capsule fragments.
@@ -60,16 +106,22 @@ pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) ->
 /// `delegating_pk` is the public key of the encrypting party.
 /// Used to check the validity of decryption.
 ///
-/// One can call [`CapsuleFrag::verify()`] before reencryption to check its integrity.
+/// One can call [`CapsuleFrag::verify()`](`crate::CapsuleFrag::verify`)
+/// before reencryption to check its integrity.
 pub fn decrypt_reencrypted(
     decrypting_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
-    cfrags: &[CapsuleFrag],
+    verified_cfrags: &[VerifiedCapsuleFrag],
     ciphertext: impl AsRef<[u8]>,
 ) -> Result<Box<[u8]>, ReencryptionError> {
+    let cfrags: Vec<_> = verified_cfrags
+        .iter()
+        .cloned()
+        .map(|vcfrag| vcfrag.cfrag)
+        .collect();
     let key_seed = capsule
-        .open_reencrypted(decrypting_sk, delegating_pk, cfrags)
+        .open_reencrypted(decrypting_sk, delegating_pk, &cfrags)
         .map_err(ReencryptionError::OnOpen)?;
     let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())
@@ -81,11 +133,12 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::capsule_frag::CapsuleFrag;
-    use crate::key_frag::generate_kfrags;
-    use crate::{PublicKey, SecretKey};
+    use crate::{
+        CapsuleFrag, DeserializableFromArray, KeyFrag, PublicKey, SecretKey, SerializableToArray,
+        Signer, VerifiedCapsuleFrag,
+    };
 
-    use super::{decrypt_original, decrypt_reencrypted, encrypt, reencrypt};
+    use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
 
     #[test]
     fn test_simple_api() {
@@ -107,7 +160,8 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
-        let signing_pk = PublicKey::from_secret_key(&signing_sk);
+        let signer = Signer::new(&signing_sk);
+        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
 
         // Key Generation (Bob)
         let receiving_sk = SecretKey::random();
@@ -122,45 +176,68 @@ mod tests {
         assert_eq!(&plaintext_alice as &[u8], plaintext);
 
         // Split Re-Encryption Key Generation (aka Delegation)
-        let kfrags = generate_kfrags(
+        let verified_kfrags = generate_kfrags(
             &delegating_sk,
             &receiving_pk,
-            &signing_sk,
+            &signer,
             threshold,
             num_frags,
             true,
             true,
         );
 
-        // Ursulas check that the received kfrags are valid
-        assert!(kfrags.iter().all(|kfrag| kfrag.verify(
-            &signing_pk,
-            Some(&delegating_pk),
-            Some(&receiving_pk)
-        )));
-
         // Bob requests re-encryption to some set of `threshold` ursulas
-        let metadata = b"metadata";
-        let cfrags: Vec<CapsuleFrag> = kfrags[0..threshold]
+
+        // Simulate network transfer
+        let kfrags: Vec<_> = verified_kfrags
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, Some(metadata)))
+            .map(|vkfrag| KeyFrag::from_array(&vkfrag.to_array()).unwrap())
             .collect();
 
-        // Bob checks that the received cfrags are valid
-        assert!(cfrags.iter().all(|cfrag| cfrag.verify(
-            &capsule,
-            &delegating_pk,
-            &receiving_pk,
-            &signing_pk,
-            Some(metadata),
-        )));
+        // If Ursula received kfrags from the network, she must check that they are valid
+        let verified_kfrags: Vec<_> = kfrags
+            .iter()
+            .map(|kfrag| {
+                kfrag
+                    .verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk))
+                    .unwrap()
+            })
+            .collect();
+
+        let metadata = b"metadata";
+        let verified_cfrags: Vec<VerifiedCapsuleFrag> = verified_kfrags[0..threshold]
+            .iter()
+            .map(|vkfrag| reencrypt(&capsule, &vkfrag, Some(metadata)))
+            .collect();
+
+        // Simulate network transfer
+        let cfrags: Vec<_> = verified_cfrags
+            .iter()
+            .map(|vcfrag| CapsuleFrag::from_array(&vcfrag.to_array()).unwrap())
+            .collect();
+
+        // If Bob received cfrags from the network, he must check that they are valid
+        let verified_cfrags: Vec<_> = cfrags
+            .iter()
+            .map(|cfrag| {
+                cfrag
+                    .verify(
+                        &capsule,
+                        &verifying_pk,
+                        &delegating_pk,
+                        &receiving_pk,
+                        Some(metadata),
+                    )
+                    .unwrap()
+            })
+            .collect();
 
         // Decryption by Bob
         let plaintext_bob = decrypt_reencrypted(
             &receiving_sk,
             &delegating_pk,
             &capsule,
-            &cfrags,
+            &verified_cfrags,
             &ciphertext,
         )
         .unwrap();

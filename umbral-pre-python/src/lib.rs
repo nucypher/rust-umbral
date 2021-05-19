@@ -8,13 +8,18 @@ use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
 use umbral_pre::{
-    DecryptionError, DeserializationError, EncryptionError, OpenReencryptedError,
-    ReencryptionError, SecretKeyFactoryError, SerializableToArray,
+    CapsuleFragVerificationError, DecryptionError, DeserializableFromArray, DeserializationError,
+    EncryptionError, KeyFragVerificationError, OpenReencryptedError, ReencryptionError,
+    SecretKeyFactoryError, SerializableToArray,
 };
 
-// A helper trait to generalize implementing various Python protocol functions for our types.
-trait HasSerializableBackend<T> {
+// Helper traits to generalize implementing various Python protocol functions for our types.
+
+trait AsSerializableBackend<T> {
     fn as_backend(&self) -> &T;
+}
+
+trait FromSerializableBackend<T> {
     fn from_backend(backend: T) -> Self;
 }
 
@@ -22,14 +27,14 @@ trait HasName {
     fn name() -> &'static str;
 }
 
-fn to_bytes<T: HasSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResult<PyObject> {
+fn to_bytes<T: AsSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResult<PyObject> {
     let serialized = obj.as_backend().to_array();
     Python::with_gil(|py| -> PyResult<PyObject> {
         Ok(PyBytes::new(py, serialized.as_slice()).into())
     })
 }
 
-fn from_bytes<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+fn from_bytes<T: FromSerializableBackend<U> + HasName, U: DeserializableFromArray>(
     bytes: &[u8],
 ) -> PyResult<T> {
     U::from_bytes(bytes)
@@ -47,9 +52,7 @@ fn from_bytes<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
         })
 }
 
-fn hash<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
-    obj: &T,
-) -> PyResult<isize> {
+fn hash<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(obj: &T) -> PyResult<isize> {
     let serialized = obj.as_backend().to_array();
 
     // call `hash((class_name, bytes(obj)))`
@@ -61,11 +64,8 @@ fn hash<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
     })
 }
 
-// For some reason this lint is not recognized in Rust 1.46 (the one in CI)
-// remove when CI is updated to a newer Rust version.
-#[allow(clippy::unknown_clippy_lints)]
 #[allow(clippy::unnecessary_wraps)] // Don't want to wrap it in Ok() on every call
-fn hexstr<T: HasSerializableBackend<U> + HasName, U: SerializableToArray>(
+fn hexstr<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(
     obj: &T,
 ) -> PyResult<String> {
     let hex_str = hex::encode(obj.as_backend().to_array().as_slice());
@@ -89,17 +89,21 @@ fn richcmp<T: HasName + PyClass + PartialEq>(
 
 create_exception!(umbral, GenericError, PyException);
 
+create_exception!(umbral, VerificationError, GenericError);
+
 #[pyclass(module = "umbral")]
 #[derive(PartialEq)]
 pub struct SecretKey {
     backend: umbral_pre::SecretKey,
 }
 
-impl HasSerializableBackend<umbral_pre::SecretKey> for SecretKey {
+impl AsSerializableBackend<umbral_pre::SecretKey> for SecretKey {
     fn as_backend(&self) -> &umbral_pre::SecretKey {
         &self.backend
     }
+}
 
+impl FromSerializableBackend<umbral_pre::SecretKey> for SecretKey {
     fn from_backend(backend: umbral_pre::SecretKey) -> Self {
         Self { backend }
     }
@@ -147,11 +151,13 @@ pub struct SecretKeyFactory {
     backend: umbral_pre::SecretKeyFactory,
 }
 
-impl HasSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
+impl AsSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
     fn as_backend(&self) -> &umbral_pre::SecretKeyFactory {
         &self.backend
     }
+}
 
+impl FromSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
     fn from_backend(backend: umbral_pre::SecretKeyFactory) -> Self {
         Self { backend }
     }
@@ -213,11 +219,13 @@ pub struct PublicKey {
     backend: umbral_pre::PublicKey,
 }
 
-impl HasSerializableBackend<umbral_pre::PublicKey> for PublicKey {
+impl AsSerializableBackend<umbral_pre::PublicKey> for PublicKey {
     fn as_backend(&self) -> &umbral_pre::PublicKey {
         &self.backend
     }
+}
 
+impl FromSerializableBackend<umbral_pre::PublicKey> for PublicKey {
     fn from_backend(backend: umbral_pre::PublicKey) -> Self {
         Self { backend }
     }
@@ -265,15 +273,117 @@ impl PyObjectProtocol for PublicKey {
 
 #[pyclass(module = "umbral")]
 #[derive(PartialEq)]
+pub struct Signer {
+    backend: umbral_pre::Signer,
+}
+
+impl HasName for Signer {
+    fn name() -> &'static str {
+        "Signer"
+    }
+}
+
+#[pymethods]
+impl Signer {
+    #[new]
+    pub fn new(sk: &SecretKey) -> Self {
+        Self {
+            backend: umbral_pre::Signer::new(&sk.backend),
+        }
+    }
+
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        Signature {
+            backend: self.backend.sign(message),
+        }
+    }
+
+    pub fn verifying_key(&self) -> PublicKey {
+        PublicKey {
+            backend: self.backend.verifying_key(),
+        }
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for Signer {
+    fn __richcmp__(&self, other: PyRef<Signer>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{}:...", Self::name()))
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(PartialEq)]
+pub struct Signature {
+    backend: umbral_pre::Signature,
+}
+
+impl AsSerializableBackend<umbral_pre::Signature> for Signature {
+    fn as_backend(&self) -> &umbral_pre::Signature {
+        &self.backend
+    }
+}
+
+impl FromSerializableBackend<umbral_pre::Signature> for Signature {
+    fn from_backend(backend: umbral_pre::Signature) -> Self {
+        Self { backend }
+    }
+}
+
+impl HasName for Signature {
+    fn name() -> &'static str {
+        "Signature"
+    }
+}
+
+#[pymethods]
+impl Signature {
+    #[staticmethod]
+    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
+        from_bytes(bytes)
+    }
+
+    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
+        self.backend.verify(&verifying_key.backend, message)
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for Signature {
+    fn __richcmp__(&self, other: PyRef<Signature>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(PartialEq)]
 pub struct Capsule {
     backend: umbral_pre::Capsule,
 }
 
-impl HasSerializableBackend<umbral_pre::Capsule> for Capsule {
+impl AsSerializableBackend<umbral_pre::Capsule> for Capsule {
     fn as_backend(&self) -> &umbral_pre::Capsule {
         &self.backend
     }
+}
 
+impl FromSerializableBackend<umbral_pre::Capsule> for Capsule {
     fn from_backend(backend: umbral_pre::Capsule) -> Self {
         Self { backend }
     }
@@ -361,11 +471,13 @@ pub struct KeyFrag {
     backend: umbral_pre::KeyFrag,
 }
 
-impl HasSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
+impl AsSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
     fn as_backend(&self) -> &umbral_pre::KeyFrag {
         &self.backend
     }
+}
 
+impl FromSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
     fn from_backend(backend: umbral_pre::KeyFrag) -> Self {
         Self { backend }
     }
@@ -381,15 +493,22 @@ impl HasName for KeyFrag {
 impl KeyFrag {
     pub fn verify(
         &self,
-        signing_pk: &PublicKey,
+        verifying_pk: &PublicKey,
         delegating_pk: Option<&PublicKey>,
         receiving_pk: Option<&PublicKey>,
-    ) -> bool {
+    ) -> PyResult<VerifiedKeyFrag> {
         self.backend.verify(
-            &signing_pk.backend,
+            &verifying_pk.backend,
             delegating_pk.map(|pk| &pk.backend),
             receiving_pk.map(|pk| &pk.backend),
         )
+        .map_err(|err| match err {
+            KeyFragVerificationError::IncorrectCommitment => VerificationError::new_err("Invalid kfrag commitment"),
+            KeyFragVerificationError::DelegatingKeyNotProvided => VerificationError::new_err("A signature of a delegating key was included in this kfrag but the key is not provided"),
+            KeyFragVerificationError::ReceivingKeyNotProvided => VerificationError::new_err("A signature of a receiving key was included in this kfrag, but the key is not provided"),
+            KeyFragVerificationError::IncorrectSignature => VerificationError::new_err("Failed to verify the kfrag signature"),
+        })
+        .map(|backend_vkfrag| VerifiedKeyFrag { backend: backend_vkfrag })
     }
 
     #[staticmethod]
@@ -417,21 +536,58 @@ impl PyObjectProtocol for KeyFrag {
     }
 }
 
+#[pyclass(module = "umbral")]
+#[derive(PartialEq, Clone)]
+pub struct VerifiedKeyFrag {
+    backend: umbral_pre::VerifiedKeyFrag,
+}
+
+impl AsSerializableBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
+    fn as_backend(&self) -> &umbral_pre::VerifiedKeyFrag {
+        &self.backend
+    }
+}
+
+impl HasName for VerifiedKeyFrag {
+    fn name() -> &'static str {
+        "VerifiedKeyFrag"
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for VerifiedKeyFrag {
+    fn __richcmp__(&self, other: PyRef<VerifiedKeyFrag>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
-    signing_sk: &SecretKey,
+    signer: &Signer,
     threshold: usize,
     num_kfrags: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> Vec<KeyFrag> {
+) -> Vec<VerifiedKeyFrag> {
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.backend,
         &receiving_pk.backend,
-        &signing_sk.backend,
+        &signer.backend,
         threshold,
         num_kfrags,
         sign_delegating_key,
@@ -441,7 +597,7 @@ pub fn generate_kfrags(
     backend_kfrags
         .iter()
         .cloned()
-        .map(|val| KeyFrag { backend: val })
+        .map(|val| VerifiedKeyFrag { backend: val })
         .collect()
 }
 
@@ -451,11 +607,13 @@ pub struct CapsuleFrag {
     backend: umbral_pre::CapsuleFrag,
 }
 
-impl HasSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
+impl AsSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
     fn as_backend(&self) -> &umbral_pre::CapsuleFrag {
         &self.backend
     }
+}
 
+impl FromSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
     fn from_backend(backend: umbral_pre::CapsuleFrag) -> Self {
         Self { backend }
     }
@@ -472,18 +630,30 @@ impl CapsuleFrag {
     pub fn verify(
         &self,
         capsule: &Capsule,
+        verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        signing_pk: &PublicKey,
         metadata: Option<&[u8]>,
-    ) -> bool {
-        self.backend.verify(
-            &capsule.backend,
-            &delegating_pk.backend,
-            &receiving_pk.backend,
-            &signing_pk.backend,
-            metadata,
-        )
+    ) -> PyResult<VerifiedCapsuleFrag> {
+        self.backend
+            .verify(
+                &capsule.backend,
+                &verifying_pk.backend,
+                &delegating_pk.backend,
+                &receiving_pk.backend,
+                metadata,
+            )
+            .map_err(|err| match err {
+                CapsuleFragVerificationError::IncorrectKeyFragSignature => {
+                    VerificationError::new_err("Invalid KeyFrag signature")
+                }
+                CapsuleFragVerificationError::IncorrectReencryption => {
+                    VerificationError::new_err("Failed to verify reencryption proof")
+                }
+            })
+            .map(|backend_vcfrag| VerifiedCapsuleFrag {
+                backend: backend_vcfrag,
+            })
     }
 
     #[staticmethod]
@@ -511,11 +681,52 @@ impl PyObjectProtocol for CapsuleFrag {
     }
 }
 
+#[pyclass(module = "umbral")]
+#[derive(PartialEq, Clone)]
+pub struct VerifiedCapsuleFrag {
+    backend: umbral_pre::VerifiedCapsuleFrag,
+}
+
+impl AsSerializableBackend<umbral_pre::VerifiedCapsuleFrag> for VerifiedCapsuleFrag {
+    fn as_backend(&self) -> &umbral_pre::VerifiedCapsuleFrag {
+        &self.backend
+    }
+}
+
+impl HasName for VerifiedCapsuleFrag {
+    fn name() -> &'static str {
+        "VerifiedCapsuleFrag"
+    }
+}
+
+#[pyproto]
+impl PyObjectProtocol for VerifiedCapsuleFrag {
+    fn __richcmp__(&self, other: PyRef<VerifiedCapsuleFrag>, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    fn __hash__(&self) -> PyResult<isize> {
+        hash(self)
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        hexstr(self)
+    }
+}
+
 #[pyfunction]
-pub fn reencrypt(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> CapsuleFrag {
-    let backend_cfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend, metadata);
-    CapsuleFrag {
-        backend: backend_cfrag,
+pub fn reencrypt(
+    capsule: &Capsule,
+    kfrag: &VerifiedKeyFrag,
+    metadata: Option<&[u8]>,
+) -> VerifiedCapsuleFrag {
+    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend, metadata);
+    VerifiedCapsuleFrag {
+        backend: backend_vcfrag,
     }
 }
 
@@ -525,11 +736,14 @@ pub fn decrypt_reencrypted(
     decrypting_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
-    cfrags: Vec<CapsuleFrag>,
+    verified_cfrags: Vec<VerifiedCapsuleFrag>,
     ciphertext: &[u8],
 ) -> PyResult<PyObject> {
-    let backend_cfrags: Vec<umbral_pre::CapsuleFrag> =
-        cfrags.iter().cloned().map(|cfrag| cfrag.backend).collect();
+    let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> = verified_cfrags
+        .iter()
+        .cloned()
+        .map(|vcfrag| vcfrag.backend)
+        .collect();
     umbral_pre::decrypt_reencrypted(
         &decrypting_sk.backend,
         &delegating_pk.backend,
@@ -567,10 +781,15 @@ fn _umbral(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<SecretKeyFactory>()?;
     m.add_class::<PublicKey>()?;
+    m.add_class::<Signer>()?;
+    m.add_class::<Signature>()?;
     m.add_class::<Capsule>()?;
     m.add_class::<KeyFrag>()?;
+    m.add_class::<VerifiedKeyFrag>()?;
     m.add_class::<CapsuleFrag>()?;
+    m.add_class::<VerifiedCapsuleFrag>()?;
     m.add("GenericError", py.get_type::<GenericError>())?;
+    m.add("VerificationError", py.get_type::<VerificationError>())?;
     m.add_function(wrap_pyfunction!(encrypt, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt_original, m)?)?;
     m.add_function(wrap_pyfunction!(generate_kfrags, m)?)?;

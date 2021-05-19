@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 
-use aead::{Aead, AeadInPlace, Payload};
+use aead::{Aead, AeadCore, Payload};
 use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use generic_array::{ArrayLength, GenericArray};
@@ -47,8 +47,9 @@ pub(crate) fn kdf<T: ArrayLength<u8>>(
     okm
 }
 
-type NonceSize = <XChaCha20Poly1305 as AeadInPlace>::NonceSize;
+type NonceSize = <XChaCha20Poly1305 as AeadCore>::NonceSize;
 
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) struct DEM {
     cipher: XChaCha20Poly1305,
 }

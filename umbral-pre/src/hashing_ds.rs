@@ -1,10 +1,14 @@
 //! This module contains hashing sequences with included domain separation tags
 //! shared between different parts of the code.
 
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::hashing::{ScalarDigest, SignatureDigest};
+use crate::hashing::ScalarDigest;
 use crate::key_frag::KeyFragID;
 use crate::keys::PublicKey;
+use crate::traits::SerializableToArray;
 
 // TODO (#39): Ideally this should return a non-zero scalar.
 pub(crate) fn hash_to_polynomial_arg(
@@ -54,28 +58,34 @@ pub(crate) fn hash_to_cfrag_verification(
     digest.finalize()
 }
 
-pub(crate) fn hash_to_cfrag_signature(
+pub(crate) fn kfrag_signature_message(
     kfrag_id: &KeyFragID,
     commitment: &CurvePoint,
     precursor: &CurvePoint,
     maybe_delegating_pk: Option<&PublicKey>,
     maybe_receiving_pk: Option<&PublicKey>,
-) -> SignatureDigest {
-    let digest = SignatureDigest::new_with_dst(b"CFRAG_SIGNATURE")
-        .chain_bytes(kfrag_id)
-        .chain_point(commitment)
-        .chain_point(precursor);
+) -> Box<[u8]> {
+    let mut result = Vec::<u8>::new();
 
-    let digest = match maybe_delegating_pk {
-        Some(delegating_pk) => digest.chain_bool(true).chain_pubkey(delegating_pk),
-        None => digest.chain_bool(false),
+    result.extend_from_slice(&kfrag_id.to_array());
+    result.extend_from_slice(&commitment.to_array());
+    result.extend_from_slice(&precursor.to_array());
+
+    match maybe_delegating_pk {
+        Some(delegating_pk) => {
+            result.extend_from_slice(&true.to_array());
+            result.extend_from_slice(&delegating_pk.to_array())
+        }
+        None => result.extend_from_slice(&false.to_array()),
     };
 
-    #[allow(clippy::let_and_return)]
-    let digest = match maybe_receiving_pk {
-        Some(receiving_pk) => digest.chain_bool(true).chain_pubkey(receiving_pk),
-        None => digest.chain_bool(false),
+    match maybe_receiving_pk {
+        Some(receiving_pk) => {
+            result.extend_from_slice(&true.to_array());
+            result.extend_from_slice(&receiving_pk.to_array())
+        }
+        None => result.extend_from_slice(&false.to_array()),
     };
 
-    digest
+    result.into_boxed_slice()
 }

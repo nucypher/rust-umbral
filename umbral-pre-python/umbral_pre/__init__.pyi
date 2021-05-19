@@ -23,6 +23,24 @@ class PublicKey:
         ...
 
 
+class Signer:
+
+    def __init__(secret_key: SecretKey):
+        ...
+
+    def sign(message: bytes) -> Signature:
+        ...
+
+    def verifying_key() -> PublicKey:
+        ...
+
+
+class Signature:
+
+    def verify(verifying_key: PublicKey, message: bytes) -> bool:
+        ...
+
+
 class Capsule: ...
 
 
@@ -37,22 +55,26 @@ def decrypt_original(sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> byte
 class KeyFrag:
     def verify(
             self,
-            signing_pk: PublicKey,
+            verifying_pk: PublicKey,
             delegating_pk: Optional[PublicKey],
             receiving_pk: Optional[PublicKey],
-            ) -> bool:
+            ) -> VerifiedKeyFrag:
         ...
+
+
+class VerifiedKeyFrag:
+    ...
 
 
 def generate_kfrags(
         delegating_sk: SecretKey,
         receiving_pk: PublicKey,
-        signing_sk: SecretKey,
+        signer: SecretKey,
         threshold: int,
         num_kfrags: int,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
-        ) -> List[KeyFrag]:
+        ) -> List[VerifiedKeyFrag]:
     ...
 
 
@@ -60,15 +82,19 @@ class CapsuleFrag:
     def verify(
             self,
             capsule: Capsule,
+            verifying_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
-            signing_pk: PublicKey,
             metadata: Optional[bytes],
-            ) -> bool:
+            ) -> VerifiedCapsuleFrag:
         ...
 
 
-def reencrypt(capsule: Capsule, kfrag: KeyFrag, metadata: Optional[bytes]) -> CapsuleFrag:
+class VerifiedCapsuleFrag:
+    ...
+
+
+def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag, metadata: Optional[bytes]) -> VerifiedCapsuleFrag:
     ...
 
 
@@ -76,7 +102,7 @@ def decrypt_reencrypted(
         decrypting_sk: SecretKey,
         delegating_pk: PublicKey,
         capsule: Capsule,
-        cfrags: Sequence[CapsuleFrag],
+        cfrags: Sequence[VerifiedCapsuleFrag],
         ciphertext: bytes,
         ) -> Optional[bytes]:
     ...

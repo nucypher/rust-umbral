@@ -5,16 +5,19 @@
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 use digest::Digest;
+use ecdsa::hazmat::FromDigest;
 use elliptic_curve::ff::PrimeField;
-use elliptic_curve::scalar::NonZeroScalar;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
-use elliptic_curve::{AffinePoint, Curve, FromDigest, ProjectiveArithmetic, Scalar};
+use elliptic_curve::NonZeroScalar;
+use elliptic_curve::{AffinePoint, Curve, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
 use subtle::CtOption;
 
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
 pub(crate) type CurveType = Secp256k1;
 
@@ -26,7 +29,7 @@ pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 // as specific types, so we cannot implement local traits for them.
 //
 // They also have to be public because Rust isn't smart enough to understand that
-//     type PointSize = <Point as SerializableToArray>::Size;
+//     type PointSize = <Point as RepresentableAsArray>::Size;
 // isn't leaking the `Point` (probably because type aliases are just inlined).
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -59,7 +62,7 @@ impl CurveScalar {
     }
 
     pub(crate) fn from_digest(
-        d: impl Digest<OutputSize = <CurveScalar as SerializableToArray>::Size>,
+        d: impl Digest<OutputSize = <CurveScalar as RepresentableAsArray>::Size>,
     ) -> Self {
         Self(BackendScalar::from_digest(d))
     }
@@ -71,15 +74,19 @@ impl Default for CurveScalar {
     }
 }
 
-impl SerializableToArray for CurveScalar {
+impl RepresentableAsArray for CurveScalar {
     // Currently it's the only size available.
     // A separate scalar size may appear in later versions of `elliptic_curve`.
     type Size = <CurveType as Curve>::FieldSize;
+}
 
+impl SerializableToArray for CurveScalar {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.0.to_bytes()
     }
+}
 
+impl DeserializableFromArray for CurveScalar {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         Scalar::<CurveType>::from_repr(*arr)
             .map(Self)
@@ -106,8 +113,22 @@ impl CurvePoint {
         Self(BackendPoint::identity())
     }
 
-    pub(crate) fn to_affine(&self) -> BackendPointAffine {
+    pub(crate) fn to_affine_point(&self) -> BackendPointAffine {
         self.0.to_affine()
+    }
+
+    pub(crate) fn from_compressed_array(
+        arr: &GenericArray<u8, CompressedPointSize<CurveType>>,
+    ) -> Option<Self> {
+        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
+        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
+        cp_opt.map(Self)
+    }
+
+    fn to_compressed_array(&self) -> GenericArray<u8, CompressedPointSize<CurveType>> {
+        *GenericArray::<u8, CompressedPointSize<CurveType>>::from_slice(
+            self.0.to_affine().to_encoded_point(true).as_bytes(),
+        )
     }
 }
 
@@ -151,23 +172,18 @@ impl Mul<&CurveScalar> for &CurveScalar {
     }
 }
 
-impl SerializableToArray for CurvePoint {
+impl RepresentableAsArray for CurvePoint {
     type Size = CompressedPointSize<CurveType>;
+}
 
+impl SerializableToArray for CurvePoint {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        // NOTE: a point has to be serialized in a compressed format,
-        // or `unsafe_hash_to_point` becomes unusable.
-        *GenericArray::<u8, Self::Size>::from_slice(
-            self.0.to_affine().to_encoded_point(true).as_bytes(),
-        )
+        self.to_compressed_array()
     }
+}
 
+impl DeserializableFromArray for CurvePoint {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice())
-            .or(Err(DeserializationError::ConstructionFailure))?;
-        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
-        cp_opt
-            .map(Self)
-            .ok_or(DeserializationError::ConstructionFailure)
+        Self::from_compressed_array(arr).ok_or(DeserializationError::ConstructionFailure)
     }
 }

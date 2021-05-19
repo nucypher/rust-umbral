@@ -10,25 +10,40 @@ use typenum::{U32, U64};
 
 use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
-use crate::hashing::ScalarDigest;
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::hashing::{BackendDigest, Hash, ScalarDigest};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
+/// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signature(BackendSignature<CurveType>);
 
-impl SerializableToArray for Signature {
+impl RepresentableAsArray for Signature {
     type Size = SignatureSize<CurveType>;
+}
 
+impl SerializableToArray for Signature {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
     }
+}
 
+impl DeserializableFromArray for Signature {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
             .or(Err(DeserializationError::ConstructionFailure))
+    }
+}
+
+impl Signature {
+    /// Verifies that the given message was signed with the secret counterpart of the given key.
+    /// The message is hashed internally.
+    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
+        verifying_key.verify_digest(digest_for_signing(message), &self)
     }
 }
 
@@ -75,18 +90,49 @@ impl SecretKey {
     }
 }
 
-impl SerializableToArray for SecretKey {
-    type Size = <CurveScalar as SerializableToArray>::Size;
+impl RepresentableAsArray for SecretKey {
+    type Size = <CurveScalar as RepresentableAsArray>::Size;
+}
 
+impl SerializableToArray for SecretKey {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         // TODO (#8): a copy of secret data is created in `to_bytes()`.
         self.0.to_bytes()
     }
+}
 
+impl DeserializableFromArray for SecretKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
             .or(Err(DeserializationError::ConstructionFailure))
+    }
+}
+
+fn digest_for_signing(message: &[u8]) -> BackendDigest {
+    Hash::new().chain_bytes(message).digest()
+}
+
+/// An object used to sign messages.
+/// For security reasons cannot be serialized.
+#[derive(Clone, PartialEq)] // No Debug derivation, to avoid exposing the key accidentally.
+pub struct Signer(SecretKey);
+
+impl Signer {
+    /// Creates a new signer out of a secret key.
+    pub fn new(sk: &SecretKey) -> Self {
+        // TODO (#8): cloning secret data
+        Self(sk.clone())
+    }
+
+    /// Signs the given message.
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        self.0.sign_digest(digest_for_signing(message))
+    }
+
+    /// Returns the public key that can be used to verify the signatures produced by this signer.
+    pub fn verifying_key(&self) -> PublicKey {
+        PublicKey::from_secret_key(&self.0)
     }
 }
 
@@ -116,16 +162,20 @@ impl PublicKey {
     }
 }
 
-impl SerializableToArray for PublicKey {
-    type Size = <CurvePoint as SerializableToArray>::Size;
+impl RepresentableAsArray for PublicKey {
+    type Size = <CurvePoint as RepresentableAsArray>::Size;
+}
 
+impl SerializableToArray for PublicKey {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.to_point().to_array()
     }
+}
 
+impl DeserializableFromArray for PublicKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let cp = CurvePoint::from_array(&arr)?;
-        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine())
+        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
             .or(Err(DeserializationError::ConstructionFailure))?;
         Ok(Self(backend_pk))
     }
@@ -172,14 +222,18 @@ impl SecretKeyFactory {
     }
 }
 
-impl SerializableToArray for SecretKeyFactory {
+impl RepresentableAsArray for SecretKeyFactory {
     type Size = SecretKeyFactorySeedSize;
+}
 
+impl SerializableToArray for SecretKeyFactory {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         // TODO (#8): a copy of secret data is created.
         self.0
     }
+}
 
+impl DeserializableFromArray for SecretKeyFactory {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         Ok(Self(*arr))
     }
@@ -188,11 +242,8 @@ impl SerializableToArray for SecretKeyFactory {
 #[cfg(test)]
 mod tests {
 
-    use sha2::Sha256;
-    use signature::digest::Digest;
-
-    use super::{PublicKey, SecretKey, SecretKeyFactory};
-    use crate::SerializableToArray;
+    use super::{PublicKey, SecretKey, SecretKeyFactory, Signer};
+    use crate::{DeserializableFromArray, SerializableToArray};
 
     #[test]
     fn test_serialize_secret_key() {
@@ -234,11 +285,13 @@ mod tests {
     fn test_sign_and_verify() {
         let sk = SecretKey::random();
         let message = b"asdafdahsfdasdfasd";
-        let digest = Sha256::new().chain(message);
-        let signature = sk.sign_digest(digest);
+        let signer = Signer::new(&sk);
+        let signature = signer.sign(message);
 
         let pk = PublicKey::from_secret_key(&sk);
-        let digest = Sha256::new().chain(message);
-        assert!(pk.verify_digest(digest, &signature));
+        let vk = signer.verifying_key();
+
+        assert_eq!(pk, vk);
+        assert!(signature.verify(&vk, message));
     }
 }

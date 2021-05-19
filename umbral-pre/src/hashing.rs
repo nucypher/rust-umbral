@@ -5,7 +5,6 @@ use sha2::Sha256;
 use typenum::U1;
 
 use crate::curve::{CurvePoint, CurveScalar};
-use crate::keys::{PublicKey, SecretKey, Signature};
 use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data with the given domain separation tag
@@ -39,9 +38,9 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
         // Set the sign byte
         let maybe_point_bytes = sign_prefix.concat(result);
 
-        let maybe_point = CurvePoint::from_bytes(&maybe_point_bytes);
-        if maybe_point.is_ok() {
-            return maybe_point.ok();
+        let maybe_point = CurvePoint::from_compressed_array(&maybe_point_bytes);
+        if let Some(point) = maybe_point {
+            return Some(point);
         }
 
         i += 1
@@ -52,23 +51,30 @@ pub fn unsafe_hash_to_point(dst: &[u8], data: &[u8]) -> Option<CurvePoint> {
     None
 }
 
-// Wraps Sha256 for easier replacement, and standardizes the use of DST.
-struct Hash(Sha256);
+// Our hash of choice.
+pub(crate) type BackendDigest = Sha256;
+
+// Wraps BackendDigest for easier replacement, and standardizes the use of DST.
+pub(crate) struct Hash(BackendDigest);
 
 // Can't be put in the `impl` in the current version of Rust.
-pub type HashOutputSize = <Sha256 as Digest>::OutputSize;
+pub type HashOutputSize = <BackendDigest as Digest>::OutputSize;
 
 impl Hash {
+    pub fn new() -> Self {
+        Self(BackendDigest::new())
+    }
+
     pub fn new_with_dst(dst: &[u8]) -> Self {
         let dst_len = (dst.len() as u32).to_be_bytes();
-        Self(Sha256::new()).chain_bytes(dst_len).chain_bytes(dst)
+        Self::new().chain_bytes(dst_len).chain_bytes(dst)
     }
 
     pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
         Self(self.0.chain(bytes.as_ref()))
     }
 
-    pub fn digest(self) -> Sha256 {
+    pub fn digest(self) -> BackendDigest {
         self.0
     }
 }
@@ -104,38 +110,6 @@ impl ScalarDigest {
     }
 }
 
-pub(crate) struct SignatureDigest(Hash);
-
-impl SignatureDigest {
-    pub fn new_with_dst(dst: &[u8]) -> Self {
-        Self(Hash::new_with_dst(dst))
-    }
-
-    pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
-        Self(self.0.chain_bytes(bytes))
-    }
-
-    pub fn chain_point(self, point: &CurvePoint) -> Self {
-        self.chain_bytes(&point.to_array())
-    }
-
-    pub fn chain_pubkey(self, pk: &PublicKey) -> Self {
-        self.chain_bytes(&pk.to_array())
-    }
-
-    pub fn chain_bool(self, val: bool) -> Self {
-        self.chain_bytes(&[val as u8])
-    }
-
-    pub fn sign(self, sk: &SecretKey) -> Signature {
-        sk.sign_digest(self.0.digest())
-    }
-
-    pub fn verify(self, pk: &PublicKey, signature: &Signature) -> bool {
-        pk.verify_digest(self.0.digest(), signature)
-    }
-}
-
 pub(crate) struct BytesDigest(Hash);
 
 impl BytesDigest {
@@ -155,9 +129,8 @@ impl BytesDigest {
 #[cfg(test)]
 mod tests {
 
-    use super::{unsafe_hash_to_point, BytesDigest, HashOutputSize, ScalarDigest, SignatureDigest};
+    use super::{unsafe_hash_to_point, BytesDigest, HashOutputSize, ScalarDigest};
     use crate::curve::{CurvePoint, CurveScalar};
-    use crate::keys::{PublicKey, SecretKey, Signature};
     use generic_array::GenericArray;
 
     #[test]
@@ -204,57 +177,6 @@ mod tests {
             .chain_bytes(bytes)
             .finalize();
         assert_ne!(s, s_diff_tag);
-    }
-
-    #[test]
-    fn test_signature_digest() {
-        let p1 = CurvePoint::generator();
-        let p2 = &p1 + &p1;
-        let bytes = b"asdfghjk";
-        let b = true;
-        let pk = PublicKey::from_secret_key(&SecretKey::random());
-
-        let signing_sk = SecretKey::random();
-        let signing_pk = PublicKey::from_secret_key(&signing_sk);
-
-        let signature: Signature = SignatureDigest::new_with_dst(b"abc")
-            .chain_point(&p2)
-            .chain_bytes(&bytes)
-            .chain_bool(b)
-            .chain_pubkey(&pk)
-            .sign(&signing_sk);
-
-        let same_values_same_key = SignatureDigest::new_with_dst(b"abc")
-            .chain_point(&p2)
-            .chain_bytes(&bytes)
-            .chain_bool(b)
-            .chain_pubkey(&pk)
-            .verify(&signing_pk, &signature);
-        assert!(same_values_same_key);
-
-        let same_values_different_key = SignatureDigest::new_with_dst(b"abc")
-            .chain_point(&p2)
-            .chain_bytes(&bytes)
-            .chain_bool(b)
-            .chain_pubkey(&pk)
-            .verify(&pk, &signature);
-        assert!(!same_values_different_key);
-
-        let different_values_same_key = SignatureDigest::new_with_dst(b"abc")
-            .chain_point(&p1)
-            .chain_bytes(&bytes)
-            .chain_bool(b)
-            .chain_pubkey(&pk)
-            .verify(&signing_pk, &signature);
-        assert!(!different_values_same_key);
-
-        let same_values_different_tag = SignatureDigest::new_with_dst(b"def")
-            .chain_point(&p2)
-            .chain_bytes(&bytes)
-            .chain_bool(b)
-            .chain_pubkey(&pk)
-            .verify(&signing_pk, &signature);
-        assert!(!same_values_different_tag);
     }
 
     #[test]

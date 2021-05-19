@@ -22,7 +22,8 @@ let dec = new TextDecoder("utf-8");
 let alice_sk = umbral.SecretKey.random();
 let alice_pk = umbral.PublicKey.from_secret_key(alice_sk);
 let signing_sk = umbral.SecretKey.random();
-let signing_pk = umbral.PublicKey.from_secret_key(signing_sk);
+let signer = new umbral.Signer(signing_sk);
+let verifying_pk = umbral.PublicKey.from_secret_key(signing_sk);
 
 // Key Generation (on Bob's side)
 let bob_sk = umbral.SecretKey.random();
@@ -55,7 +56,7 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generate_kfrags(
-    alice_sk, bob_pk, signing_sk, m, n, true, true);
+    alice_sk, bob_pk, signer, m, n, true, true);
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -64,31 +65,18 @@ let kfrags = umbral.generate_kfrags(
 // Bob collects the resulting cfrags from several Ursulas.
 // Bob must gather at least `m` cfrags in order to open the capsule.
 
-// Ursulas can optionally check that the received kfrags are valid
-// and perform the reencryption
-
 // Ursula 0
 let metadata0 = enc.encode("metadata0")
-console.assert(
-    kfrags[0].verify_with_delegating_and_receiving_keys(signing_pk, alice_pk, bob_pk),
-    "kfrag0 is invalid");
 let cfrag0 = umbral.reencrypt(capsule, kfrags[0], metadata0);
 
 // Ursula 1
 let metadata1 = enc.encode("metadata1");
-console.assert(
-    kfrags[1].verify_with_delegating_and_receiving_keys(signing_pk, alice_pk, bob_pk),
-    "kfrag1 is invalid");
 let cfrag1 = umbral.reencrypt(capsule, kfrags[1], metadata1);
 
 // ...
 
 // Finally, Bob opens the capsule by using at least `m` cfrags,
 // and then decrypts the re-encrypted ciphertext.
-
-// Bob can optionally check that cfrags are valid
-console.assert(cfrag0.verify(capsule, alice_pk, bob_pk, signing_pk, metadata0), "cfrag0 is invalid");
-console.assert(cfrag1.verify(capsule, alice_pk, bob_pk, signing_pk, metadata1), "cfrag1 is invalid");
 
 // Another deviation from the Rust API.
 // wasm-pack does not support taking arrays as arguments,

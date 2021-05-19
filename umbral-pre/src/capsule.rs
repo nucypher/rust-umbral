@@ -3,7 +3,9 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
-use crate::traits::{DeserializationError, SerializableToArray};
+use crate::traits::{
+    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+};
 
 use alloc::vec::Vec;
 
@@ -39,20 +41,23 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-type PointSize = <CurvePoint as SerializableToArray>::Size;
-type ScalarSize = <CurveScalar as SerializableToArray>::Size;
-type CapsuleSize = op!(PointSize + PointSize + ScalarSize);
+type PointSize = <CurvePoint as RepresentableAsArray>::Size;
+type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
+
+impl RepresentableAsArray for Capsule {
+    type Size = op!(PointSize + PointSize + ScalarSize);
+}
 
 impl SerializableToArray for Capsule {
-    type Size = CapsuleSize;
-
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.point_e
             .to_array()
             .concat(self.point_v.to_array())
             .concat(self.signature.to_array())
     }
+}
 
+impl DeserializableFromArray for Capsule {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         let (point_e, rest) = CurvePoint::take(*arr)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
@@ -200,7 +205,8 @@ mod tests {
 
     use super::{Capsule, OpenReencryptedError};
     use crate::{
-        encrypt, generate_kfrags, reencrypt, CapsuleFrag, PublicKey, SecretKey, SerializableToArray,
+        encrypt, generate_kfrags, reencrypt, DeserializableFromArray, PublicKey, SecretKey,
+        SerializableToArray, Signer,
     };
 
     #[test]
@@ -222,18 +228,21 @@ mod tests {
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
 
         let signing_sk = SecretKey::random();
+        let signer = Signer::new(&signing_sk);
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
 
         let (capsule, key_seed) = Capsule::from_public_key(&delegating_pk);
 
-        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
+        let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
-        let cfrags: Vec<CapsuleFrag> = kfrags
+        let vcfrags: Vec<_> = kfrags
             .iter()
             .map(|kfrag| reencrypt(&capsule, &kfrag, None))
             .collect();
+
+        let cfrags: Vec<_> = vcfrags.iter().cloned().map(|vcfrag| vcfrag.cfrag).collect();
 
         let key_seed_reenc = capsule
             .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
@@ -247,18 +256,20 @@ mod tests {
         );
 
         // Mismatched cfrags - each `generate_kfrags()` uses new randoms.
-        let kfrags2 = generate_kfrags(&delegating_sk, &receiving_pk, &signing_sk, 2, 3, true, true);
+        let kfrags2 = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
-        let cfrags2: Vec<CapsuleFrag> = kfrags2
+        let vcfrags2: Vec<_> = kfrags2
             .iter()
             .map(|kfrag| reencrypt(&capsule, &kfrag, None))
             .collect();
 
-        let mismatched_cfrags: Vec<CapsuleFrag> = cfrags[0..1]
+        let mismatched_cfrags: Vec<_> = vcfrags[0..1]
             .iter()
             .cloned()
-            .chain(cfrags2[1..2].iter().cloned())
+            .chain(vcfrags2[1..2].iter().cloned())
+            .map(|vcfrag| vcfrag.cfrag)
             .collect();
+
         assert_eq!(
             capsule.open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags),
             Err(OpenReencryptedError::MismatchedCapsuleFrags)
