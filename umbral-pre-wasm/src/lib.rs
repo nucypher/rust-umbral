@@ -95,10 +95,7 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        metadata: Option<Box<[u8]>>,
     ) -> VerifiedCapsuleFrag {
-        // feels like there should be a better way...
-        let metadata_ref: Option<&[u8]> = metadata.as_ref().map(|s| s.as_ref());
         VerifiedCapsuleFrag(
             self.0
                 .verify(
@@ -106,7 +103,6 @@ impl CapsuleFrag {
                     &verifying_pk.0,
                     &delegating_pk.0,
                     &receiving_pk.0,
-                    metadata_ref,
                 )
                 .unwrap(),
         )
@@ -305,12 +301,7 @@ pub fn generate_kfrags(
 }
 
 #[wasm_bindgen]
-pub fn reencrypt(
-    capsule: &Capsule,
-    kfrag: &VerifiedKeyFrag,
-    metadata: Option<Box<[u8]>>,
-) -> VerifiedCapsuleFrag {
-    let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
-    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0, metadata_slice);
+pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0);
     VerifiedCapsuleFrag(backend_cfrag)
 }

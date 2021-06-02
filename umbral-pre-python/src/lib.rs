@@ -647,7 +647,6 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        metadata: Option<&[u8]>,
     ) -> PyResult<VerifiedCapsuleFrag> {
         self.backend
             .verify(
@@ -655,7 +654,6 @@ impl CapsuleFrag {
                 &verifying_pk.backend,
                 &delegating_pk.backend,
                 &receiving_pk.backend,
-                metadata,
             )
             .map_err(|err| match err {
                 CapsuleFragVerificationError::IncorrectKeyFragSignature => {
@@ -733,12 +731,8 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
 }
 
 #[pyfunction]
-pub fn reencrypt(
-    capsule: &Capsule,
-    kfrag: &VerifiedKeyFrag,
-    metadata: Option<&[u8]>,
-) -> VerifiedCapsuleFrag {
-    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend, metadata);
+pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend);
     VerifiedCapsuleFrag {
         backend: backend_vcfrag,
     }

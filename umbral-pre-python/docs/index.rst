@@ -118,10 +118,9 @@ API reference
 
     If ``sign_delegating_key`` or ``sign_receiving_key`` are ``True``, include these keys in the signature allowing proxies to verify the fragments were created with a given key or for a given key, respectively.
 
-.. py:function:: reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag, metadata: Optional[bytes]) -> VerifiedCapsuleFrag
+.. py:function:: reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag
 
     Reencrypts a capsule using a key fragment.
-    May include optional ``metadata`` to sign.
 
 .. py:function:: decrypt_reencrypted(decrypting_sk: SecretKey, delegating_pk: PublicKey, capsule: Capsule, cfrags: Sequence[VerifiedCapsuleFrag], ciphertext: bytes) -> Optional[bytes]
 
@@ -163,7 +162,7 @@ API reference
 
     A reencrypted fragment of an encapsulated symmetric key.
 
-    .. py:method:: verify(capsule: Capsule, verifying_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey, metadata: Optional[bytes]) -> VerifiedCapsuleFrag
+    .. py:method:: verify(capsule: Capsule, verifying_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey) -> VerifiedCapsuleFrag
 
         Verifies the integrity of the fragment.
 

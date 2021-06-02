@@ -90,12 +90,8 @@ pub fn generate_kfrags(
 ///
 /// One can call [`KeyFrag::verify()`](`crate::KeyFrag::verify`)
 /// before reencryption to check its integrity.
-pub fn reencrypt(
-    capsule: &Capsule,
-    verified_kfrag: &VerifiedKeyFrag,
-    metadata: Option<&[u8]>,
-) -> VerifiedCapsuleFrag {
-    VerifiedCapsuleFrag::reencrypted(capsule, &verified_kfrag.kfrag, metadata)
+pub fn reencrypt(capsule: &Capsule, verified_kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+    VerifiedCapsuleFrag::reencrypted(capsule, &verified_kfrag.kfrag)
 }
 
 /// Decrypts the ciphertext using previously reencrypted capsule fragments.
@@ -204,10 +200,9 @@ mod tests {
             })
             .collect();
 
-        let metadata = b"metadata";
         let verified_cfrags: Vec<VerifiedCapsuleFrag> = verified_kfrags[0..threshold]
             .iter()
-            .map(|vkfrag| reencrypt(&capsule, &vkfrag, Some(metadata)))
+            .map(|vkfrag| reencrypt(&capsule, &vkfrag))
             .collect();
 
         // Simulate network transfer
@@ -221,13 +216,7 @@ mod tests {
             .iter()
             .map(|cfrag| {
                 cfrag
-                    .verify(
-                        &capsule,
-                        &verifying_pk,
-                        &delegating_pk,
-                        &receiving_pk,
-                        Some(metadata),
-                    )
+                    .verify(&capsule, &verifying_pk, &delegating_pk, &receiving_pk)
                     .unwrap()
             })
             .collect();

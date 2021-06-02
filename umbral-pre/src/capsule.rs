@@ -239,7 +239,7 @@ mod tests {
 
         let vcfrags: Vec<_> = kfrags
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .map(|kfrag| reencrypt(&capsule, &kfrag))
             .collect();
 
         let cfrags: Vec<_> = vcfrags.iter().cloned().map(|vcfrag| vcfrag.cfrag).collect();
@@ -260,7 +260,7 @@ mod tests {
 
         let vcfrags2: Vec<_> = kfrags2
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, None))
+            .map(|kfrag| reencrypt(&capsule, &kfrag))
             .collect();
 
         let mismatched_cfrags: Vec<_> = vcfrags[0..1]

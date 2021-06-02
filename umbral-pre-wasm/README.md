@@ -66,12 +66,10 @@ let kfrags = umbral.generate_kfrags(
 // Bob must gather at least `m` cfrags in order to open the capsule.
 
 // Ursula 0
-let metadata0 = enc.encode("metadata0")
-let cfrag0 = umbral.reencrypt(capsule, kfrags[0], metadata0);
+let cfrag0 = umbral.reencrypt(capsule, kfrags[0]);
 
 // Ursula 1
-let metadata1 = enc.encode("metadata1");
-let cfrag1 = umbral.reencrypt(capsule, kfrags[1], metadata1);
+let cfrag1 = umbral.reencrypt(capsule, kfrags[1]);
 
 // ...
 

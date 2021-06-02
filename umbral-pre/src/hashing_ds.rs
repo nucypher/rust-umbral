@@ -44,18 +44,10 @@ pub(crate) fn hash_capsule_points(capsule_e: &CurvePoint, capsule_v: &CurvePoint
         .finalize()
 }
 
-pub(crate) fn hash_to_cfrag_verification(
-    points: &[CurvePoint],
-    metadata: Option<&[u8]>,
-) -> CurveScalar {
-    let digest = ScalarDigest::new_with_dst(b"CFRAG_VERIFICATION").chain_points(points);
-
-    let digest = match metadata {
-        Some(s) => digest.chain_bytes(s),
-        None => digest,
-    };
-
-    digest.finalize()
+pub(crate) fn hash_to_cfrag_verification(points: &[CurvePoint]) -> CurveScalar {
+    ScalarDigest::new_with_dst(b"CFRAG_VERIFICATION")
+        .chain_points(points)
+        .finalize()
 }
 
 pub(crate) fn kfrag_signature_message(

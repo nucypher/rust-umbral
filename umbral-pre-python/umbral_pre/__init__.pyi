@@ -86,7 +86,6 @@ class CapsuleFrag:
             verifying_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
-            metadata: Optional[bytes],
             ) -> VerifiedCapsuleFrag:
         ...
 
@@ -95,7 +94,7 @@ class VerifiedCapsuleFrag:
     ...
 
 
-def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag, metadata: Optional[bytes]) -> VerifiedCapsuleFrag:
+def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag:
     ...
 
 
