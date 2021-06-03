@@ -26,6 +26,10 @@ API reference
 
         Generates a new secret key.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
 .. py:class:: SecretKeyFactory
 
     A deterministic generator of :py:class:`SecretKey` objects.
@@ -46,6 +50,10 @@ API reference
 
         Restores the object from a bytestring.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
 .. py:class:: PublicKey
 
     An ``umbral-pre`` public key object.
@@ -61,6 +69,10 @@ API reference
     .. py:staticmethod:: from_bytes(data: bytes) -> PublicKey
 
         Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
     .. py:method:: __hash__() -> int
 
@@ -88,6 +100,10 @@ API reference
         Returns ``True`` if the ``message`` was signed by someone possessing the secret counterpart
         to ``verifying_key``.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
 .. py:class:: Capsule
 
     An encapsulated symmetric key.
@@ -99,6 +115,10 @@ API reference
     .. py:staticmethod:: from_bytes(data: bytes) -> Capsule
 
         Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
     .. py:method:: __hash__() -> int
 
@@ -142,6 +162,10 @@ API reference
 
         Restores the object from a bytestring.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
     .. py:method:: __hash__() -> int
 
         Returns a hash of self.
@@ -157,6 +181,10 @@ API reference
 
         Intended for internal storage;
         make sure that the bytes come from a trusted source.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
 .. py:class:: CapsuleFrag
 
@@ -174,6 +202,10 @@ API reference
 
         Restores the object from a bytestring.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
     .. py:method:: __hash__() -> int
 
         Returns a hash of self.
@@ -181,6 +213,10 @@ API reference
 .. py:class:: VerifiedCapsuleFrag
 
     A verified capsule fragment, good for decryption.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
 
 Indices and tables

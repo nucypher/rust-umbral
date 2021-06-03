@@ -24,6 +24,11 @@ pub trait RepresentableAsArray: Sized {
     // It would be nice to have a dependent type
     // type Array = GenericArray<u8, Self::Size>;
     // but it's currently an unstable feature or Rust.
+
+    /// Resulting array length exposed as a runtime method.
+    fn serialized_size() -> usize {
+        Self::Size::to_usize()
+    }
 }
 
 /// A trait denoting that the object can be serialized to an array of bytes
@@ -43,7 +48,7 @@ pub trait DeserializableFromArray: RepresentableAsArray {
     /// checking that its length is correct.
     fn from_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
         let data_slice = data.as_ref();
-        match data_slice.len().cmp(&Self::Size::to_usize()) {
+        match data_slice.len().cmp(&Self::serialized_size()) {
             Ordering::Greater => Err(DeserializationError::TooManyBytes),
             Ordering::Less => Err(DeserializationError::NotEnoughBytes),
             Ordering::Equal => {

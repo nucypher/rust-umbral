@@ -10,7 +10,7 @@ use pyo3::PyObjectProtocol;
 use umbral_pre::{
     CapsuleFragVerificationError, DecryptionError, DeserializableFromArray, DeserializationError,
     EncryptionError, KeyFragVerificationError, OpenReencryptedError, ReencryptionError,
-    SecretKeyFactoryError, SerializableToArray,
+    RepresentableAsArray, SecretKeyFactoryError, SerializableToArray,
 };
 
 // Helper traits to generalize implementing various Python protocol functions for our types.
@@ -132,6 +132,11 @@ impl SecretKey {
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
     }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::SecretKey::serialized_size()
+    }
 }
 
 #[pyproto]
@@ -200,6 +205,11 @@ impl SecretKeyFactory {
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
     }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::SecretKeyFactory::serialized_size()
+    }
 }
 
 #[pyproto]
@@ -253,6 +263,11 @@ impl PublicKey {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::PublicKey::serialized_size()
     }
 }
 
@@ -354,6 +369,11 @@ impl Signature {
     pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
         self.backend.verify(&verifying_key.backend, message)
     }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::Signature::serialized_size()
+    }
 }
 
 #[pyproto]
@@ -404,6 +424,11 @@ impl Capsule {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::Capsule::serialized_size()
     }
 }
 
@@ -523,6 +548,11 @@ impl KeyFrag {
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
     }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::KeyFrag::serialized_size()
+    }
 }
 
 #[pyproto]
@@ -569,6 +599,11 @@ impl VerifiedKeyFrag {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
             .map(|vkfrag| Self { backend: vkfrag })
             .map_err(map_serialization_err::<VerifiedKeyFrag>)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::VerifiedKeyFrag::serialized_size()
     }
 }
 
@@ -676,6 +711,11 @@ impl CapsuleFrag {
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
     }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::CapsuleFrag::serialized_size()
+    }
 }
 
 #[pyproto]
@@ -731,6 +771,14 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
 
     fn __str__(&self) -> PyResult<String> {
         hexstr(self)
+    }
+}
+
+#[pymethods]
+impl VerifiedCapsuleFrag {
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::VerifiedCapsuleFrag::serialized_size()
     }
 }
 
