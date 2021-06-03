@@ -26,6 +26,14 @@ API reference
 
         Generates a new secret key.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> SecretKey
+
+        Restores the object from a bytestring.
+
     .. py:staticmethod:: serialized_size() -> int
 
         Returns the size in bytes of the serialized representation of this object.
@@ -38,7 +46,7 @@ API reference
 
         Generates a new random factory.
 
-    .. py:method:: secret_key_by_label(label: bytes) -> SecretKey
+    .. py:method:: secret_key_by_label(label: bytes) -> SecretKeyFactory
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
 
@@ -100,6 +108,14 @@ API reference
         Returns ``True`` if the ``message`` was signed by someone possessing the secret counterpart
         to ``verifying_key``.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> Signature
+
+        Restores the object from a bytestring.
+
     .. py:staticmethod:: serialized_size() -> int
 
         Returns the size in bytes of the serialized representation of this object.
@@ -107,6 +123,14 @@ API reference
 .. py:class:: Capsule
 
     An encapsulated symmetric key.
+
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> Capsule
+
+        Restores the object from a bytestring.
 
     .. py:method:: __bytes__() -> bytes
 
@@ -182,6 +206,10 @@ API reference
         Intended for internal storage;
         make sure that the bytes come from a trusted source.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
     .. py:staticmethod:: serialized_size() -> int
 
         Returns the size in bytes of the serialized representation of this object.
@@ -213,6 +241,10 @@ API reference
 .. py:class:: VerifiedCapsuleFrag
 
     A verified capsule fragment, good for decryption.
+
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
 
     .. py:staticmethod:: serialized_size() -> int
 

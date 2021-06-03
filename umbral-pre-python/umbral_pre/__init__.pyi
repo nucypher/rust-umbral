@@ -8,6 +8,10 @@ class SecretKey:
         ...
 
     @staticmethod
+    def from_bytes() -> SecretKey:
+        ...
+
+    @staticmethod
     def serialized_size() -> int:
         ...
 
@@ -22,6 +26,10 @@ class SecretKeyFactory:
         ...
 
     @staticmethod
+    def from_bytes() -> SecretKeyFactory:
+        ...
+
+    @staticmethod
     def serialized_size() -> int:
         ...
 
@@ -30,6 +38,10 @@ class PublicKey:
 
     @staticmethod
     def from_secret_key(sk: SecretKey) -> PublicKey:
+        ...
+
+    @staticmethod
+    def from_bytes() -> PublicKey:
         ...
 
     @staticmethod
@@ -52,6 +64,10 @@ class Signer:
 class Signature:
 
     def verify(verifying_key: PublicKey, message: bytes) -> bool:
+        ...
+
+    @staticmethod
+    def from_bytes() -> Signature:
         ...
 
     @staticmethod
@@ -82,6 +98,10 @@ class KeyFrag:
             delegating_pk: Optional[PublicKey],
             receiving_pk: Optional[PublicKey],
             ) -> VerifiedKeyFrag:
+        ...
+
+    @staticmethod
+    def from_bytes() -> KeyFrag:
         ...
 
     @staticmethod
@@ -120,6 +140,10 @@ class CapsuleFrag:
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
             ) -> VerifiedCapsuleFrag:
+        ...
+
+    @staticmethod
+    def from_bytes() -> CapsuleFrag:
         ...
 
     @staticmethod
