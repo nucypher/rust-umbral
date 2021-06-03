@@ -49,9 +49,9 @@ fn map_serialization_err<T: HasName>(err: DeserializationError) -> PyErr {
 }
 
 fn from_bytes<T: FromSerializableBackend<U> + HasName, U: DeserializableFromArray>(
-    bytes: &[u8],
+    data: &[u8],
 ) -> PyResult<T> {
-    U::from_bytes(bytes)
+    U::from_bytes(data)
         .map(T::from_backend)
         .map_err(map_serialization_err::<T>)
 }
@@ -129,8 +129,8 @@ impl SecretKey {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 }
 
@@ -197,8 +197,8 @@ impl SecretKeyFactory {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 }
 
@@ -251,8 +251,8 @@ impl PublicKey {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 }
 
@@ -347,8 +347,8 @@ impl HasName for Signature {
 #[pymethods]
 impl Signature {
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 
     pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
@@ -402,8 +402,8 @@ impl HasName for Capsule {
 #[pymethods]
 impl Capsule {
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 }
 
@@ -520,8 +520,8 @@ impl KeyFrag {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 }
 
@@ -565,8 +565,8 @@ impl HasName for VerifiedKeyFrag {
 #[pymethods]
 impl VerifiedKeyFrag {
     #[staticmethod]
-    pub fn from_verified_bytes(bytes: &[u8]) -> PyResult<Self> {
-        umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
+    pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
+        umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
             .map(|vkfrag| Self { backend: vkfrag })
             .map_err(map_serialization_err::<VerifiedKeyFrag>)
     }
@@ -673,8 +673,8 @@ impl CapsuleFrag {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 }
 

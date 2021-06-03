@@ -337,8 +337,8 @@ impl VerifiedKeyFrag {
     ///
     /// Intended for internal storage;
     /// make sure that the bytes come from a trusted source.
-    pub fn from_verified_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
-        KeyFrag::from_bytes(bytes).map(|kfrag| Self { kfrag })
+    pub fn from_verified_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
+        KeyFrag::from_bytes(data).map(|kfrag| Self { kfrag })
     }
 }
 

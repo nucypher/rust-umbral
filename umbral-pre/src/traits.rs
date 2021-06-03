@@ -41,13 +41,13 @@ pub trait DeserializableFromArray: RepresentableAsArray {
 
     /// Attempts to produce the object back from a dynamically sized byte array,
     /// checking that its length is correct.
-    fn from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
-        let bytes_slice = bytes.as_ref();
-        match bytes_slice.len().cmp(&Self::Size::to_usize()) {
+    fn from_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
+        let data_slice = data.as_ref();
+        match data_slice.len().cmp(&Self::Size::to_usize()) {
             Ordering::Greater => Err(DeserializationError::TooManyBytes),
             Ordering::Less => Err(DeserializationError::NotEnoughBytes),
             Ordering::Equal => {
-                Self::from_array(GenericArray::<u8, Self::Size>::from_slice(bytes_slice))
+                Self::from_array(GenericArray::<u8, Self::Size>::from_slice(data_slice))
             }
         }
     }
