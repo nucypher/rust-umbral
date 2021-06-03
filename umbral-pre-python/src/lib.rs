@@ -34,22 +34,26 @@ fn to_bytes<T: AsSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyR
     })
 }
 
+fn map_serialization_err<T: HasName>(err: DeserializationError) -> PyErr {
+    match err {
+        DeserializationError::ConstructionFailure => {
+            PyValueError::new_err(format!("Failed to deserialize a {} object", T::name()))
+        }
+        DeserializationError::TooManyBytes => {
+            PyValueError::new_err("The given bytestring is too long")
+        }
+        DeserializationError::NotEnoughBytes => {
+            PyValueError::new_err("The given bytestring is too short")
+        }
+    }
+}
+
 fn from_bytes<T: FromSerializableBackend<U> + HasName, U: DeserializableFromArray>(
     bytes: &[u8],
 ) -> PyResult<T> {
     U::from_bytes(bytes)
         .map(T::from_backend)
-        .map_err(|err| match err {
-            DeserializationError::ConstructionFailure => {
-                PyValueError::new_err(format!("Failed to deserialize a {} object", T::name()))
-            }
-            DeserializationError::TooManyBytes => {
-                PyValueError::new_err("The given bytestring is too long")
-            }
-            DeserializationError::NotEnoughBytes => {
-                PyValueError::new_err("The given bytestring is too short")
-            }
-        })
+        .map_err(map_serialization_err::<T>)
 }
 
 fn hash<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(obj: &T) -> PyResult<isize> {
@@ -551,6 +555,16 @@ impl AsSerializableBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
 impl HasName for VerifiedKeyFrag {
     fn name() -> &'static str {
         "VerifiedKeyFrag"
+    }
+}
+
+#[pymethods]
+impl VerifiedKeyFrag {
+    #[staticmethod]
+    pub fn from_verified_bytes(bytes: &[u8]) -> PyResult<Self> {
+        umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
+            .map(|vkfrag| Self { backend: vkfrag })
+            .map_err(map_serialization_err::<VerifiedKeyFrag>)
     }
 }
 

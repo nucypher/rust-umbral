@@ -151,6 +151,14 @@ API reference
 
     A verified key fragment, good for reencryption.
 
+    .. py:method:: from_verified_bytes(data: bytes) -> VerifiedKeyFrag
+
+        Restores a verified keyfrag directly from serialized bytes,
+        skipping :py:meth:`KeyFrag.verify` call.
+
+        Intended for internal storage;
+        make sure that the bytes come from a trusted source.
+
 .. py:class:: CapsuleFrag
 
     A reencrypted fragment of an encapsulated symmetric key.

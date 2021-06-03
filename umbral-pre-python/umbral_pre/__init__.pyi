@@ -63,7 +63,8 @@ class KeyFrag:
 
 
 class VerifiedKeyFrag:
-    ...
+    def from_verified_bytes(data: bytes) -> VerifiedKeyFrag:
+        ...
 
 
 def generate_kfrags(

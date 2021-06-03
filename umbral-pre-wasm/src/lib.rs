@@ -263,6 +263,15 @@ impl KeyFrag {
 #[wasm_bindgen]
 pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
+#[wasm_bindgen]
+impl VerifiedKeyFrag {
+    pub fn from_verified_bytes(bytes: &[u8]) -> Self {
+        umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
+            .map(Self)
+            .unwrap()
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn generate_kfrags(
