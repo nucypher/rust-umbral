@@ -44,11 +44,11 @@ class Signature:
 class Capsule: ...
 
 
-def encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
+def encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
     ...
 
 
-def decrypt_original(sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
+def decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
     ...
 
 
@@ -99,7 +99,7 @@ def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag:
 
 
 def decrypt_reencrypted(
-        decrypting_sk: SecretKey,
+        receiving_sk: SecretKey,
         delegating_pk: PublicKey,
         capsule: Capsule,
         cfrags: Sequence[VerifiedCapsuleFrag],

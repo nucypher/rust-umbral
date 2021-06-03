@@ -22,22 +22,24 @@ pub enum ReencryptionError {
 /// Encrypts the given plaintext message using a DEM scheme,
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
-pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
-    let (capsule, key_seed) = Capsule::from_public_key(pk);
+pub fn encrypt(
+    delegating_pk: &PublicKey,
+    plaintext: &[u8],
+) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
+    let (capsule, key_seed) = Capsule::from_public_key(delegating_pk);
     let dem = DEM::new(&key_seed.to_array());
     let capsule_bytes = capsule.to_array();
     dem.encrypt(plaintext, &capsule_bytes)
         .map(|ciphertext| (capsule, ciphertext))
 }
 
-/// Attempts to decrypt the ciphertext using the original encryptor's
-/// secret key.
+/// Attempts to decrypt the ciphertext using the receiver's secret key.
 pub fn decrypt_original(
-    decrypting_sk: &SecretKey,
+    delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: impl AsRef<[u8]>,
 ) -> Result<Box<[u8]>, DecryptionError> {
-    let key_seed = capsule.open_original(decrypting_sk);
+    let key_seed = capsule.open_original(delegating_sk);
     let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(ciphertext, &capsule.to_array())
 }
@@ -105,7 +107,7 @@ pub fn reencrypt(capsule: &Capsule, verified_kfrag: &VerifiedKeyFrag) -> Verifie
 /// One can call [`CapsuleFrag::verify()`](`crate::CapsuleFrag::verify`)
 /// before reencryption to check its integrity.
 pub fn decrypt_reencrypted(
-    decrypting_sk: &SecretKey,
+    receiving_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
     verified_cfrags: &[VerifiedCapsuleFrag],
@@ -117,7 +119,7 @@ pub fn decrypt_reencrypted(
         .map(|vcfrag| vcfrag.cfrag)
         .collect();
     let key_seed = capsule
-        .open_reencrypted(decrypting_sk, delegating_pk, &cfrags)
+        .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
         .map_err(ReencryptionError::OnOpen)?;
     let dem = DEM::new(&key_seed.to_array());
     dem.decrypt(&ciphertext, &capsule.to_array())

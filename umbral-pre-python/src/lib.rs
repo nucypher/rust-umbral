@@ -427,8 +427,12 @@ impl PyObjectProtocol for Capsule {
 }
 
 #[pyfunction]
-pub fn encrypt(py: Python, pk: &PublicKey, plaintext: &[u8]) -> PyResult<(Capsule, PyObject)> {
-    umbral_pre::encrypt(&pk.backend, plaintext)
+pub fn encrypt(
+    py: Python,
+    delegating_pk: &PublicKey,
+    plaintext: &[u8],
+) -> PyResult<(Capsule, PyObject)> {
+    umbral_pre::encrypt(&delegating_pk.backend, plaintext)
         .map(|(backend_capsule, ciphertext)| {
             (
                 Capsule {
@@ -460,11 +464,11 @@ fn map_decryption_err(err: DecryptionError) -> PyErr {
 #[pyfunction]
 pub fn decrypt_original(
     py: Python,
-    sk: &SecretKey,
+    delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> PyResult<PyObject> {
-    umbral_pre::decrypt_original(&sk.backend, &capsule.backend, &ciphertext)
+    umbral_pre::decrypt_original(&delegating_sk.backend, &capsule.backend, &ciphertext)
         .map(|plaintext| PyBytes::new(py, &plaintext).into())
         .map_err(map_decryption_err)
 }
@@ -741,7 +745,7 @@ pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleF
 #[pyfunction]
 pub fn decrypt_reencrypted(
     py: Python,
-    decrypting_sk: &SecretKey,
+    receiving_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
     verified_cfrags: Vec<VerifiedCapsuleFrag>,
@@ -753,7 +757,7 @@ pub fn decrypt_reencrypted(
         .map(|vcfrag| vcfrag.backend)
         .collect();
     umbral_pre::decrypt_reencrypted(
-        &decrypting_sk.backend,
+        &receiving_sk.backend,
         &delegating_pk.backend,
         &capsule.backend,
         &backend_cfrags,

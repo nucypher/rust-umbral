@@ -98,7 +98,7 @@ impl Capsule {
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    pub(crate) fn from_public_key(pk: &PublicKey) -> (Capsule, CurvePoint) {
+    pub(crate) fn from_public_key(delegating_pk: &PublicKey) -> (Capsule, CurvePoint) {
         let g = CurvePoint::generator();
 
         let priv_r = CurveScalar::random_nonzero();
@@ -111,7 +111,7 @@ impl Capsule {
 
         let s = &priv_u + &(&priv_r * &h);
 
-        let shared_key = &pk.to_point() * &(&priv_r + &priv_u);
+        let shared_key = &delegating_pk.to_point() * &(&priv_r + &priv_u);
 
         let capsule = Self::new(pub_r, pub_u, s);
 
@@ -119,8 +119,8 @@ impl Capsule {
     }
 
     /// Derive the same symmetric key
-    pub(crate) fn open_original(&self, private_key: &SecretKey) -> CurvePoint {
-        &(&self.point_e + &self.point_v) * &private_key.to_secret_scalar()
+    pub(crate) fn open_original(&self, delegating_sk: &SecretKey) -> CurvePoint {
+        &(&self.point_e + &self.point_v) * &delegating_sk.to_secret_scalar()
     }
 
     #[allow(clippy::many_single_char_names)]

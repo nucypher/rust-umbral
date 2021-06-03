@@ -134,14 +134,14 @@ impl CapsuleWithFrags {
     #[wasm_bindgen]
     pub fn decrypt_reencrypted(
         &self,
-        decrypting_sk: &SecretKey,
+        receiving_sk: &SecretKey,
         delegating_pk: &PublicKey,
         ciphertext: &[u8],
     ) -> Option<Box<[u8]>> {
         let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
             self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
-            &decrypting_sk.0,
+            &receiving_sk.0,
             &delegating_pk.0,
             &self.capsule.0,
             backend_cfrags.as_slice(),
@@ -175,19 +175,19 @@ impl EncryptionResult {
 }
 
 #[wasm_bindgen]
-pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
-    let backend_pk = pk.0;
+pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
+    let backend_pk = delegating_pk.0;
     let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pk, plaintext).unwrap();
     Some(EncryptionResult::new(ciphertext, Capsule(capsule)))
 }
 
 #[wasm_bindgen]
 pub fn decrypt_original(
-    decrypting_sk: &SecretKey,
+    delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Box<[u8]> {
-    umbral_pre::decrypt_original(&decrypting_sk.0, &capsule.0, ciphertext).unwrap()
+    umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).unwrap()
 }
 
 #[wasm_bindgen]

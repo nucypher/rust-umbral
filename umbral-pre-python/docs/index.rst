@@ -104,13 +104,13 @@ API reference
 
         Returns a hash of self.
 
-.. py:function:: encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
+.. py:function:: encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
 
-    Creates a symmetric key, encrypts ``plaintext`` with it, and returns the encapsulated symmetric key along with the ciphertext. ``pk`` is the public key of the recipient.
+    Creates a symmetric key, encrypts ``plaintext`` with it, and returns the encapsulated symmetric key along with the ciphertext. ``delegating_pk`` is the public key of the delegator.
 
-.. py:function:: decrypt_original(sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes
+.. py:function:: decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes
 
-    Decrypts ``ciphertext`` with the key used to encrypt it.
+    Decrypts ``ciphertext`` with the secret key of the delegator.
 
 .. py:function:: generate_kfrags(delegating_sk: SecretKey, receiving_pk: PublicKey, signer: Signer, threshold: int, num_kfrags: int, sign_delegating_key: bool, sign_receiving_key: bool) -> List[VerifiedKeyFrag]
 
@@ -122,7 +122,7 @@ API reference
 
     Reencrypts a capsule using a key fragment.
 
-.. py:function:: decrypt_reencrypted(decrypting_sk: SecretKey, delegating_pk: PublicKey, capsule: Capsule, cfrags: Sequence[VerifiedCapsuleFrag], ciphertext: bytes) -> Optional[bytes]
+.. py:function:: decrypt_reencrypted(receiving_sk: SecretKey, delegating_pk: PublicKey, capsule: Capsule, cfrags: Sequence[VerifiedCapsuleFrag], ciphertext: bytes) -> Optional[bytes]
 
     Attempts to decrypt the plaintext using the original capsule and reencrypted capsule fragments (at least ``threshold`` of them, see :py:func:`generate_kfrags`).
 
