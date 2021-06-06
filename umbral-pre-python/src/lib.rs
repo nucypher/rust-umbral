@@ -9,35 +9,35 @@ use pyo3::PyObjectProtocol;
 
 use umbral_pre::{
     CapsuleFragVerificationError, DecryptionError, DeserializableFromArray, DeserializationError,
-    EncryptionError, KeyFragVerificationError, OpenReencryptedError, ReencryptionError,
-    RepresentableAsArray, SecretKeyFactoryError, SerializableToArray,
+    EncryptionError, HasTypeName, KeyFragVerificationError, OpenReencryptedError,
+    ReencryptionError, RepresentableAsArray, SecretKeyFactoryError, SerializableToArray,
 };
 
 // Helper traits to generalize implementing various Python protocol functions for our types.
 
-trait AsSerializableBackend<T> {
+trait AsBackend<T> {
     fn as_backend(&self) -> &T;
 }
 
-trait FromSerializableBackend<T> {
+trait FromBackend<T> {
     fn from_backend(backend: T) -> Self;
 }
 
-trait HasName {
-    fn name() -> &'static str;
-}
-
-fn to_bytes<T: AsSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyResult<PyObject> {
+fn to_bytes<T, U>(obj: &T) -> PyResult<PyObject>
+where
+    T: AsBackend<U>,
+    U: SerializableToArray,
+{
     let serialized = obj.as_backend().to_array();
     Python::with_gil(|py| -> PyResult<PyObject> {
         Ok(PyBytes::new(py, serialized.as_slice()).into())
     })
 }
 
-fn map_serialization_err<T: HasName>(err: DeserializationError) -> PyErr {
+fn map_deserialization_err<T: HasTypeName>(err: DeserializationError) -> PyErr {
     match err {
         DeserializationError::ConstructionFailure => {
-            PyValueError::new_err(format!("Failed to deserialize a {} object", T::name()))
+            PyValueError::new_err(format!("Failed to deserialize a {} object", T::type_name()))
         }
         DeserializationError::TooManyBytes => {
             PyValueError::new_err("The given bytestring is too long")
@@ -48,45 +48,43 @@ fn map_serialization_err<T: HasName>(err: DeserializationError) -> PyErr {
     }
 }
 
-fn from_bytes<T: FromSerializableBackend<U> + HasName, U: DeserializableFromArray>(
-    data: &[u8],
-) -> PyResult<T> {
+fn from_bytes<T, U>(data: &[u8]) -> PyResult<T>
+where
+    T: FromBackend<U>,
+    U: DeserializableFromArray + HasTypeName,
+{
     U::from_bytes(data)
         .map(T::from_backend)
-        .map_err(map_serialization_err::<T>)
+        .map_err(map_deserialization_err::<U>)
 }
 
-fn hash<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(obj: &T) -> PyResult<isize> {
+fn hash<T, U>(obj: &T) -> PyResult<isize>
+where
+    T: AsBackend<U>,
+    U: SerializableToArray + HasTypeName,
+{
     let serialized = obj.as_backend().to_array();
 
     // call `hash((class_name, bytes(obj)))`
     Python::with_gil(|py| {
         let builtins = PyModule::import(py, "builtins")?;
-        let arg1 = PyUnicode::new(py, T::name());
+        let arg1 = PyUnicode::new(py, U::type_name());
         let arg2: PyObject = PyBytes::new(py, serialized.as_slice()).into();
         builtins.getattr("hash")?.call1(((arg1, arg2),))?.extract()
     })
 }
 
-#[allow(clippy::unnecessary_wraps)] // Don't want to wrap it in Ok() on every call
-fn hexstr<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(
-    obj: &T,
-) -> PyResult<String> {
-    let hex_str = hex::encode(obj.as_backend().to_array().as_slice());
-    Ok(format!("{}:{}", T::name(), &hex_str[0..16]))
-}
-
-fn richcmp<T: HasName + PyClass + PartialEq>(
-    obj: &T,
-    other: PyRef<T>,
-    op: CompareOp,
-) -> PyResult<bool> {
+fn richcmp<T, U>(obj: &T, other: PyRef<T>, op: CompareOp) -> PyResult<bool>
+where
+    T: PyClass + PartialEq + AsBackend<U>,
+    U: HasTypeName,
+{
     match op {
         CompareOp::Eq => Ok(obj == &*other),
         CompareOp::Ne => Ok(obj != &*other),
         _ => Err(PyTypeError::new_err(format!(
             "{} objects are not ordered",
-            T::name()
+            U::type_name()
         ))),
     }
 }
@@ -101,21 +99,15 @@ pub struct SecretKey {
     backend: umbral_pre::SecretKey,
 }
 
-impl AsSerializableBackend<umbral_pre::SecretKey> for SecretKey {
+impl AsBackend<umbral_pre::SecretKey> for SecretKey {
     fn as_backend(&self) -> &umbral_pre::SecretKey {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::SecretKey> for SecretKey {
+impl FromBackend<umbral_pre::SecretKey> for SecretKey {
     fn from_backend(backend: umbral_pre::SecretKey) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for SecretKey {
-    fn name() -> &'static str {
-        "SecretKey"
     }
 }
 
@@ -150,7 +142,7 @@ impl PyObjectProtocol for SecretKey {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Ok(format!("{}:...", Self::name()))
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -160,21 +152,15 @@ pub struct SecretKeyFactory {
     backend: umbral_pre::SecretKeyFactory,
 }
 
-impl AsSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
+impl AsBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
     fn as_backend(&self) -> &umbral_pre::SecretKeyFactory {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
+impl FromBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
     fn from_backend(backend: umbral_pre::SecretKeyFactory) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for SecretKeyFactory {
-    fn name() -> &'static str {
-        "SecretKeyFactory"
     }
 }
 
@@ -223,7 +209,7 @@ impl PyObjectProtocol for SecretKeyFactory {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Ok(format!("{}:...", Self::name()))
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -233,21 +219,15 @@ pub struct PublicKey {
     backend: umbral_pre::PublicKey,
 }
 
-impl AsSerializableBackend<umbral_pre::PublicKey> for PublicKey {
+impl AsBackend<umbral_pre::PublicKey> for PublicKey {
     fn as_backend(&self) -> &umbral_pre::PublicKey {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::PublicKey> for PublicKey {
+impl FromBackend<umbral_pre::PublicKey> for PublicKey {
     fn from_backend(backend: umbral_pre::PublicKey) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for PublicKey {
-    fn name() -> &'static str {
-        "PublicKey"
     }
 }
 
@@ -286,7 +266,7 @@ impl PyObjectProtocol for PublicKey {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -296,9 +276,9 @@ pub struct Signer {
     backend: umbral_pre::Signer,
 }
 
-impl HasName for Signer {
-    fn name() -> &'static str {
-        "Signer"
+impl AsBackend<umbral_pre::Signer> for Signer {
+    fn as_backend(&self) -> &umbral_pre::Signer {
+        &self.backend
     }
 }
 
@@ -331,7 +311,7 @@ impl PyObjectProtocol for Signer {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Ok(format!("{}:...", Self::name()))
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -341,21 +321,15 @@ pub struct Signature {
     backend: umbral_pre::Signature,
 }
 
-impl AsSerializableBackend<umbral_pre::Signature> for Signature {
+impl AsBackend<umbral_pre::Signature> for Signature {
     fn as_backend(&self) -> &umbral_pre::Signature {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::Signature> for Signature {
+impl FromBackend<umbral_pre::Signature> for Signature {
     fn from_backend(backend: umbral_pre::Signature) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for Signature {
-    fn name() -> &'static str {
-        "Signature"
     }
 }
 
@@ -391,7 +365,7 @@ impl PyObjectProtocol for Signature {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -401,21 +375,15 @@ pub struct Capsule {
     backend: umbral_pre::Capsule,
 }
 
-impl AsSerializableBackend<umbral_pre::Capsule> for Capsule {
+impl AsBackend<umbral_pre::Capsule> for Capsule {
     fn as_backend(&self) -> &umbral_pre::Capsule {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::Capsule> for Capsule {
+impl FromBackend<umbral_pre::Capsule> for Capsule {
     fn from_backend(backend: umbral_pre::Capsule) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for Capsule {
-    fn name() -> &'static str {
-        "Capsule"
     }
 }
 
@@ -447,7 +415,7 @@ impl PyObjectProtocol for Capsule {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -504,21 +472,15 @@ pub struct KeyFrag {
     backend: umbral_pre::KeyFrag,
 }
 
-impl AsSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
+impl AsBackend<umbral_pre::KeyFrag> for KeyFrag {
     fn as_backend(&self) -> &umbral_pre::KeyFrag {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::KeyFrag> for KeyFrag {
+impl FromBackend<umbral_pre::KeyFrag> for KeyFrag {
     fn from_backend(backend: umbral_pre::KeyFrag) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for KeyFrag {
-    fn name() -> &'static str {
-        "KeyFrag"
     }
 }
 
@@ -570,7 +532,7 @@ impl PyObjectProtocol for KeyFrag {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -580,15 +542,9 @@ pub struct VerifiedKeyFrag {
     backend: umbral_pre::VerifiedKeyFrag,
 }
 
-impl AsSerializableBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
+impl AsBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
     fn as_backend(&self) -> &umbral_pre::VerifiedKeyFrag {
         &self.backend
-    }
-}
-
-impl HasName for VerifiedKeyFrag {
-    fn name() -> &'static str {
-        "VerifiedKeyFrag"
     }
 }
 
@@ -598,7 +554,7 @@ impl VerifiedKeyFrag {
     pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
             .map(|vkfrag| Self { backend: vkfrag })
-            .map_err(map_serialization_err::<VerifiedKeyFrag>)
+            .map_err(map_deserialization_err::<umbral_pre::VerifiedKeyFrag>)
     }
 
     #[staticmethod]
@@ -622,7 +578,7 @@ impl PyObjectProtocol for VerifiedKeyFrag {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -660,21 +616,15 @@ pub struct CapsuleFrag {
     backend: umbral_pre::CapsuleFrag,
 }
 
-impl AsSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
+impl AsBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
     fn as_backend(&self) -> &umbral_pre::CapsuleFrag {
         &self.backend
     }
 }
 
-impl FromSerializableBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
+impl FromBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
     fn from_backend(backend: umbral_pre::CapsuleFrag) -> Self {
         Self { backend }
-    }
-}
-
-impl HasName for CapsuleFrag {
-    fn name() -> &'static str {
-        "CapsuleFrag"
     }
 }
 
@@ -733,7 +683,7 @@ impl PyObjectProtocol for CapsuleFrag {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
@@ -743,15 +693,9 @@ pub struct VerifiedCapsuleFrag {
     backend: umbral_pre::VerifiedCapsuleFrag,
 }
 
-impl AsSerializableBackend<umbral_pre::VerifiedCapsuleFrag> for VerifiedCapsuleFrag {
+impl AsBackend<umbral_pre::VerifiedCapsuleFrag> for VerifiedCapsuleFrag {
     fn as_backend(&self) -> &umbral_pre::VerifiedCapsuleFrag {
         &self.backend
-    }
-}
-
-impl HasName for VerifiedCapsuleFrag {
-    fn name() -> &'static str {
-        "VerifiedCapsuleFrag"
     }
 }
 
@@ -770,7 +714,7 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        hexstr(self)
+        Ok(format!("{}", self.backend))
     }
 }
 
