@@ -1,17 +1,19 @@
+use alloc::vec::Vec;
+use core::fmt;
+
+use generic_array::sequence::Concat;
+use generic_array::GenericArray;
+use typenum::op;
+
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    fmt_public, DeserializableFromArray, DeserializationError, HasTypeName, RepresentableAsArray,
+    SerializableToArray,
 };
-
-use alloc::vec::Vec;
-
-use generic_array::sequence::Concat;
-use generic_array::GenericArray;
-use typenum::op;
 
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
 #[derive(Debug, PartialEq)]
@@ -64,6 +66,18 @@ impl DeserializableFromArray for Capsule {
         let signature = CurveScalar::take_last(rest)?;
         Self::new_verified(point_e, point_v, signature)
             .ok_or(DeserializationError::ConstructionFailure)
+    }
+}
+
+impl HasTypeName for Capsule {
+    fn type_name() -> &'static str {
+        "Capsule"
+    }
+}
+
+impl fmt::Display for Capsule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public::<Self>(self, f)
     }
 }
 

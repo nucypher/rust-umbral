@@ -14,6 +14,7 @@ k256 = { version = "0.8", default-features = false, features = ["ecdsa", "arithm
 sha2 = "0.9"
 chacha20poly1305 = { version = "0.8", features = ["xchacha20poly1305"] }
 hkdf = "0.11"
+hex = "0.4"
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.

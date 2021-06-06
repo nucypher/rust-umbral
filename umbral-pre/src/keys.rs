@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use core::fmt;
 
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
 use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
@@ -12,7 +13,8 @@ use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    fmt_public, fmt_secret, DeserializableFromArray, DeserializationError, HasTypeName,
+    RepresentableAsArray, SerializableToArray,
 };
 
 /// ECDSA signature object.
@@ -44,6 +46,18 @@ impl Signature {
     /// The message is hashed internally.
     pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
         verifying_key.verify_digest(digest_for_signing(message), &self)
+    }
+}
+
+impl HasTypeName for Signature {
+    fn type_name() -> &'static str {
+        "Signature"
+    }
+}
+
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public(self, f)
     }
 }
 
@@ -109,6 +123,18 @@ impl DeserializableFromArray for SecretKey {
     }
 }
 
+impl HasTypeName for SecretKey {
+    fn type_name() -> &'static str {
+        "SecretKey"
+    }
+}
+
+impl fmt::Display for SecretKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_secret::<Self>(f)
+    }
+}
+
 fn digest_for_signing(message: &[u8]) -> BackendDigest {
     Hash::new().chain_bytes(message).digest()
 }
@@ -133,6 +159,18 @@ impl Signer {
     /// Returns the public key that can be used to verify the signatures produced by this signer.
     pub fn verifying_key(&self) -> PublicKey {
         PublicKey::from_secret_key(&self.0)
+    }
+}
+
+impl HasTypeName for Signer {
+    fn type_name() -> &'static str {
+        "Signer"
+    }
+}
+
+impl fmt::Display for Signer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_secret::<Self>(f)
     }
 }
 
@@ -178,6 +216,18 @@ impl DeserializableFromArray for PublicKey {
         let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
             .or(Err(DeserializationError::ConstructionFailure))?;
         Ok(Self(backend_pk))
+    }
+}
+
+impl HasTypeName for PublicKey {
+    fn type_name() -> &'static str {
+        "PublicKey"
+    }
+}
+
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public(self, f)
     }
 }
 
@@ -236,6 +286,18 @@ impl SerializableToArray for SecretKeyFactory {
 impl DeserializableFromArray for SecretKeyFactory {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
         Ok(Self(*arr))
+    }
+}
+
+impl HasTypeName for SecretKeyFactory {
+    fn type_name() -> &'static str {
+        "SecretKeyFactory"
+    }
+}
+
+impl fmt::Display for SecretKeyFactory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_secret::<Self>(f)
     }
 }
 
