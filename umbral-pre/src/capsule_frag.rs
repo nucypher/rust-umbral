@@ -10,7 +10,7 @@ use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
 use crate::traits::{
-    fmt_public, DeserializableFromArray, DeserializationError, HasTypeName, RepresentableAsArray,
+    fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
 };
 
@@ -47,7 +47,7 @@ impl SerializableToArray for CapsuleFragProof {
 }
 
 impl DeserializableFromArray for CapsuleFragProof {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (point_e2, rest) = CurvePoint::take(*arr)?;
         let (point_v2, rest) = CurvePoint::take(rest)?;
         let (kfrag_commitment, rest) = CurvePoint::take(rest)?;
@@ -136,7 +136,7 @@ impl SerializableToArray for CapsuleFrag {
 }
 
 impl DeserializableFromArray for CapsuleFrag {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (point_e1, rest) = CurvePoint::take(*arr)?;
         let (point_v1, rest) = CurvePoint::take(rest)?;
         let (kfrag_id, rest) = KeyFragID::take(rest)?;

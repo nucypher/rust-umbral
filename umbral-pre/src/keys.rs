@@ -13,7 +13,7 @@ use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::traits::{
-    fmt_public, fmt_secret, DeserializableFromArray, DeserializationError, HasTypeName,
+    fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
     RepresentableAsArray, SerializableToArray,
 };
 
@@ -32,12 +32,12 @@ impl SerializableToArray for Signature {
 }
 
 impl DeserializableFromArray for Signature {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
-            .or(Err(DeserializationError::ConstructionFailure))
+            .or(Err(ConstructionError::GenericFailure))
     }
 }
 
@@ -116,10 +116,10 @@ impl SerializableToArray for SecretKey {
 }
 
 impl DeserializableFromArray for SecretKey {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
-            .or(Err(DeserializationError::ConstructionFailure))
+            .or(Err(ConstructionError::GenericFailure))
     }
 }
 
@@ -211,10 +211,10 @@ impl SerializableToArray for PublicKey {
 }
 
 impl DeserializableFromArray for PublicKey {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let cp = CurvePoint::from_array(&arr)?;
         let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
-            .or(Err(DeserializationError::ConstructionFailure))?;
+            .or(Err(ConstructionError::GenericFailure))?;
         Ok(Self(backend_pk))
     }
 }
@@ -284,7 +284,7 @@ impl SerializableToArray for SecretKeyFactory {
 }
 
 impl DeserializableFromArray for SecretKeyFactory {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         Ok(Self(*arr))
     }
 }

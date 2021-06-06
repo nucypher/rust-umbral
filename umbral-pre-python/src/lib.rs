@@ -36,7 +36,7 @@ where
 
 fn map_deserialization_err<T: HasTypeName>(err: DeserializationError) -> PyErr {
     match err {
-        DeserializationError::ConstructionFailure => {
+        DeserializationError::ConstructionFailure(_) => {
             PyValueError::new_err(format!("Failed to deserialize a {} object", T::type_name()))
         }
         DeserializationError::TooManyBytes => {

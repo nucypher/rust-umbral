@@ -12,8 +12,8 @@ use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_sig
 use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
 use crate::traits::{
-    fmt_public, DeserializableFromArray, DeserializationError, HasTypeName, RepresentableAsArray,
-    SerializableToArray,
+    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
+    RepresentableAsArray, SerializableToArray,
 };
 
 #[allow(clippy::upper_case_acronyms)]
@@ -48,7 +48,7 @@ impl SerializableToArray for KeyFragID {
 }
 
 impl DeserializableFromArray for KeyFragID {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         Ok(Self(*arr))
     }
 }
@@ -84,7 +84,7 @@ impl SerializableToArray for KeyFragProof {
 }
 
 impl DeserializableFromArray for KeyFragProof {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (commitment, rest) = CurvePoint::take(*arr)?;
         let (signature_for_proxy, rest) = Signature::take(rest)?;
         let (signature_for_receiver, rest) = Signature::take(rest)?;
@@ -182,7 +182,7 @@ impl SerializableToArray for KeyFrag {
 }
 
 impl DeserializableFromArray for KeyFrag {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let params = Parameters::new();
         let (id, rest) = KeyFragID::take(*arr)?;
         let (key, rest) = CurveScalar::take(rest)?;

@@ -11,7 +11,7 @@ use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_sha
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::traits::{
-    fmt_public, DeserializableFromArray, DeserializationError, HasTypeName, RepresentableAsArray,
+    fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
 };
 
@@ -60,12 +60,11 @@ impl SerializableToArray for Capsule {
 }
 
 impl DeserializableFromArray for Capsule {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (point_e, rest) = CurvePoint::take(*arr)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
         let signature = CurveScalar::take_last(rest)?;
-        Self::new_verified(point_e, point_v, signature)
-            .ok_or(DeserializationError::ConstructionFailure)
+        Self::new_verified(point_e, point_v, signature).ok_or(ConstructionError::GenericFailure)
     }
 }
 
