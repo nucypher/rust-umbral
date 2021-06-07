@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use core::fmt;
 
 use aead::{Aead, AeadCore, Payload};
 use chacha20poly1305::aead::NewAead;
@@ -17,6 +18,14 @@ pub enum EncryptionError {
     PlaintextTooLarge,
 }
 
+impl fmt::Display for EncryptionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::PlaintextTooLarge => write!(f, "Plaintext is too large to encrypt"),
+        }
+    }
+}
+
 /// Errors that can happend during symmetric decryption.
 #[derive(Debug, PartialEq)]
 pub enum DecryptionError {
@@ -28,6 +37,20 @@ pub enum DecryptionError {
     /// - the ciphertext is modified or cut short,
     /// - an incorrect authentication data is provided on decryption.
     AuthenticationFailed,
+}
+
+impl fmt::Display for DecryptionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CiphertextTooShort => write!(f, "The ciphertext must include the nonce"),
+            Self::AuthenticationFailed => write!(
+                f,
+                "Decryption of ciphertext failed: \
+                either someone tampered with the ciphertext or \
+                you are using an incorrect decryption key."
+            ),
+        }
+    }
 }
 
 pub(crate) fn kdf<T: ArrayLength<u8>>(

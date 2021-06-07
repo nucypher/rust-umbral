@@ -34,6 +34,19 @@ pub enum OpenReencryptedError {
     ValidationFailed,
 }
 
+impl fmt::Display for OpenReencryptedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoCapsuleFrags => write!(f, "Empty CapsuleFrag sequence"),
+            Self::MismatchedCapsuleFrags => write!(f, "CapsuleFrags are not pairwise consistent"),
+            Self::RepeatingCapsuleFrags => write!(f, "Some of the CapsuleFrags are repeated"),
+            // Will be removed when #39 is fixed
+            Self::ZeroHash => write!(f, "An internally hashed value is zero"),
+            Self::ValidationFailed => write!(f, "Internal validation failed"),
+        }
+    }
+}
+
 /// Encapsulated symmetric key used to encrypt the plaintext.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Capsule {

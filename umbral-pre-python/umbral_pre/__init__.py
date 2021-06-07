@@ -9,7 +9,6 @@ from ._umbral import (
     VerifiedKeyFrag,
     CapsuleFrag,
     VerifiedCapsuleFrag,
-    GenericError,
     VerificationError,
     encrypt,
     decrypt_original,

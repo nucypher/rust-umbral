@@ -173,6 +173,15 @@ pub enum CapsuleFragVerificationError {
     IncorrectReencryption,
 }
 
+impl fmt::Display for CapsuleFragVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncorrectKeyFragSignature => write!(f, "Invalid KeyFrag signature"),
+            Self::IncorrectReencryption => write!(f, "Failed to verify reencryption proof"),
+        }
+    }
+}
+
 impl CapsuleFrag {
     fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag) -> Self {
         let rk = kfrag.key;

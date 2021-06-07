@@ -1,5 +1,7 @@
 //! The high-level functional reencryption API.
 
+use core::fmt;
+
 use crate::capsule::{Capsule, OpenReencryptedError};
 use crate::capsule_frag::VerifiedCapsuleFrag;
 use crate::dem::{DecryptionError, EncryptionError, DEM};
@@ -17,6 +19,15 @@ pub enum ReencryptionError {
     OnOpen(OpenReencryptedError),
     /// An error when decrypting the ciphertext. See [`DecryptionError`] for the options.
     OnDecryption(DecryptionError),
+}
+
+impl fmt::Display for ReencryptionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OnOpen(err) => write!(f, "Re-encryption error on open: {}", err),
+            Self::OnDecryption(err) => write!(f, "Re-encryption error on decryption: {}", err),
+        }
+    }
 }
 
 /// Encrypts the given plaintext message using a DEM scheme,

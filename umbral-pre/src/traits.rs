@@ -28,6 +28,16 @@ impl ConstructionError {
     }
 }
 
+impl fmt::Display for ConstructionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Failed to construct a {} object: {}",
+            self.type_name, self.message
+        )
+    }
+}
+
 /// The provided bytestring is of an incorrect size.
 #[derive(Debug, PartialEq)]
 pub struct SizeMismatchError {
@@ -45,6 +55,16 @@ impl SizeMismatchError {
     }
 }
 
+impl fmt::Display for SizeMismatchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Bytestring size mismatch: expected {} bytes, got {}",
+            self.expected_size, self.received_size
+        )
+    }
+}
+
 /// Errors that can happen during object deserialization.
 #[derive(Debug, PartialEq)]
 pub enum DeserializationError {
@@ -52,6 +72,15 @@ pub enum DeserializationError {
     ConstructionFailure(ConstructionError),
     /// The given bytestring is too short or too long.
     SizeMismatch(SizeMismatchError),
+}
+
+impl fmt::Display for DeserializationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ConstructionFailure(err) => write!(f, "{}", err),
+            Self::SizeMismatch(err) => write!(f, "{}", err),
+        }
+    }
 }
 
 /// A trait denoting that the object can be represented as an array of bytes

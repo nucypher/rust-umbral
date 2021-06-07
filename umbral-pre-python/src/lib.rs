@@ -7,11 +7,7 @@ use pyo3::types::{PyBytes, PyUnicode};
 use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
-use umbral_pre::{
-    CapsuleFragVerificationError, DecryptionError, DeserializableFromArray, DeserializationError,
-    EncryptionError, HasTypeName, KeyFragVerificationError, OpenReencryptedError,
-    ReencryptionError, RepresentableAsArray, SecretKeyFactoryError, SerializableToArray,
-};
+use umbral_pre::{DeserializableFromArray, HasTypeName, RepresentableAsArray, SerializableToArray};
 
 // Helper traits to generalize implementing various Python protocol functions for our types.
 
@@ -34,17 +30,6 @@ where
     })
 }
 
-fn map_deserialization_err<T: HasTypeName>(err: DeserializationError) -> PyErr {
-    match err {
-        DeserializationError::ConstructionFailure(_) => {
-            PyValueError::new_err(format!("Failed to deserialize a {} object", T::type_name()))
-        }
-        DeserializationError::SizeMismatch(_) => {
-            PyValueError::new_err("The given bytestring has an incorrect size")
-        }
-    }
-}
-
 fn from_bytes<T, U>(data: &[u8]) -> PyResult<T>
 where
     T: FromBackend<U>,
@@ -52,7 +37,7 @@ where
 {
     U::from_bytes(data)
         .map(T::from_backend)
-        .map_err(map_deserialization_err::<U>)
+        .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
 fn hash<T, U>(obj: &T) -> PyResult<isize>
@@ -86,9 +71,7 @@ where
     }
 }
 
-create_exception!(umbral, GenericError, PyException);
-
-create_exception!(umbral, VerificationError, GenericError);
+create_exception!(umbral, VerificationError, PyException);
 
 #[pyclass(module = "umbral")]
 #[derive(PartialEq)]
@@ -176,12 +159,7 @@ impl SecretKeyFactory {
             .map(|backend_sk| SecretKey {
                 backend: backend_sk,
             })
-            .map_err(|err| match err {
-                // Will be removed when #39 is fixed
-                SecretKeyFactoryError::ZeroHash => {
-                    GenericError::new_err("Resulting secret key is zero")
-                }
-            })
+            .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
     #[staticmethod]
@@ -431,24 +409,7 @@ pub fn encrypt(
                 PyBytes::new(py, &ciphertext).into(),
             )
         })
-        .map_err(|err| match err {
-            EncryptionError::PlaintextTooLarge => {
-                GenericError::new_err("Plaintext is too large to encrypt")
-            }
-        })
-}
-
-fn map_decryption_err(err: DecryptionError) -> PyErr {
-    match err {
-        DecryptionError::CiphertextTooShort => {
-            PyValueError::new_err("The ciphertext must include the nonce")
-        }
-        DecryptionError::AuthenticationFailed => GenericError::new_err(
-            "Decryption of ciphertext failed: \
-            either someone tampered with the ciphertext or \
-            you are using an incorrect decryption key.",
-        ),
-    }
+        .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
 #[pyfunction]
@@ -460,7 +421,7 @@ pub fn decrypt_original(
 ) -> PyResult<PyObject> {
     umbral_pre::decrypt_original(&delegating_sk.backend, &capsule.backend, &ciphertext)
         .map(|plaintext| PyBytes::new(py, &plaintext).into())
-        .map_err(map_decryption_err)
+        .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
 #[pyclass(module = "umbral")]
@@ -489,18 +450,16 @@ impl KeyFrag {
         delegating_pk: Option<&PublicKey>,
         receiving_pk: Option<&PublicKey>,
     ) -> PyResult<VerifiedKeyFrag> {
-        self.backend.verify(
-            &verifying_pk.backend,
-            delegating_pk.map(|pk| &pk.backend),
-            receiving_pk.map(|pk| &pk.backend),
-        )
-        .map_err(|err| match err {
-            KeyFragVerificationError::IncorrectCommitment => VerificationError::new_err("Invalid kfrag commitment"),
-            KeyFragVerificationError::DelegatingKeyNotProvided => VerificationError::new_err("A signature of a delegating key was included in this kfrag but the key is not provided"),
-            KeyFragVerificationError::ReceivingKeyNotProvided => VerificationError::new_err("A signature of a receiving key was included in this kfrag, but the key is not provided"),
-            KeyFragVerificationError::IncorrectSignature => VerificationError::new_err("Failed to verify the kfrag signature"),
-        })
-        .map(|backend_vkfrag| VerifiedKeyFrag { backend: backend_vkfrag })
+        self.backend
+            .verify(
+                &verifying_pk.backend,
+                delegating_pk.map(|pk| &pk.backend),
+                receiving_pk.map(|pk| &pk.backend),
+            )
+            .map_err(|err| VerificationError::new_err(format!("{}", err)))
+            .map(|backend_vkfrag| VerifiedKeyFrag {
+                backend: backend_vkfrag,
+            })
     }
 
     #[staticmethod]
@@ -551,7 +510,7 @@ impl VerifiedKeyFrag {
     pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
             .map(|vkfrag| Self { backend: vkfrag })
-            .map_err(map_deserialization_err::<umbral_pre::VerifiedKeyFrag>)
+            .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
     #[staticmethod]
@@ -641,14 +600,7 @@ impl CapsuleFrag {
                 &delegating_pk.backend,
                 &receiving_pk.backend,
             )
-            .map_err(|err| match err {
-                CapsuleFragVerificationError::IncorrectKeyFragSignature => {
-                    VerificationError::new_err("Invalid KeyFrag signature")
-                }
-                CapsuleFragVerificationError::IncorrectReencryption => {
-                    VerificationError::new_err("Failed to verify reencryption proof")
-                }
-            })
+            .map_err(|err| VerificationError::new_err(format!("{}", err)))
             .map(|backend_vcfrag| VerifiedCapsuleFrag {
                 backend: backend_vcfrag,
             })
@@ -753,27 +705,7 @@ pub fn decrypt_reencrypted(
         ciphertext,
     )
     .map(|plaintext| PyBytes::new(py, &plaintext).into())
-    .map_err(|err| match err {
-        ReencryptionError::OnOpen(err) => match err {
-            OpenReencryptedError::NoCapsuleFrags => {
-                PyValueError::new_err("Empty CapsuleFrag sequence")
-            }
-            OpenReencryptedError::MismatchedCapsuleFrags => {
-                PyValueError::new_err("CapsuleFrags are not pairwise consistent")
-            }
-            OpenReencryptedError::RepeatingCapsuleFrags => {
-                PyValueError::new_err("Some of the CapsuleFrags are repeated")
-            }
-            // Will be removed when #39 is fixed
-            OpenReencryptedError::ZeroHash => {
-                GenericError::new_err("An internally hashed value is zero")
-            }
-            OpenReencryptedError::ValidationFailed => {
-                GenericError::new_err("Internal validation failed")
-            }
-        },
-        ReencryptionError::OnDecryption(err) => map_decryption_err(err),
-    })
+    .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
 /// A Python module implemented in Rust.
@@ -789,7 +721,6 @@ fn _umbral(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<VerifiedKeyFrag>()?;
     m.add_class::<CapsuleFrag>()?;
     m.add_class::<VerifiedCapsuleFrag>()?;
-    m.add("GenericError", py.get_type::<GenericError>())?;
     m.add("VerificationError", py.get_type::<VerificationError>())?;
     m.add_function(wrap_pyfunction!(encrypt, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt_original, m)?)?;

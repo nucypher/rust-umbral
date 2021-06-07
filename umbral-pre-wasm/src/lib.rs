@@ -11,34 +11,15 @@ use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::{vec, vec::Vec};
+use core::fmt;
 
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
-use umbral_pre::{
-    CapsuleFragVerificationError, DecryptionError, DeserializableFromArray, DeserializationError,
-    EncryptionError, KeyFragVerificationError, OpenReencryptedError, ReencryptionError,
-    SerializableToArray,
-};
+use umbral_pre::{DeserializableFromArray, SerializableToArray};
 
-fn map_deserialization_err(err: DeserializationError) -> JsValue {
-    match err {
-        DeserializationError::ConstructionFailure(_) => Error::new("Failed to deserialize object"),
-        DeserializationError::SizeMismatch(_) => Error::new("The given bytestring has an incorrect size"),
-    }
-    .into()
-}
-
-fn map_decryption_err(err: DecryptionError) -> JsValue {
-    match err {
-        DecryptionError::CiphertextTooShort => Error::new("The ciphertext must include the nonce"),
-        DecryptionError::AuthenticationFailed => Error::new(
-            "Decryption of ciphertext failed: \
-            either someone tampered with the ciphertext or \
-            you are using an incorrect decryption key.",
-        ),
-    }
-    .into()
+fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
+    Error::new(&format!("{}", err)).into()
 }
 
 #[wasm_bindgen]
@@ -60,7 +41,7 @@ impl SecretKey {
     pub fn from_bytes(data: &[u8]) -> Result<SecretKey, JsValue> {
         umbral_pre::SecretKey::from_bytes(data)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -93,7 +74,7 @@ impl PublicKey {
     pub fn from_bytes(data: &[u8]) -> Result<PublicKey, JsValue> {
         umbral_pre::PublicKey::from_bytes(data)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -154,7 +135,7 @@ impl Signature {
     pub fn from_bytes(data: &[u8]) -> Result<Signature, JsValue> {
         umbral_pre::Signature::from_bytes(data)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -194,7 +175,7 @@ impl Capsule {
     pub fn from_bytes(data: &[u8]) -> Result<Capsule, JsValue> {
         umbral_pre::Capsule::from_bytes(data)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -230,17 +211,7 @@ impl CapsuleFrag {
                 &receiving_pk.0,
             )
             .map(VerifiedCapsuleFrag)
-            .map_err(|err| {
-                match err {
-                    CapsuleFragVerificationError::IncorrectKeyFragSignature => {
-                        Error::new("Invalid KeyFrag signature")
-                    }
-                    CapsuleFragVerificationError::IncorrectReencryption => {
-                        Error::new("Failed to verify reencryption proof")
-                    }
-                }
-                .into()
-            })
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
@@ -252,7 +223,7 @@ impl CapsuleFrag {
     pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, JsValue> {
         umbral_pre::CapsuleFrag::from_bytes(data)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -322,22 +293,7 @@ impl CapsuleWithFrags {
             backend_cfrags.as_slice(),
             ciphertext,
         )
-        .map_err(|err| match err {
-            ReencryptionError::OnOpen(err) => match err {
-                OpenReencryptedError::NoCapsuleFrags => Error::new("Empty CapsuleFrag sequence"),
-                OpenReencryptedError::MismatchedCapsuleFrags => {
-                    Error::new("CapsuleFrags are not pairwise consistent")
-                }
-                OpenReencryptedError::RepeatingCapsuleFrags => {
-                    Error::new("Some of the CapsuleFrags are repeated")
-                }
-                // Will be removed when #39 is fixed
-                OpenReencryptedError::ZeroHash => Error::new("An internally hashed value is zero"),
-                OpenReencryptedError::ValidationFailed => Error::new("Internal validation failed"),
-            }
-            .into(),
-            ReencryptionError::OnDecryption(err) => map_decryption_err(err),
-        })
+        .map_err(map_js_err)
     }
 }
 
@@ -369,14 +325,7 @@ pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<Encryption
     let backend_pk = delegating_pk.0;
     umbral_pre::encrypt(&backend_pk, plaintext)
         .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
-        .map_err(|err| {
-            match err {
-                EncryptionError::PlaintextTooLarge => {
-                    Error::new("Plaintext is too large to encrypt")
-                }
-            }
-            .into()
-        })
+        .map_err(map_js_err)
 }
 
 #[wasm_bindgen]
@@ -385,23 +334,7 @@ pub fn decrypt_original(
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Result<Box<[u8]>, JsValue> {
-    umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext)
-        .map_err(map_decryption_err)
-}
-
-fn map_kfrag_verification_err(err: KeyFragVerificationError) -> JsValue {
-    match err {
-            KeyFragVerificationError::IncorrectCommitment => Error::new("Invalid kfrag commitment"),
-            KeyFragVerificationError::DelegatingKeyNotProvided => {
-                Error::new("A signature of a delegating key was included in this kfrag but the key is not provided")
-            },
-            KeyFragVerificationError::ReceivingKeyNotProvided => {
-                Error::new("A signature of a receiving key was included in this kfrag, but the key is not provided")
-            },
-            KeyFragVerificationError::IncorrectSignature => {
-                Error::new("Failed to verify the kfrag signature")
-            },
-        }.into()
+    umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
 }
 
 #[wasm_bindgen]
@@ -418,7 +351,7 @@ impl KeyFrag {
         self.0
             .verify(&verifying_pk.0, None, None)
             .map(VerifiedKeyFrag)
-            .map_err(map_kfrag_verification_err)
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen]
@@ -432,7 +365,7 @@ impl KeyFrag {
         self.0
             .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
             .map(VerifiedKeyFrag)
-            .map_err(map_kfrag_verification_err)
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen]
@@ -446,7 +379,7 @@ impl KeyFrag {
         self.0
             .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
             .map(VerifiedKeyFrag)
-            .map_err(map_kfrag_verification_err)
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen]
@@ -466,7 +399,7 @@ impl KeyFrag {
                 Some(&backend_receiving_pk),
             )
             .map(VerifiedKeyFrag)
-            .map_err(map_kfrag_verification_err)
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
@@ -478,7 +411,7 @@ impl KeyFrag {
     pub fn from_bytes(data: &[u8]) -> Result<KeyFrag, JsValue> {
         umbral_pre::KeyFrag::from_bytes(data)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -500,7 +433,7 @@ impl VerifiedKeyFrag {
     pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, JsValue> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
             .map(Self)
-            .map_err(map_deserialization_err)
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = toBytes)]

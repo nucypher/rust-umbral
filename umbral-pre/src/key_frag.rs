@@ -225,6 +225,17 @@ pub enum KeyFragVerificationError {
     IncorrectSignature,
 }
 
+impl fmt::Display for KeyFragVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncorrectCommitment => write!(f, "Invalid kfrag commitment"),
+            Self::DelegatingKeyNotProvided => write!(f, "A signature of a delegating key was included in this kfrag but the key is not provided"),
+            Self::ReceivingKeyNotProvided => write!(f, "A signature of a receiving key was included in this kfrag, but the key is not provided"),
+            Self::IncorrectSignature => write!(f, "Failed to verify the kfrag signature"),
+        }
+    }
+}
+
 impl KeyFrag {
     fn from_base(base: &KeyFragBase, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
         let kfrag_id = KeyFragID::random();

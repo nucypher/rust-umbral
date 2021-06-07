@@ -239,6 +239,14 @@ pub enum SecretKeyFactoryError {
     ZeroHash,
 }
 
+impl fmt::Display for SecretKeyFactoryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroHash => write!(f, "Resulting secret key is zero"),
+        }
+    }
+}
+
 type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
 
