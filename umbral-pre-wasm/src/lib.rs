@@ -102,6 +102,7 @@ pub struct PublicKey(umbral_pre::PublicKey);
 #[wasm_bindgen]
 impl PublicKey {
     /// Generates a secret key using the default RNG and returns it.
+    #[wasm_bindgen(js_name = fromSecretKey)]
     pub fn from_secret_key(secret_key: &SecretKey) -> Self {
         Self(umbral_pre::PublicKey::from_secret_key(&secret_key.0))
     }
@@ -143,6 +144,7 @@ impl Signer {
         Signature(self.0.sign(message))
     }
 
+    #[wasm_bindgen(js_name = verifyingKey)]
     pub fn verifying_key(&self) -> PublicKey {
         PublicKey(self.0.verifying_key())
     }
@@ -199,7 +201,7 @@ impl Capsule {
     // TODO (#23): have to add cfrags one by one since `wasm_bindgen` currently does not support
     // Vec<CustomStruct> as a parameter.
     // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = withCFrag)]
     pub fn with_cfrag(&self, cfrag: &VerifiedCapsuleFrag) -> CapsuleWithFrags {
         CapsuleWithFrags {
             capsule: *self,
@@ -308,7 +310,7 @@ pub struct CapsuleWithFrags {
 
 #[wasm_bindgen]
 impl CapsuleWithFrags {
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = withCFrag)]
     pub fn with_cfrag(&self, cfrag: &VerifiedCapsuleFrag) -> CapsuleWithFrags {
         let mut new_cfrags = self.cfrags.clone();
         new_cfrags.push(cfrag.clone());
@@ -318,7 +320,7 @@ impl CapsuleWithFrags {
         }
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = decryptReencrypted)]
     pub fn decrypt_reencrypted(
         &self,
         receiving_sk: &SecretKey,
@@ -369,7 +371,7 @@ pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<Encryption
         .map_err(map_js_err)
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = decryptOriginal)]
 pub fn decrypt_original(
     delegating_sk: &SecretKey,
     capsule: &Capsule,
@@ -395,7 +397,7 @@ impl KeyFrag {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = verifyWithDelegatingKey)]
     pub fn verify_with_delegating_key(
         &self,
         verifying_pk: &PublicKey,
@@ -409,7 +411,7 @@ impl KeyFrag {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = verifyWithReceivingKey)]
     pub fn verify_with_receiving_key(
         &self,
         verifying_pk: &PublicKey,
@@ -423,7 +425,7 @@ impl KeyFrag {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen]
+    #[wasm_bindgen(js_name = verifyWithDelegatingAndReceivingKeys)]
     pub fn verify_with_delegating_and_receiving_keys(
         &self,
         verifying_pk: &PublicKey,
@@ -471,6 +473,7 @@ pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
 #[wasm_bindgen]
 impl VerifiedKeyFrag {
+    #[wasm_bindgen(js_name = fromVerifiedBytes)]
     pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, JsValue> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
             .map(Self)
@@ -494,7 +497,7 @@ impl VerifiedKeyFrag {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[wasm_bindgen]
+#[wasm_bindgen(js_name = generateKFrags)]
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
