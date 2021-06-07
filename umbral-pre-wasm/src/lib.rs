@@ -56,6 +56,47 @@ impl SecretKey {
 }
 
 #[wasm_bindgen]
+pub struct SecretKeyFactory(umbral_pre::SecretKeyFactory);
+
+#[wasm_bindgen]
+impl SecretKeyFactory {
+    /// Generates a secret key factory using the default RNG and returns it.
+    pub fn random() -> Self {
+        Self(umbral_pre::SecretKeyFactory::random())
+    }
+
+    #[wasm_bindgen(js_name = secretKeyByLabel)]
+    pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
+        self.0
+            .secret_key_by_label(label)
+            .map(SecretKey)
+            .map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = toBytes)]
+    pub fn to_bytes(&self) -> Box<[u8]> {
+        self.0.to_array().to_vec().into_boxed_slice()
+    }
+
+    #[wasm_bindgen(js_name = fromBytes)]
+    pub fn from_bytes(data: &[u8]) -> Result<SecretKeyFactory, JsValue> {
+        umbral_pre::SecretKeyFactory::from_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
+    #[allow(clippy::inherent_to_string)]
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string(&self) -> String {
+        format!("{}", self.0)
+    }
+
+    pub fn equals(&self, other: &SecretKeyFactory) -> bool {
+        self.0 == other.0
+    }
+}
+
+#[wasm_bindgen]
 pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
