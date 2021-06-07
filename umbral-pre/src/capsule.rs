@@ -64,7 +64,8 @@ impl DeserializableFromArray for Capsule {
         let (point_e, rest) = CurvePoint::take(*arr)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
         let signature = CurveScalar::take_last(rest)?;
-        Self::new_verified(point_e, point_v, signature).ok_or(ConstructionError::GenericFailure)
+        Self::new_verified(point_e, point_v, signature)
+            .ok_or_else(|| ConstructionError::new("Capsule", "Self-verification failed"))
     }
 }
 

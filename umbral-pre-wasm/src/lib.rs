@@ -24,8 +24,7 @@ use umbral_pre::{
 fn map_deserialization_err(err: DeserializationError) -> JsValue {
     match err {
         DeserializationError::ConstructionFailure(_) => Error::new("Failed to deserialize object"),
-        DeserializationError::TooManyBytes => Error::new("The given bytestring is too long"),
-        DeserializationError::NotEnoughBytes => Error::new("The given bytestring is too short"),
+        DeserializationError::SizeMismatch(_) => Error::new("The given bytestring has an incorrect size"),
     }
     .into()
 }

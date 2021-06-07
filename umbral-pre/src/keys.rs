@@ -37,7 +37,7 @@ impl DeserializableFromArray for Signature {
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
-            .or(Err(ConstructionError::GenericFailure))
+            .map_err(|_| ConstructionError::new("Signature", "Internal backend error"))
     }
 }
 
@@ -119,7 +119,7 @@ impl DeserializableFromArray for SecretKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
-            .or(Err(ConstructionError::GenericFailure))
+            .map_err(|_| ConstructionError::new("SecretKey", "Internal backend error"))
     }
 }
 
@@ -213,9 +213,9 @@ impl SerializableToArray for PublicKey {
 impl DeserializableFromArray for PublicKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let cp = CurvePoint::from_array(&arr)?;
-        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
-            .or(Err(ConstructionError::GenericFailure))?;
-        Ok(Self(backend_pk))
+        BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
+            .map(Self)
+            .map_err(|_| ConstructionError::new("PublicKey", "Internal backend error"))
     }
 }
 

@@ -125,5 +125,5 @@ pub use pre::{
 };
 pub use traits::{
     ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
-    RepresentableAsArray, SerializableToArray,
+    RepresentableAsArray, SerializableToArray, SizeMismatchError,
 };

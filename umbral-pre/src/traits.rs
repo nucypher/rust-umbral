@@ -1,3 +1,5 @@
+use alloc::format;
+use alloc::string::String;
 use core::cmp::Ordering;
 use core::fmt;
 use core::ops::Sub;
@@ -8,9 +10,39 @@ use typenum::{Diff, Unsigned, U1, U8};
 
 /// Errors that can happen during deserializing an object from a bytestring of correct length.
 #[derive(Debug, PartialEq)]
-pub enum ConstructionError {
-    /// An unspecified failure.
-    GenericFailure,
+pub struct ConstructionError {
+    /// The name of the type that was being deserialized
+    /// (can be one of the nested fields).
+    type_name: String,
+    /// An associated error message.
+    message: String,
+}
+
+impl ConstructionError {
+    /// Creates a new `ConstructionError`.
+    pub fn new(type_name: &str, message: &str) -> Self {
+        Self {
+            type_name: type_name.into(),
+            message: message.into(),
+        }
+    }
+}
+
+/// The provided bytestring is of an incorrect size.
+#[derive(Debug, PartialEq)]
+pub struct SizeMismatchError {
+    received_size: usize,
+    expected_size: usize,
+}
+
+impl SizeMismatchError {
+    /// Creates a new `SizeMismatchError`.
+    pub fn new(received_size: usize, expected_size: usize) -> Self {
+        Self {
+            received_size,
+            expected_size,
+        }
+    }
 }
 
 /// Errors that can happen during object deserialization.
@@ -18,10 +50,8 @@ pub enum ConstructionError {
 pub enum DeserializationError {
     /// Failed to construct the object from a given bytestring (with the correct length).
     ConstructionFailure(ConstructionError),
-    /// The given bytestring is too short.
-    NotEnoughBytes,
-    /// The given bytestring is too long.
-    TooManyBytes,
+    /// The given bytestring is too short or too long.
+    SizeMismatch(SizeMismatchError),
 }
 
 /// A trait denoting that the object can be represented as an array of bytes
@@ -57,9 +87,12 @@ pub trait DeserializableFromArray: RepresentableAsArray {
     /// checking that its length is correct.
     fn from_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
         let data_slice = data.as_ref();
-        match data_slice.len().cmp(&Self::serialized_size()) {
-            Ordering::Greater => Err(DeserializationError::TooManyBytes),
-            Ordering::Less => Err(DeserializationError::NotEnoughBytes),
+        let received_size = data_slice.len();
+        let expected_size = Self::serialized_size();
+        match received_size.cmp(&expected_size) {
+            Ordering::Greater | Ordering::Less => Err(DeserializationError::SizeMismatch(
+                SizeMismatchError::new(received_size, expected_size),
+            )),
             Ordering::Equal => {
                 Self::from_array(GenericArray::<u8, Self::Size>::from_slice(data_slice))
                     .map_err(DeserializationError::ConstructionFailure)
@@ -109,7 +142,10 @@ impl DeserializableFromArray for bool {
         match bytes_slice[0] {
             0u8 => Ok(false),
             1u8 => Ok(true),
-            _ => Err(ConstructionError::GenericFailure),
+            _ => Err(ConstructionError::new(
+                "bool",
+                &format!("Expected 0x0 or 0x1, got 0x{:x?}", bytes_slice[0]),
+            )),
         }
     }
 }
@@ -150,7 +186,7 @@ mod tests {
 
     use super::{
         ConstructionError, DeserializableFromArray, DeserializationError, RepresentableAsArray,
-        SerializableToArray,
+        SerializableToArray, SizeMismatchError,
     };
 
     impl RepresentableAsArray for u8 {
@@ -251,7 +287,7 @@ mod tests {
         assert_eq!(
             s,
             Err(DeserializationError::ConstructionFailure(
-                ConstructionError::GenericFailure
+                ConstructionError::new("bool", "Expected 0x0 or 0x1, got 0x2")
             ))
         )
     }
@@ -261,6 +297,11 @@ mod tests {
         // An excessive byte at the end
         let s_arr: [u8; 7] = [0x00, 0x01, 0x02, 0x00, 0x03, 0x01, 0x00];
         let s = SomeStruct::from_bytes(&s_arr);
-        assert_eq!(s, Err(DeserializationError::TooManyBytes))
+        assert_eq!(
+            s,
+            Err(DeserializationError::SizeMismatch(SizeMismatchError::new(
+                7, 6
+            )))
+        )
     }
 }
