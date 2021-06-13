@@ -20,14 +20,14 @@ let dec = new TextDecoder("utf-8");
 
 // Key Generation (on Alice's side)
 let alice_sk = umbral.SecretKey.random();
-let alice_pk = umbral.PublicKey.fromSecretKey(alice_sk);
+let alice_pk = alice_sk.publicKey();
 let signing_sk = umbral.SecretKey.random();
 let signer = new umbral.Signer(signing_sk);
-let verifying_pk = umbral.PublicKey.fromSecretKey(signing_sk);
+let verifying_pk = signing_sk.publicKey();
 
 // Key Generation (on Bob's side)
 let bob_sk = umbral.SecretKey.random();
-let bob_pk = umbral.PublicKey.fromSecretKey(bob_sk);
+let bob_pk = bob_sk.publicKey();
 
 // Now let's encrypt data with Alice's public key.
 // Invocation of `encrypt()` returns both the ciphertext and a capsule.

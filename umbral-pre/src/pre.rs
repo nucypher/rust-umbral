@@ -143,8 +143,8 @@ mod tests {
     use alloc::vec::Vec;
 
     use crate::{
-        CapsuleFrag, DeserializableFromArray, KeyFrag, PublicKey, SecretKey, SerializableToArray,
-        Signer, VerifiedCapsuleFrag,
+        CapsuleFrag, DeserializableFromArray, KeyFrag, SecretKey, SerializableToArray, Signer,
+        VerifiedCapsuleFrag,
     };
 
     use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
@@ -166,15 +166,15 @@ mod tests {
 
         // Key Generation (Alice)
         let delegating_sk = SecretKey::random();
-        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+        let delegating_pk = delegating_sk.public_key();
 
         let signing_sk = SecretKey::random();
         let signer = Signer::new(&signing_sk);
-        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
+        let verifying_pk = signing_sk.public_key();
 
         // Key Generation (Bob)
         let receiving_sk = SecretKey::random();
-        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
+        let receiving_pk = receiving_sk.public_key();
 
         // Encryption by an unnamed data source
         let plaintext = b"peace at dawn";

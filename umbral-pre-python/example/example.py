@@ -7,14 +7,14 @@ import umbral_pre
 
 # Key Generation (on Alice's side)
 alice_sk = umbral_pre.SecretKey.random()
-alice_pk = umbral_pre.PublicKey.from_secret_key(alice_sk)
+alice_pk = alice_sk.public_key()
 signing_sk = umbral_pre.SecretKey.random()
 signer = umbral_pre.Signer(signing_sk)
-verifying_pk = umbral_pre.PublicKey.from_secret_key(signing_sk)
+verifying_pk = signing_sk.public_key()
 
 # Key Generation (on Bob's side)
 bob_sk = umbral_pre.SecretKey.random()
-bob_pk = umbral_pre.PublicKey.from_secret_key(bob_sk)
+bob_pk = bob_sk.public_key()
 
 # Now let's encrypt data with Alice's public key.
 # Invocation of `encrypt()` returns both the ciphertext

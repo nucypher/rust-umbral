@@ -167,7 +167,7 @@ impl Capsule {
             return Err(OpenReencryptedError::MismatchedCapsuleFrags);
         }
 
-        let pub_key = PublicKey::from_secret_key(receiving_sk).to_point();
+        let pub_key = receiving_sk.public_key().to_point();
         let dh_point = &precursor * &receiving_sk.to_secret_scalar();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
@@ -232,14 +232,14 @@ mod tests {
 
     use super::{Capsule, OpenReencryptedError};
     use crate::{
-        encrypt, generate_kfrags, reencrypt, DeserializableFromArray, PublicKey, SecretKey,
+        encrypt, generate_kfrags, reencrypt, DeserializableFromArray, SecretKey,
         SerializableToArray, Signer,
     };
 
     #[test]
     fn test_serialize() {
         let delegating_sk = SecretKey::random();
-        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+        let delegating_pk = delegating_sk.public_key();
 
         let plaintext = b"peace at dawn";
         let (capsule, _ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
@@ -252,13 +252,13 @@ mod tests {
     #[test]
     fn test_open_reencrypted() {
         let delegating_sk = SecretKey::random();
-        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+        let delegating_pk = delegating_sk.public_key();
 
         let signing_sk = SecretKey::random();
         let signer = Signer::new(&signing_sk);
 
         let receiving_sk = SecretKey::random();
-        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
+        let receiving_pk = receiving_sk.public_key();
 
         let (capsule, key_seed) = Capsule::from_public_key(&delegating_pk);
 

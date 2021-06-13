@@ -7,6 +7,9 @@ class SecretKey:
     def random() -> SecretKey:
         ...
 
+    def public_key(self) -> PublicKey:
+        ...
+
     @staticmethod
     def from_bytes() -> SecretKey:
         ...
@@ -35,10 +38,6 @@ class SecretKeyFactory:
 
 
 class PublicKey:
-
-    @staticmethod
-    def from_secret_key(sk: SecretKey) -> PublicKey:
-        ...
 
     @staticmethod
     def from_bytes() -> PublicKey:
