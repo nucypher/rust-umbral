@@ -69,7 +69,6 @@ impl CapsuleFragProof {
         kfrag: &KeyFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
-        metadata: Option<&[u8]>,
     ) -> Self {
         let params = capsule.params;
 
@@ -91,7 +90,7 @@ impl CapsuleFragProof {
         let v2 = &v * &t;
         let u2 = &u * &t;
 
-        let h = hash_to_cfrag_verification(&[e, *e1, e2, v, *v1, v2, u, u1, u2], metadata);
+        let h = hash_to_cfrag_verification(&[e, *e1, e2, v, *v1, v2, u, u1, u2]);
 
         ////////
 
@@ -160,11 +159,11 @@ pub enum CapsuleFragVerificationError {
 }
 
 impl CapsuleFrag {
-    fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
+    fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
-        let proof = CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1, metadata);
+        let proof = CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1);
 
         Self {
             point_e1: e1,
@@ -184,7 +183,6 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        metadata: Option<&[u8]>,
     ) -> Result<VerifiedCapsuleFrag, CapsuleFragVerificationError> {
         let params = capsule.params;
 
@@ -204,7 +202,7 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        let h = hash_to_cfrag_verification(&[e, e1, e2, v, v1, v2, u, u1, u2], metadata);
+        let h = hash_to_cfrag_verification(&[e, e1, e2, v, v1, v2, u, u1, u2]);
 
         ///////
 
@@ -262,9 +260,9 @@ impl SerializableToArray for VerifiedCapsuleFrag {
 }
 
 impl VerifiedCapsuleFrag {
-    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag, metadata: Option<&[u8]>) -> Self {
+    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag) -> Self {
         VerifiedCapsuleFrag {
-            cfrag: CapsuleFrag::reencrypted(capsule, kfrag, metadata),
+            cfrag: CapsuleFrag::reencrypted(capsule, kfrag),
         }
     }
 }
@@ -287,7 +285,6 @@ mod tests {
         PublicKey,
         Capsule,
         Box<[VerifiedCapsuleFrag]>,
-        Box<[u8]>,
     ) {
         let delegating_sk = SecretKey::random();
         let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
@@ -304,10 +301,9 @@ mod tests {
 
         let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
-        let metadata = b"metadata";
         let verified_cfrags: Vec<_> = kfrags
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag, Some(metadata)))
+            .map(|kfrag| reencrypt(&capsule, &kfrag))
             .collect();
 
         (
@@ -316,13 +312,12 @@ mod tests {
             verifying_pk,
             capsule,
             verified_cfrags.into_boxed_slice(),
-            Box::new(*metadata),
         )
     }
 
     #[test]
     fn test_verify() {
-        let (delegating_pk, receiving_pk, verifying_pk, capsule, verified_cfrags, metadata) =
+        let (delegating_pk, receiving_pk, verifying_pk, capsule, verified_cfrags) =
             prepare_cfrags();
 
         for verified_cfrag in verified_cfrags.iter().cloned() {
@@ -332,13 +327,7 @@ mod tests {
             assert_eq!(cfrag_back.to_array(), cfrag_array);
 
             let verified_cfrag_back = cfrag_back
-                .verify(
-                    &capsule,
-                    &verifying_pk,
-                    &delegating_pk,
-                    &receiving_pk,
-                    Some(&metadata),
-                )
+                .verify(&capsule, &verifying_pk, &delegating_pk, &receiving_pk)
                 .unwrap();
 
             assert_eq!(verified_cfrag_back, verified_cfrag);

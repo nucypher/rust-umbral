@@ -26,6 +26,18 @@ API reference
 
         Generates a new secret key.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> SecretKey
+
+        Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
 .. py:class:: SecretKeyFactory
 
     A deterministic generator of :py:class:`SecretKey` objects.
@@ -34,7 +46,7 @@ API reference
 
         Generates a new random factory.
 
-    .. py:method:: secret_key_by_label(label: bytes) -> SecretKey
+    .. py:method:: secret_key_by_label(label: bytes) -> SecretKeyFactory
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
 
@@ -45,6 +57,10 @@ API reference
     .. py:staticmethod:: from_bytes(data: bytes) -> SecretKey
 
         Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
 .. py:class:: PublicKey
 
@@ -61,6 +77,10 @@ API reference
     .. py:staticmethod:: from_bytes(data: bytes) -> PublicKey
 
         Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
     .. py:method:: __hash__() -> int
 
@@ -88,6 +108,18 @@ API reference
         Returns ``True`` if the ``message`` was signed by someone possessing the secret counterpart
         to ``verifying_key``.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> Signature
+
+        Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
 .. py:class:: Capsule
 
     An encapsulated symmetric key.
@@ -100,17 +132,29 @@ API reference
 
         Restores the object from a bytestring.
 
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: from_bytes(data: bytes) -> Capsule
+
+        Restores the object from a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
     .. py:method:: __hash__() -> int
 
         Returns a hash of self.
 
-.. py:function:: encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
+.. py:function:: encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
 
-    Creates a symmetric key, encrypts ``plaintext`` with it, and returns the encapsulated symmetric key along with the ciphertext. ``pk`` is the public key of the recipient.
+    Creates a symmetric key, encrypts ``plaintext`` with it, and returns the encapsulated symmetric key along with the ciphertext. ``delegating_pk`` is the public key of the delegator.
 
-.. py:function:: decrypt_original(sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes
+.. py:function:: decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes
 
-    Decrypts ``ciphertext`` with the key used to encrypt it.
+    Decrypts ``ciphertext`` with the secret key of the delegator.
 
 .. py:function:: generate_kfrags(delegating_sk: SecretKey, receiving_pk: PublicKey, signer: Signer, threshold: int, num_kfrags: int, sign_delegating_key: bool, sign_receiving_key: bool) -> List[VerifiedKeyFrag]
 
@@ -118,12 +162,11 @@ API reference
 
     If ``sign_delegating_key`` or ``sign_receiving_key`` are ``True``, include these keys in the signature allowing proxies to verify the fragments were created with a given key or for a given key, respectively.
 
-.. py:function:: reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag, metadata: Optional[bytes]) -> VerifiedCapsuleFrag
+.. py:function:: reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag
 
     Reencrypts a capsule using a key fragment.
-    May include optional ``metadata`` to sign.
 
-.. py:function:: decrypt_reencrypted(decrypting_sk: SecretKey, delegating_pk: PublicKey, capsule: Capsule, cfrags: Sequence[VerifiedCapsuleFrag], ciphertext: bytes) -> Optional[bytes]
+.. py:function:: decrypt_reencrypted(receiving_sk: SecretKey, delegating_pk: PublicKey, capsule: Capsule, cfrags: Sequence[VerifiedCapsuleFrag], ciphertext: bytes) -> Optional[bytes]
 
     Attempts to decrypt the plaintext using the original capsule and reencrypted capsule fragments (at least ``threshold`` of them, see :py:func:`generate_kfrags`).
 
@@ -143,6 +186,10 @@ API reference
 
         Restores the object from a bytestring.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
     .. py:method:: __hash__() -> int
 
         Returns a hash of self.
@@ -151,11 +198,27 @@ API reference
 
     A verified key fragment, good for reencryption.
 
+    .. py:method:: from_verified_bytes(data: bytes) -> VerifiedKeyFrag
+
+        Restores a verified keyfrag directly from serialized bytes,
+        skipping :py:meth:`KeyFrag.verify` call.
+
+        Intended for internal storage;
+        make sure that the bytes come from a trusted source.
+
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
 .. py:class:: CapsuleFrag
 
     A reencrypted fragment of an encapsulated symmetric key.
 
-    .. py:method:: verify(capsule: Capsule, verifying_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey, metadata: Optional[bytes]) -> VerifiedCapsuleFrag
+    .. py:method:: verify(capsule: Capsule, verifying_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey) -> VerifiedCapsuleFrag
 
         Verifies the integrity of the fragment.
 
@@ -167,6 +230,10 @@ API reference
 
         Restores the object from a bytestring.
 
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
+
     .. py:method:: __hash__() -> int
 
         Returns a hash of self.
@@ -174,6 +241,14 @@ API reference
 .. py:class:: VerifiedCapsuleFrag
 
     A verified capsule fragment, good for decryption.
+
+    .. py:method:: __bytes__() -> bytes
+
+        Serializes the object into a bytestring.
+
+    .. py:staticmethod:: serialized_size() -> int
+
+        Returns the size in bytes of the serialized representation of this object.
 
 
 Indices and tables

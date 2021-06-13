@@ -95,10 +95,7 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        metadata: Option<Box<[u8]>>,
     ) -> VerifiedCapsuleFrag {
-        // feels like there should be a better way...
-        let metadata_ref: Option<&[u8]> = metadata.as_ref().map(|s| s.as_ref());
         VerifiedCapsuleFrag(
             self.0
                 .verify(
@@ -106,7 +103,6 @@ impl CapsuleFrag {
                     &verifying_pk.0,
                     &delegating_pk.0,
                     &receiving_pk.0,
-                    metadata_ref,
                 )
                 .unwrap(),
         )
@@ -138,14 +134,14 @@ impl CapsuleWithFrags {
     #[wasm_bindgen]
     pub fn decrypt_reencrypted(
         &self,
-        decrypting_sk: &SecretKey,
+        receiving_sk: &SecretKey,
         delegating_pk: &PublicKey,
         ciphertext: &[u8],
     ) -> Option<Box<[u8]>> {
         let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
             self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
-            &decrypting_sk.0,
+            &receiving_sk.0,
             &delegating_pk.0,
             &self.capsule.0,
             backend_cfrags.as_slice(),
@@ -179,19 +175,19 @@ impl EncryptionResult {
 }
 
 #[wasm_bindgen]
-pub fn encrypt(pk: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
-    let backend_pk = pk.0;
+pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Option<EncryptionResult> {
+    let backend_pk = delegating_pk.0;
     let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pk, plaintext).unwrap();
     Some(EncryptionResult::new(ciphertext, Capsule(capsule)))
 }
 
 #[wasm_bindgen]
 pub fn decrypt_original(
-    decrypting_sk: &SecretKey,
+    delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Box<[u8]> {
-    umbral_pre::decrypt_original(&decrypting_sk.0, &capsule.0, ciphertext).unwrap()
+    umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).unwrap()
 }
 
 #[wasm_bindgen]
@@ -263,6 +259,15 @@ impl KeyFrag {
 #[wasm_bindgen]
 pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
+#[wasm_bindgen]
+impl VerifiedKeyFrag {
+    pub fn from_verified_bytes(bytes: &[u8]) -> Self {
+        umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
+            .map(Self)
+            .unwrap()
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
 pub fn generate_kfrags(
@@ -296,12 +301,7 @@ pub fn generate_kfrags(
 }
 
 #[wasm_bindgen]
-pub fn reencrypt(
-    capsule: &Capsule,
-    kfrag: &VerifiedKeyFrag,
-    metadata: Option<Box<[u8]>>,
-) -> VerifiedCapsuleFrag {
-    let metadata_slice = metadata.as_ref().map(|x| x.as_ref());
-    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0, metadata_slice);
+pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0);
     VerifiedCapsuleFrag(backend_cfrag)
 }

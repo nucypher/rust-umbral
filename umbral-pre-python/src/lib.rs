@@ -10,7 +10,7 @@ use pyo3::PyObjectProtocol;
 use umbral_pre::{
     CapsuleFragVerificationError, DecryptionError, DeserializableFromArray, DeserializationError,
     EncryptionError, KeyFragVerificationError, OpenReencryptedError, ReencryptionError,
-    SecretKeyFactoryError, SerializableToArray,
+    RepresentableAsArray, SecretKeyFactoryError, SerializableToArray,
 };
 
 // Helper traits to generalize implementing various Python protocol functions for our types.
@@ -34,22 +34,26 @@ fn to_bytes<T: AsSerializableBackend<U>, U: SerializableToArray>(obj: &T) -> PyR
     })
 }
 
+fn map_serialization_err<T: HasName>(err: DeserializationError) -> PyErr {
+    match err {
+        DeserializationError::ConstructionFailure => {
+            PyValueError::new_err(format!("Failed to deserialize a {} object", T::name()))
+        }
+        DeserializationError::TooManyBytes => {
+            PyValueError::new_err("The given bytestring is too long")
+        }
+        DeserializationError::NotEnoughBytes => {
+            PyValueError::new_err("The given bytestring is too short")
+        }
+    }
+}
+
 fn from_bytes<T: FromSerializableBackend<U> + HasName, U: DeserializableFromArray>(
-    bytes: &[u8],
+    data: &[u8],
 ) -> PyResult<T> {
-    U::from_bytes(bytes)
+    U::from_bytes(data)
         .map(T::from_backend)
-        .map_err(|err| match err {
-            DeserializationError::ConstructionFailure => {
-                PyValueError::new_err(format!("Failed to deserialize a {} object", T::name()))
-            }
-            DeserializationError::TooManyBytes => {
-                PyValueError::new_err("The given bytestring is too long")
-            }
-            DeserializationError::NotEnoughBytes => {
-                PyValueError::new_err("The given bytestring is too short")
-            }
-        })
+        .map_err(map_serialization_err::<T>)
 }
 
 fn hash<T: AsSerializableBackend<U> + HasName, U: SerializableToArray>(obj: &T) -> PyResult<isize> {
@@ -125,8 +129,13 @@ impl SecretKey {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::SecretKey::serialized_size()
     }
 }
 
@@ -193,8 +202,13 @@ impl SecretKeyFactory {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::SecretKeyFactory::serialized_size()
     }
 }
 
@@ -247,8 +261,13 @@ impl PublicKey {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::PublicKey::serialized_size()
     }
 }
 
@@ -343,12 +362,17 @@ impl HasName for Signature {
 #[pymethods]
 impl Signature {
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
     }
 
     pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
         self.backend.verify(&verifying_key.backend, message)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::Signature::serialized_size()
     }
 }
 
@@ -398,8 +422,13 @@ impl HasName for Capsule {
 #[pymethods]
 impl Capsule {
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::Capsule::serialized_size()
     }
 }
 
@@ -423,8 +452,12 @@ impl PyObjectProtocol for Capsule {
 }
 
 #[pyfunction]
-pub fn encrypt(py: Python, pk: &PublicKey, plaintext: &[u8]) -> PyResult<(Capsule, PyObject)> {
-    umbral_pre::encrypt(&pk.backend, plaintext)
+pub fn encrypt(
+    py: Python,
+    delegating_pk: &PublicKey,
+    plaintext: &[u8],
+) -> PyResult<(Capsule, PyObject)> {
+    umbral_pre::encrypt(&delegating_pk.backend, plaintext)
         .map(|(backend_capsule, ciphertext)| {
             (
                 Capsule {
@@ -456,11 +489,11 @@ fn map_decryption_err(err: DecryptionError) -> PyErr {
 #[pyfunction]
 pub fn decrypt_original(
     py: Python,
-    sk: &SecretKey,
+    delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> PyResult<PyObject> {
-    umbral_pre::decrypt_original(&sk.backend, &capsule.backend, &ciphertext)
+    umbral_pre::decrypt_original(&delegating_sk.backend, &capsule.backend, &ciphertext)
         .map(|plaintext| PyBytes::new(py, &plaintext).into())
         .map_err(map_decryption_err)
 }
@@ -512,8 +545,13 @@ impl KeyFrag {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::KeyFrag::serialized_size()
     }
 }
 
@@ -551,6 +589,21 @@ impl AsSerializableBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
 impl HasName for VerifiedKeyFrag {
     fn name() -> &'static str {
         "VerifiedKeyFrag"
+    }
+}
+
+#[pymethods]
+impl VerifiedKeyFrag {
+    #[staticmethod]
+    pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
+        umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
+            .map(|vkfrag| Self { backend: vkfrag })
+            .map_err(map_serialization_err::<VerifiedKeyFrag>)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::VerifiedKeyFrag::serialized_size()
     }
 }
 
@@ -633,7 +686,6 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-        metadata: Option<&[u8]>,
     ) -> PyResult<VerifiedCapsuleFrag> {
         self.backend
             .verify(
@@ -641,7 +693,6 @@ impl CapsuleFrag {
                 &verifying_pk.backend,
                 &delegating_pk.backend,
                 &receiving_pk.backend,
-                metadata,
             )
             .map_err(|err| match err {
                 CapsuleFragVerificationError::IncorrectKeyFragSignature => {
@@ -657,8 +708,13 @@ impl CapsuleFrag {
     }
 
     #[staticmethod]
-    pub fn from_bytes(bytes: &[u8]) -> PyResult<Self> {
-        from_bytes(bytes)
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes(data)
+    }
+
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::CapsuleFrag::serialized_size()
     }
 }
 
@@ -718,13 +774,17 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
     }
 }
 
+#[pymethods]
+impl VerifiedCapsuleFrag {
+    #[staticmethod]
+    pub fn serialized_size() -> usize {
+        umbral_pre::VerifiedCapsuleFrag::serialized_size()
+    }
+}
+
 #[pyfunction]
-pub fn reencrypt(
-    capsule: &Capsule,
-    kfrag: &VerifiedKeyFrag,
-    metadata: Option<&[u8]>,
-) -> VerifiedCapsuleFrag {
-    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend, metadata);
+pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend);
     VerifiedCapsuleFrag {
         backend: backend_vcfrag,
     }
@@ -733,7 +793,7 @@ pub fn reencrypt(
 #[pyfunction]
 pub fn decrypt_reencrypted(
     py: Python,
-    decrypting_sk: &SecretKey,
+    receiving_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
     verified_cfrags: Vec<VerifiedCapsuleFrag>,
@@ -745,7 +805,7 @@ pub fn decrypt_reencrypted(
         .map(|vcfrag| vcfrag.backend)
         .collect();
     umbral_pre::decrypt_reencrypted(
-        &decrypting_sk.backend,
+        &receiving_sk.backend,
         &delegating_pk.backend,
         &capsule.backend,
         &backend_cfrags,

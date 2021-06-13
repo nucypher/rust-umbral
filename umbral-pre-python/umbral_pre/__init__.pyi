@@ -2,8 +2,17 @@ from typing import Optional, Tuple, List, Sequence
 
 
 class SecretKey:
+
     @staticmethod
     def random() -> SecretKey:
+        ...
+
+    @staticmethod
+    def from_bytes() -> SecretKey:
+        ...
+
+    @staticmethod
+    def serialized_size() -> int:
         ...
 
 
@@ -16,10 +25,27 @@ class SecretKeyFactory:
     def secret_key_by_label(self, label: bytes) -> SecretKey:
         ...
 
+    @staticmethod
+    def from_bytes() -> SecretKeyFactory:
+        ...
+
+    @staticmethod
+    def serialized_size() -> int:
+        ...
+
 
 class PublicKey:
+
     @staticmethod
     def from_secret_key(sk: SecretKey) -> PublicKey:
+        ...
+
+    @staticmethod
+    def from_bytes() -> PublicKey:
+        ...
+
+    @staticmethod
+    def serialized_size() -> int:
         ...
 
 
@@ -40,19 +66,32 @@ class Signature:
     def verify(verifying_key: PublicKey, message: bytes) -> bool:
         ...
 
+    @staticmethod
+    def from_bytes() -> Signature:
+        ...
 
-class Capsule: ...
+    @staticmethod
+    def serialized_size() -> int:
+        ...
 
 
-def encrypt(pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
+class Capsule:
+
+    @staticmethod
+    def serialized_size() -> int:
+        ...
+
+
+def encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
     ...
 
 
-def decrypt_original(sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
+def decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
     ...
 
 
 class KeyFrag:
+
     def verify(
             self,
             verifying_pk: PublicKey,
@@ -61,9 +100,23 @@ class KeyFrag:
             ) -> VerifiedKeyFrag:
         ...
 
+    @staticmethod
+    def from_bytes() -> KeyFrag:
+        ...
+
+    @staticmethod
+    def serialized_size() -> int:
+        ...
+
 
 class VerifiedKeyFrag:
-    ...
+
+    def from_verified_bytes(data: bytes) -> VerifiedKeyFrag:
+        ...
+
+    @staticmethod
+    def serialized_size() -> int:
+        ...
 
 
 def generate_kfrags(
@@ -79,27 +132,38 @@ def generate_kfrags(
 
 
 class CapsuleFrag:
+
     def verify(
             self,
             capsule: Capsule,
             verifying_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
-            metadata: Optional[bytes],
             ) -> VerifiedCapsuleFrag:
+        ...
+
+    @staticmethod
+    def from_bytes() -> CapsuleFrag:
+        ...
+
+    @staticmethod
+    def serialized_size() -> int:
         ...
 
 
 class VerifiedCapsuleFrag:
-    ...
+
+    @staticmethod
+    def serialized_size() -> int:
+        ...
 
 
-def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag, metadata: Optional[bytes]) -> VerifiedCapsuleFrag:
+def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag:
     ...
 
 
 def decrypt_reencrypted(
-        decrypting_sk: SecretKey,
+        receiving_sk: SecretKey,
         delegating_pk: PublicKey,
         capsule: Capsule,
         cfrags: Sequence[VerifiedCapsuleFrag],

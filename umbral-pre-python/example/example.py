@@ -65,14 +65,12 @@ kfrag1 = KeyFrag.from_bytes(bytes(verified_kfrags[1]))
 # are valid and perform the reencryption.
 
 # Ursula 0
-metadata0 = b"metadata0"
 verified_kfrag0 = kfrag0.verify(verifying_pk, alice_pk, bob_pk)
-verified_cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0], metadata0)
+verified_cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0])
 
 # Ursula 1
-metadata1 = b"metadata1"
 verified_kfrag1 = kfrag1.verify(verifying_pk, alice_pk, bob_pk)
-verified_cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1], metadata1)
+verified_cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1])
 
 # ...
 
@@ -84,8 +82,8 @@ cfrag1 = CapsuleFrag.from_bytes(bytes(verified_cfrag1))
 # and then decrypts the re-encrypted ciphertext.
 
 # Bob must check that cfrags are valid
-verified_cfrag0 = cfrag0.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata0)
-verified_cfrag1 = cfrag1.verify(capsule, verifying_pk, alice_pk, bob_pk, metadata1)
+verified_cfrag0 = cfrag0.verify(capsule, verifying_pk, alice_pk, bob_pk)
+verified_cfrag1 = cfrag1.verify(capsule, verifying_pk, alice_pk, bob_pk)
 
 # Decryption by Bob
 plaintext_bob = umbral_pre.decrypt_reencrypted(
