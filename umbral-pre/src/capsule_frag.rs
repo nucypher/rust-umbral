@@ -1,15 +1,18 @@
+use core::fmt;
+
+use generic_array::sequence::Concat;
+use generic_array::GenericArray;
+use typenum::op;
+
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
 use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
+    SerializableToArray,
 };
-
-use generic_array::sequence::Concat;
-use generic_array::GenericArray;
-use typenum::op;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CapsuleFragProof {
@@ -44,7 +47,7 @@ impl SerializableToArray for CapsuleFragProof {
 }
 
 impl DeserializableFromArray for CapsuleFragProof {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (point_e2, rest) = CurvePoint::take(*arr)?;
         let (point_v2, rest) = CurvePoint::take(rest)?;
         let (kfrag_commitment, rest) = CurvePoint::take(rest)?;
@@ -133,7 +136,7 @@ impl SerializableToArray for CapsuleFrag {
 }
 
 impl DeserializableFromArray for CapsuleFrag {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (point_e1, rest) = CurvePoint::take(*arr)?;
         let (point_v1, rest) = CurvePoint::take(rest)?;
         let (kfrag_id, rest) = KeyFragID::take(rest)?;
@@ -149,6 +152,18 @@ impl DeserializableFromArray for CapsuleFrag {
     }
 }
 
+impl HasTypeName for CapsuleFrag {
+    fn type_name() -> &'static str {
+        "CapsuleFrag"
+    }
+}
+
+impl fmt::Display for CapsuleFrag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public::<Self>(self, f)
+    }
+}
+
 /// Possible errors that can be returned by [`CapsuleFrag::verify`].
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CapsuleFragVerificationError {
@@ -156,6 +171,15 @@ pub enum CapsuleFragVerificationError {
     IncorrectKeyFragSignature,
     /// Inconsistent internal state leading to commitment verification failure.
     IncorrectReencryption,
+}
+
+impl fmt::Display for CapsuleFragVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncorrectKeyFragSignature => write!(f, "Invalid KeyFrag signature"),
+            Self::IncorrectReencryption => write!(f, "Failed to verify reencryption proof"),
+        }
+    }
 }
 
 impl CapsuleFrag {
@@ -256,6 +280,18 @@ impl RepresentableAsArray for VerifiedCapsuleFrag {
 impl SerializableToArray for VerifiedCapsuleFrag {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.cfrag.to_array()
+    }
+}
+
+impl HasTypeName for VerifiedCapsuleFrag {
+    fn type_name() -> &'static str {
+        "VerifiedCapsuleFrag"
+    }
+}
+
+impl fmt::Display for VerifiedCapsuleFrag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public::<Self>(self, f)
     }
 }
 

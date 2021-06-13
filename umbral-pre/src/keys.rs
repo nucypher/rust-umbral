@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use core::fmt;
 
 use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
 use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
@@ -12,7 +13,8 @@ use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
+    RepresentableAsArray, SerializableToArray,
 };
 
 /// ECDSA signature object.
@@ -30,12 +32,12 @@ impl SerializableToArray for Signature {
 }
 
 impl DeserializableFromArray for Signature {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
-            .or(Err(DeserializationError::ConstructionFailure))
+            .map_err(|_| ConstructionError::new("Signature", "Internal backend error"))
     }
 }
 
@@ -44,6 +46,18 @@ impl Signature {
     /// The message is hashed internally.
     pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
         verifying_key.verify_digest(digest_for_signing(message), &self)
+    }
+}
+
+impl HasTypeName for Signature {
+    fn type_name() -> &'static str {
+        "Signature"
+    }
+}
+
+impl fmt::Display for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public(self, f)
     }
 }
 
@@ -102,10 +116,22 @@ impl SerializableToArray for SecretKey {
 }
 
 impl DeserializableFromArray for SecretKey {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
-            .or(Err(DeserializationError::ConstructionFailure))
+            .map_err(|_| ConstructionError::new("SecretKey", "Internal backend error"))
+    }
+}
+
+impl HasTypeName for SecretKey {
+    fn type_name() -> &'static str {
+        "SecretKey"
+    }
+}
+
+impl fmt::Display for SecretKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_secret::<Self>(f)
     }
 }
 
@@ -133,6 +159,18 @@ impl Signer {
     /// Returns the public key that can be used to verify the signatures produced by this signer.
     pub fn verifying_key(&self) -> PublicKey {
         PublicKey::from_secret_key(&self.0)
+    }
+}
+
+impl HasTypeName for Signer {
+    fn type_name() -> &'static str {
+        "Signer"
+    }
+}
+
+impl fmt::Display for Signer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_secret::<Self>(f)
     }
 }
 
@@ -173,11 +211,23 @@ impl SerializableToArray for PublicKey {
 }
 
 impl DeserializableFromArray for PublicKey {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let cp = CurvePoint::from_array(&arr)?;
-        let backend_pk = BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
-            .or(Err(DeserializationError::ConstructionFailure))?;
-        Ok(Self(backend_pk))
+        BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
+            .map(Self)
+            .map_err(|_| ConstructionError::new("PublicKey", "Internal backend error"))
+    }
+}
+
+impl HasTypeName for PublicKey {
+    fn type_name() -> &'static str {
+        "PublicKey"
+    }
+}
+
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public(self, f)
     }
 }
 
@@ -187,6 +237,14 @@ pub enum SecretKeyFactoryError {
     /// An internally hashed value is zero.
     /// See [rust-umbral#39](https://github.com/nucypher/rust-umbral/issues/39).
     ZeroHash,
+}
+
+impl fmt::Display for SecretKeyFactoryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroHash => write!(f, "Resulting secret key is zero"),
+        }
+    }
 }
 
 type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
@@ -234,8 +292,20 @@ impl SerializableToArray for SecretKeyFactory {
 }
 
 impl DeserializableFromArray for SecretKeyFactory {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         Ok(Self(*arr))
+    }
+}
+
+impl HasTypeName for SecretKeyFactory {
+    fn type_name() -> &'static str {
+        "SecretKeyFactory"
+    }
+}
+
+impl fmt::Display for SecretKeyFactory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_secret::<Self>(f)
     }
 }
 

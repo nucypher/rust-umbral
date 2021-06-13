@@ -124,5 +124,6 @@ pub use pre::{
     decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt, ReencryptionError,
 };
 pub use traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
+    RepresentableAsArray, SerializableToArray, SizeMismatchError,
 };

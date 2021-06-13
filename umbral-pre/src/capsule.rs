@@ -1,17 +1,19 @@
+use alloc::vec::Vec;
+use core::fmt;
+
+use generic_array::sequence::Concat;
+use generic_array::GenericArray;
+use typenum::op;
+
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
+    SerializableToArray,
 };
-
-use alloc::vec::Vec;
-
-use generic_array::sequence::Concat;
-use generic_array::GenericArray;
-use typenum::op;
 
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
 #[derive(Debug, PartialEq)]
@@ -30,6 +32,19 @@ pub enum OpenReencryptedError {
     /// Can be caused by an incorrect (possibly modified) capsule
     /// or some of the capsule fragments.
     ValidationFailed,
+}
+
+impl fmt::Display for OpenReencryptedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoCapsuleFrags => write!(f, "Empty CapsuleFrag sequence"),
+            Self::MismatchedCapsuleFrags => write!(f, "CapsuleFrags are not pairwise consistent"),
+            Self::RepeatingCapsuleFrags => write!(f, "Some of the CapsuleFrags are repeated"),
+            // Will be removed when #39 is fixed
+            Self::ZeroHash => write!(f, "An internally hashed value is zero"),
+            Self::ValidationFailed => write!(f, "Internal validation failed"),
+        }
+    }
 }
 
 /// Encapsulated symmetric key used to encrypt the plaintext.
@@ -58,12 +73,24 @@ impl SerializableToArray for Capsule {
 }
 
 impl DeserializableFromArray for Capsule {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (point_e, rest) = CurvePoint::take(*arr)?;
         let (point_v, rest) = CurvePoint::take(rest)?;
         let signature = CurveScalar::take_last(rest)?;
         Self::new_verified(point_e, point_v, signature)
-            .ok_or(DeserializationError::ConstructionFailure)
+            .ok_or_else(|| ConstructionError::new("Capsule", "Self-verification failed"))
+    }
+}
+
+impl HasTypeName for Capsule {
+    fn type_name() -> &'static str {
+        "Capsule"
+    }
+}
+
+impl fmt::Display for Capsule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public::<Self>(self, f)
     }
 }
 

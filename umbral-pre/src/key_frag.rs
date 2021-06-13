@@ -1,18 +1,20 @@
-use crate::curve::{CurvePoint, CurveScalar};
-use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
-use crate::keys::{PublicKey, SecretKey, Signature, Signer};
-use crate::params::Parameters;
-use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
-};
-
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use core::fmt;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{OsRng, RngCore};
 use typenum::{op, U32};
+
+use crate::curve::{CurvePoint, CurveScalar};
+use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
+use crate::keys::{PublicKey, SecretKey, Signature, Signer};
+use crate::params::Parameters;
+use crate::traits::{
+    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
+    RepresentableAsArray, SerializableToArray,
+};
 
 #[allow(clippy::upper_case_acronyms)]
 type KeyFragIDSize = U32;
@@ -46,7 +48,7 @@ impl SerializableToArray for KeyFragID {
 }
 
 impl DeserializableFromArray for KeyFragID {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         Ok(Self(*arr))
     }
 }
@@ -82,7 +84,7 @@ impl SerializableToArray for KeyFragProof {
 }
 
 impl DeserializableFromArray for KeyFragProof {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let (commitment, rest) = CurvePoint::take(*arr)?;
         let (signature_for_proxy, rest) = Signature::take(rest)?;
         let (signature_for_receiver, rest) = Signature::take(rest)?;
@@ -180,7 +182,7 @@ impl SerializableToArray for KeyFrag {
 }
 
 impl DeserializableFromArray for KeyFrag {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         let params = Parameters::new();
         let (id, rest) = KeyFragID::take(*arr)?;
         let (key, rest) = CurveScalar::take(rest)?;
@@ -193,6 +195,18 @@ impl DeserializableFromArray for KeyFrag {
             precursor,
             proof,
         })
+    }
+}
+
+impl HasTypeName for KeyFrag {
+    fn type_name() -> &'static str {
+        "KeyFrag"
+    }
+}
+
+impl fmt::Display for KeyFrag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public::<Self>(self, f)
     }
 }
 
@@ -209,6 +223,17 @@ pub enum KeyFragVerificationError {
     ReceivingKeyNotProvided,
     /// Inconsistent internal state leading to signature verification failure.
     IncorrectSignature,
+}
+
+impl fmt::Display for KeyFragVerificationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncorrectCommitment => write!(f, "Invalid kfrag commitment"),
+            Self::DelegatingKeyNotProvided => write!(f, "A signature of a delegating key was included in this kfrag but the key is not provided"),
+            Self::ReceivingKeyNotProvided => write!(f, "A signature of a receiving key was included in this kfrag, but the key is not provided"),
+            Self::IncorrectSignature => write!(f, "Failed to verify the kfrag signature"),
+        }
+    }
 }
 
 impl KeyFrag {
@@ -318,6 +343,18 @@ impl RepresentableAsArray for VerifiedKeyFrag {
 impl SerializableToArray for VerifiedKeyFrag {
     fn to_array(&self) -> GenericArray<u8, Self::Size> {
         self.kfrag.to_array()
+    }
+}
+
+impl HasTypeName for VerifiedKeyFrag {
+    fn type_name() -> &'static str {
+        "VerifiedKeyFrag"
+    }
+}
+
+impl fmt::Display for VerifiedKeyFrag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public::<Self>(self, f)
     }
 }
 

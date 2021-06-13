@@ -20,14 +20,14 @@ let dec = new TextDecoder("utf-8");
 
 // Key Generation (on Alice's side)
 let alice_sk = umbral.SecretKey.random();
-let alice_pk = umbral.PublicKey.from_secret_key(alice_sk);
+let alice_pk = umbral.PublicKey.fromSecretKey(alice_sk);
 let signing_sk = umbral.SecretKey.random();
 let signer = new umbral.Signer(signing_sk);
-let verifying_pk = umbral.PublicKey.from_secret_key(signing_sk);
+let verifying_pk = umbral.PublicKey.fromSecretKey(signing_sk);
 
 // Key Generation (on Bob's side)
 let bob_sk = umbral.SecretKey.random();
-let bob_pk = umbral.PublicKey.from_secret_key(bob_sk);
+let bob_pk = umbral.PublicKey.fromSecretKey(bob_sk);
 
 // Now let's encrypt data with Alice's public key.
 // Invocation of `encrypt()` returns both the ciphertext and a capsule.
@@ -46,7 +46,7 @@ let capsule = result.capsule;
 // Since data was encrypted with Alice's public key, Alice can open the capsule
 // and decrypt the ciphertext with her private key.
 
-let plaintext_alice = umbral.decrypt_original(alice_sk, capsule, ciphertext);
+let plaintext_alice = umbral.decryptOriginal(alice_sk, capsule, ciphertext);
 console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() failed");
 
 // When Alice wants to grant Bob access to open her encrypted messages,
@@ -55,7 +55,7 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
-let kfrags = umbral.generate_kfrags(
+let kfrags = umbral.generateKFrags(
     alice_sk, bob_pk, signer, m, n, true, true);
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
@@ -80,9 +80,9 @@ let cfrag1 = umbral.reencrypt(capsule, kfrags[1]);
 // wasm-pack does not support taking arrays as arguments,
 // so we build a capsule+cfrags object before decryption.
 let plaintext_bob = capsule
-    .with_cfrag(cfrag0)
-    .with_cfrag(cfrag1)
-    .decrypt_reencrypted(bob_sk, alice_pk, ciphertext);
+    .withCFrag(cfrag0)
+    .withCFrag(cfrag1)
+    .decryptReencrypted(bob_sk, alice_pk, ciphertext);
 
 console.assert(dec.decode(plaintext_bob) == plaintext, "decrypt_reencrypted() failed");
 ```

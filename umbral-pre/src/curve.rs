@@ -4,6 +4,7 @@
 
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
+
 use digest::Digest;
 use ecdsa::hazmat::FromDigest;
 use elliptic_curve::ff::PrimeField;
@@ -16,7 +17,8 @@ use rand_core::OsRng;
 use subtle::CtOption;
 
 use crate::traits::{
-    DeserializableFromArray, DeserializationError, RepresentableAsArray, SerializableToArray,
+    ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
+    SerializableToArray,
 };
 
 pub(crate) type CurveType = Secp256k1;
@@ -87,10 +89,16 @@ impl SerializableToArray for CurveScalar {
 }
 
 impl DeserializableFromArray for CurveScalar {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         Scalar::<CurveType>::from_repr(*arr)
             .map(Self)
-            .ok_or(DeserializationError::ConstructionFailure)
+            .ok_or_else(|| ConstructionError::new("CurveScalar", "Internal backend error"))
+    }
+}
+
+impl HasTypeName for CurveScalar {
+    fn type_name() -> &'static str {
+        "CurveScalar"
     }
 }
 
@@ -183,7 +191,14 @@ impl SerializableToArray for CurvePoint {
 }
 
 impl DeserializableFromArray for CurvePoint {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, DeserializationError> {
-        Self::from_compressed_array(arr).ok_or(DeserializationError::ConstructionFailure)
+    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
+        Self::from_compressed_array(arr)
+            .ok_or_else(|| ConstructionError::new("CurvePoint", "Internal backend error"))
+    }
+}
+
+impl HasTypeName for CurvePoint {
+    fn type_name() -> &'static str {
+        "CurvePoint"
     }
 }
