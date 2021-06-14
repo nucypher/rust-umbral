@@ -4,7 +4,7 @@ from setuptools_rust import Binding, RustExtension
 setup(
     name="umbral_pre",
     description="Implementation of Umbral proxy reencryption algorithm",
-    version="0.0.1",
+    version="0.2.0",
     author="Bogdan Opanchuk",
     author_email="bogdan@opanchuk.net",
     url="https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-python",
