@@ -26,6 +26,10 @@ API reference
 
         Generates a new secret key.
 
+    .. py:method:: public_key() -> PublicKey
+
+        Returns a public key corresponding to this secret key.
+
     .. py:method:: __bytes__() -> bytes
 
         Serializes the object into a bytestring.
@@ -65,10 +69,6 @@ API reference
 .. py:class:: PublicKey
 
     An ``umbral-pre`` public key object.
-
-    .. py:staticmethod:: from_secret_key(sk: SecretKey) -> PublicKey
-
-        Creates a public key corresponding to the given secret key.
 
     .. py:method:: __bytes__() -> bytes
 

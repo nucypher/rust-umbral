@@ -32,6 +32,12 @@ impl SecretKey {
         Self(umbral_pre::SecretKey::random())
     }
 
+    /// Generates a secret key using the default RNG and returns it.
+    #[wasm_bindgen(js_name = publicKey)]
+    pub fn public_key(&self) -> PublicKey {
+        PublicKey(self.0.public_key())
+    }
+
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()
@@ -101,12 +107,6 @@ pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
 impl PublicKey {
-    /// Generates a secret key using the default RNG and returns it.
-    #[wasm_bindgen(js_name = fromSecretKey)]
-    pub fn from_secret_key(secret_key: &SecretKey) -> Self {
-        Self(umbral_pre::PublicKey::from_secret_key(&secret_key.0))
-    }
-
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()

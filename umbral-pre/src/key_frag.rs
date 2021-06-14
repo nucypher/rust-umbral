@@ -399,7 +399,7 @@ impl KeyFragBase {
         let g = CurvePoint::generator();
         let params = Parameters::new();
 
-        let delegating_pk = PublicKey::from_secret_key(delegating_sk);
+        let delegating_pk = delegating_sk.public_key();
 
         let receiving_pk_point = receiving_pk.to_point();
 
@@ -465,14 +465,14 @@ mod tests {
         sign_receiving_key: bool,
     ) -> (PublicKey, PublicKey, PublicKey, Box<[VerifiedKeyFrag]>) {
         let delegating_sk = SecretKey::random();
-        let delegating_pk = PublicKey::from_secret_key(&delegating_sk);
+        let delegating_pk = delegating_sk.public_key();
 
         let signing_sk = SecretKey::random();
         let signer = Signer::new(&signing_sk);
-        let verifying_pk = PublicKey::from_secret_key(&signing_sk);
+        let verifying_pk = signing_sk.public_key();
 
         let receiving_sk = SecretKey::random();
-        let receiving_pk = PublicKey::from_secret_key(&receiving_sk);
+        let receiving_pk = receiving_sk.public_key();
 
         let base = KeyFragBase::new(&delegating_sk, &receiving_pk, &signer, 2);
         let vkfrags = [

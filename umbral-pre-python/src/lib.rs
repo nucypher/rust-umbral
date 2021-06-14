@@ -100,6 +100,12 @@ impl SecretKey {
         }
     }
 
+    pub fn public_key(&self) -> PublicKey {
+        PublicKey {
+            backend: self.backend.public_key(),
+        }
+    }
+
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
@@ -208,13 +214,6 @@ impl FromBackend<umbral_pre::PublicKey> for PublicKey {
 
 #[pymethods]
 impl PublicKey {
-    #[staticmethod]
-    pub fn from_secret_key(sk: &SecretKey) -> Self {
-        Self {
-            backend: umbral_pre::PublicKey::from_secret_key(&sk.backend),
-        }
-    }
-
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)

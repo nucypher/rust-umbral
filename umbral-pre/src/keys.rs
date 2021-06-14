@@ -78,6 +78,11 @@ impl SecretKey {
         Self(secret_key)
     }
 
+    /// Returns a public key corresponding to this secret key.
+    pub fn public_key(&self) -> PublicKey {
+        PublicKey(self.0.public_key())
+    }
+
     pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
         let nz_scalar = BackendNonZeroScalar::new(scalar.to_backend_scalar())?;
         Some(Self(BackendSecretKey::<CurveType>::new(nz_scalar)))
@@ -158,7 +163,7 @@ impl Signer {
 
     /// Returns the public key that can be used to verify the signatures produced by this signer.
     pub fn verifying_key(&self) -> PublicKey {
-        PublicKey::from_secret_key(&self.0)
+        self.0.public_key()
     }
 }
 
@@ -175,15 +180,12 @@ impl fmt::Display for Signer {
 }
 
 /// A public key.
+///
+/// Create using [`SecretKey::public_key`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PublicKey(BackendPublicKey<CurveType>);
 
 impl PublicKey {
-    /// Creates a public key from a secret key.
-    pub fn from_secret_key(secret_key: &SecretKey) -> Self {
-        Self(secret_key.0.public_key())
-    }
-
     /// Returns the underlying curve point of the public key.
     pub(crate) fn to_point(&self) -> CurvePoint {
         CurvePoint::from_backend_point(&self.0.to_projective())
@@ -345,7 +347,7 @@ mod tests {
     #[test]
     fn test_serialize_public_key() {
         let sk = SecretKey::random();
-        let pk = PublicKey::from_secret_key(&sk);
+        let pk = sk.public_key();
         let pk_arr = pk.to_array();
         let pk_back = PublicKey::from_array(&pk_arr).unwrap();
         assert_eq!(pk, pk_back);
@@ -358,7 +360,7 @@ mod tests {
         let signer = Signer::new(&sk);
         let signature = signer.sign(message);
 
-        let pk = PublicKey::from_secret_key(&sk);
+        let pk = sk.public_key();
         let vk = signer.verifying_key();
 
         assert_eq!(pk, vk);
