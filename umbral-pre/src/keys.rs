@@ -85,7 +85,8 @@ impl SecretKey {
 
     pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
         let nz_scalar = BackendNonZeroScalar::new(scalar.to_backend_scalar())?;
-        Some(Self(BackendSecretKey::<CurveType>::new(nz_scalar)))
+        let backend_sk: BackendSecretKey<CurveType> = nz_scalar.into();
+        Some(Self(backend_sk))
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
@@ -96,7 +97,7 @@ impl SecretKey {
         // But we use this secret scalar to multiply not only points, but other scalars too.
         // So there's no point in hiding the actual value here as long as
         // it is going to be effectively dereferenced in other places.
-        CurveScalar::from_backend_scalar(&*self.0.secret_scalar())
+        CurveScalar::from_backend_scalar(&*self.0.to_secret_scalar())
     }
 
     /// Signs a message using the default RNG.

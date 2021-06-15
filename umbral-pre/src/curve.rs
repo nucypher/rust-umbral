@@ -7,10 +7,9 @@ use core::ops::{Add, Mul, Sub};
 
 use digest::Digest;
 use ecdsa::hazmat::FromDigest;
-use elliptic_curve::ff::PrimeField;
+use elliptic_curve::group::ff::PrimeField;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
-use elliptic_curve::NonZeroScalar;
-use elliptic_curve::{AffinePoint, Curve, ProjectiveArithmetic, Scalar};
+use elliptic_curve::{AffinePoint, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
@@ -79,7 +78,7 @@ impl Default for CurveScalar {
 impl RepresentableAsArray for CurveScalar {
     // Currently it's the only size available.
     // A separate scalar size may appear in later versions of `elliptic_curve`.
-    type Size = <CurveType as Curve>::FieldSize;
+    type Size = FieldSize<CurveType>;
 }
 
 impl SerializableToArray for CurveScalar {
