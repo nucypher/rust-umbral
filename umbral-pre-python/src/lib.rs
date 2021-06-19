@@ -7,7 +7,10 @@ use pyo3::types::{PyBytes, PyUnicode};
 use pyo3::wrap_pyfunction;
 use pyo3::PyObjectProtocol;
 
-use umbral_pre::{DeserializableFromArray, HasTypeName, RepresentableAsArray, SerializableToArray};
+use umbral_pre::{
+    DeserializableFromArray, HasTypeName, RepresentableAsArray, SerializableToArray,
+    SerializableToSecretArray,
+};
 
 // Helper traits to generalize implementing various Python protocol functions for our types.
 
@@ -25,6 +28,19 @@ where
     U: SerializableToArray,
 {
     let serialized = obj.as_backend().to_array();
+    Python::with_gil(|py| -> PyResult<PyObject> {
+        Ok(PyBytes::new(py, serialized.as_slice()).into())
+    })
+}
+
+// Can't keep the secret in Python anymore, so this function does the same as `to_bytes()`
+fn to_secret_bytes<T, U>(obj: &T) -> PyResult<PyObject>
+where
+    T: AsBackend<U>,
+    U: SerializableToSecretArray,
+{
+    // Dereferencing a secret.
+    let serialized = obj.as_backend().to_secret_array().as_secret().clone();
     Python::with_gil(|py| -> PyResult<PyObject> {
         Ok(PyBytes::new(py, serialized.as_slice()).into())
     })
@@ -74,7 +90,6 @@ where
 create_exception!(umbral, VerificationError, PyException);
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq)]
 pub struct SecretKey {
     backend: umbral_pre::SecretKey,
 }
@@ -119,12 +134,8 @@ impl SecretKey {
 
 #[pyproto]
 impl PyObjectProtocol for SecretKey {
-    fn __richcmp__(&self, other: PyRef<SecretKey>, op: CompareOp) -> PyResult<bool> {
-        richcmp(self, other, op)
-    }
-
     fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
+        to_secret_bytes(self)
     }
 
     fn __str__(&self) -> PyResult<String> {
@@ -133,7 +144,6 @@ impl PyObjectProtocol for SecretKey {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq)]
 pub struct SecretKeyFactory {
     backend: umbral_pre::SecretKeyFactory,
 }
@@ -181,12 +191,8 @@ impl SecretKeyFactory {
 
 #[pyproto]
 impl PyObjectProtocol for SecretKeyFactory {
-    fn __richcmp__(&self, other: PyRef<SecretKeyFactory>, op: CompareOp) -> PyResult<bool> {
-        richcmp(self, other, op)
-    }
-
     fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
+        to_secret_bytes(self)
     }
 
     fn __str__(&self) -> PyResult<String> {
@@ -245,7 +251,6 @@ impl PyObjectProtocol for PublicKey {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq)]
 pub struct Signer {
     backend: umbral_pre::Signer,
 }
@@ -280,10 +285,6 @@ impl Signer {
 
 #[pyproto]
 impl PyObjectProtocol for Signer {
-    fn __richcmp__(&self, other: PyRef<Signer>, op: CompareOp) -> PyResult<bool> {
-        richcmp(self, other, op)
-    }
-
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }

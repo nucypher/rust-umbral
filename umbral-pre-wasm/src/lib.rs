@@ -16,7 +16,7 @@ use core::fmt;
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
-use umbral_pre::{DeserializableFromArray, SerializableToArray};
+use umbral_pre::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
 fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
     Error::new(&format!("{}", err)).into()
@@ -40,7 +40,11 @@ impl SecretKey {
 
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+        self.0
+            .to_secret_array()
+            .as_secret()
+            .to_vec()
+            .into_boxed_slice()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
@@ -54,10 +58,6 @@ impl SecretKey {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
-    }
-
-    pub fn equals(&self, other: &SecretKey) -> bool {
-        self.0 == other.0
     }
 }
 
@@ -81,7 +81,11 @@ impl SecretKeyFactory {
 
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+        self.0
+            .to_secret_array()
+            .as_secret()
+            .to_vec()
+            .into_boxed_slice()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
@@ -95,10 +99,6 @@ impl SecretKeyFactory {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
-    }
-
-    pub fn equals(&self, other: &SecretKeyFactory) -> bool {
-        self.0 == other.0
     }
 }
 
@@ -153,10 +153,6 @@ impl Signer {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
-    }
-
-    pub fn equals(&self, other: &Signer) -> bool {
-        self.0 == other.0
     }
 }
 
