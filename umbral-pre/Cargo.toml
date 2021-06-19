@@ -22,7 +22,7 @@ elliptic-curve = { version = "0.10", features = ["zeroize"] }
 digest = "0.9"
 generic-array = "0.14"
 aead = { version = "0.4", features = ["heapless"] }
-ecdsa = { version = "0.12", features = ["zeroize"] }
+ecdsa = { version = "0.12.2", features = ["zeroize"] }
 signature = "1.3"
 rand_core = { version = "0.6", default-features = false, features = ["getrandom"] }
 typenum = "1.13" # typenum is a 2018-edition crate starting from 1.13
