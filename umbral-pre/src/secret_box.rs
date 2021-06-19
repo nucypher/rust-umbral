@@ -61,7 +61,7 @@ where
 /// Makes the usage of secret data explicit and easy to track,
 /// prevents the secret data from being put on stack,
 /// and zeroizes the contents on drop.
-#[derive(Clone)]
+#[derive(Clone)] // No Debug derivation, to avoid exposing the secret data accidentally.
 pub struct SecretBox<T>(Box<T>)
 where
     T: CanBeZeroizedOnDrop + Clone;
@@ -76,6 +76,10 @@ where
 
     pub fn as_secret(&self) -> &T {
         self.0.as_ref()
+    }
+
+    pub fn as_mut_secret(&mut self) -> &mut T {
+        self.0.as_mut()
     }
 }
 

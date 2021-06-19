@@ -70,14 +70,8 @@ impl CanBeZeroizedOnDrop for BackendSecretKey<CurveType> {
 }
 
 /// A secret key.
-#[derive(Clone)] // No Debug derivation, to avoid exposing the key accidentally.
+#[derive(Clone)]
 pub struct SecretKey(SecretBox<BackendSecretKey<CurveType>>);
-
-impl PartialEq for SecretKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_secret_scalar().as_secret() == other.to_secret_scalar().as_secret()
-    }
-}
 
 impl SecretKey {
     fn new(sk: BackendSecretKey<CurveType>) -> Self {
@@ -103,6 +97,13 @@ impl SecretKey {
     pub(crate) fn to_secret_scalar(&self) -> SecretBox<CurveScalar> {
         let backend_scalar = SecretBox::new(self.0.as_secret().to_secret_scalar());
         SecretBox::new(CurveScalar::from_backend_scalar(backend_scalar.as_secret()))
+    }
+}
+
+#[cfg(test)]
+impl PartialEq for SecretKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_secret_scalar().as_secret() == other.to_secret_scalar().as_secret()
     }
 }
 
@@ -142,7 +143,6 @@ fn digest_for_signing(message: &[u8]) -> BackendDigest {
 
 /// An object used to sign messages.
 /// For security reasons cannot be serialized.
-// No Debug derivation, to avoid exposing the key accidentally.
 #[derive(Clone)]
 pub struct Signer(SecretKey);
 
@@ -255,14 +255,14 @@ type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before h
 
 /// This class handles keyring material for Umbral, by allowing deterministic
 /// derivation of `SecretKey` objects based on labels.
-#[derive(Clone, Copy, PartialEq)] // No Debug derivation, to avoid exposing the key accidentally.
-pub struct SecretKeyFactory(GenericArray<u8, SecretKeyFactorySeedSize>);
+#[derive(Clone)]
+pub struct SecretKeyFactory(SecretBox<GenericArray<u8, SecretKeyFactorySeedSize>>);
 
 impl SecretKeyFactory {
     /// Creates a random factory.
     pub fn random() -> Self {
-        let mut bytes = GenericArray::<u8, SecretKeyFactorySeedSize>::default();
-        OsRng.fill_bytes(&mut bytes);
+        let mut bytes = SecretBox::new(GenericArray::<u8, SecretKeyFactorySeedSize>::default());
+        OsRng.fill_bytes(&mut bytes.as_mut_secret());
         Self(bytes)
     }
 
@@ -274,7 +274,7 @@ impl SecretKeyFactory {
             .cloned()
             .chain(label.iter().cloned())
             .collect();
-        let key = kdf::<SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
+        let key = kdf::<SecretKeyFactoryDerivedSize>(self.0.as_secret(), None, Some(&info));
         let scalar = ScalarDigest::new_with_dst(&info)
             .chain_bytes(&key)
             .finalize();
@@ -283,20 +283,26 @@ impl SecretKeyFactory {
     }
 }
 
+#[cfg(test)]
+impl PartialEq for SecretKeyFactory {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_secret() == other.0.as_secret()
+    }
+}
+
 impl RepresentableAsArray for SecretKeyFactory {
     type Size = SecretKeyFactorySeedSize;
 }
 
-impl SerializableToArray for SecretKeyFactory {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        // TODO (#8): a copy of secret data is created.
-        self.0
+impl SerializableToSecretArray for SecretKeyFactory {
+    fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
+        self.0.clone()
     }
 }
 
 impl DeserializableFromArray for SecretKeyFactory {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Ok(Self(*arr))
+        Ok(Self(SecretBox::new(*arr)))
     }
 }
 
@@ -323,17 +329,14 @@ mod tests {
         let sk = SecretKey::random();
         let sk_arr = sk.to_secret_array();
         let sk_back = SecretKey::from_array(sk_arr.as_secret()).unwrap();
-        assert_eq!(
-            sk.to_secret_scalar().as_secret(),
-            sk_back.to_secret_scalar().as_secret()
-        );
+        assert!(sk == sk_back);
     }
 
     #[test]
     fn test_serialize_secret_key_factory() {
         let skf = SecretKeyFactory::random();
-        let skf_arr = skf.to_array();
-        let skf_back = SecretKeyFactory::from_array(&skf_arr).unwrap();
+        let skf_arr = skf.to_secret_array();
+        let skf_back = SecretKeyFactory::from_array(skf_arr.as_secret()).unwrap();
         assert!(skf == skf_back);
     }
 
