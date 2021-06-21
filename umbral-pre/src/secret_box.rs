@@ -29,8 +29,12 @@ use generic_array::{ArrayLength, GenericArray};
 use zeroize::Zeroize;
 
 /// This is a helper trait for [`SecretBox`], asserting that the type implementing it
-/// can either be zeroized (in which case [`ensure_zeroized_on_drop`] is implemented accordingly),
-/// or is zeroized on drop (in which case [`ensure_zeroized_on_drop`] does nothing).
+/// can either be zeroized
+/// (in which case [`ensure_zeroized_on_drop`](`CanBeZeroizedOnDrop::ensure_zeroized_on_drop`)
+/// is implemented accordingly),
+/// or is zeroized on drop
+/// (in which case [`ensure_zeroized_on_drop`](`CanBeZeroizedOnDrop::ensure_zeroized_on_drop`)
+/// does nothing).
 /// In other words, with this trait we are sure that one way or the other,
 /// on drop of [`SecretBox`] the contents are zeroized.
 ///
@@ -74,10 +78,12 @@ where
         Self(Box::new(val))
     }
 
+    /// Returns an immutable reference to the secret data.
     pub fn as_secret(&self) -> &T {
         self.0.as_ref()
     }
 
+    /// Returns a mutable reference to the secret data.
     pub fn as_mut_secret(&mut self) -> &mut T {
         self.0.as_mut()
     }

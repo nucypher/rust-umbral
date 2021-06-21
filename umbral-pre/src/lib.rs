@@ -124,6 +124,7 @@ pub use keys::{PublicKey, SecretKey, SecretKeyFactory, SecretKeyFactoryError, Si
 pub use pre::{
     decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt, ReencryptionError,
 };
+pub use secret_box::{CanBeZeroizedOnDrop, SecretBox};
 pub use traits::{
     ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
