@@ -38,8 +38,8 @@ impl SecretKey {
         PublicKey(self.0.public_key())
     }
 
-    #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Box<[u8]> {
+    #[wasm_bindgen(js_name = toSecretBytes)]
+    pub fn to_secret_bytes(&self) -> Box<[u8]> {
         self.0
             .to_secret_array()
             .as_secret()
@@ -79,8 +79,8 @@ impl SecretKeyFactory {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Box<[u8]> {
+    #[wasm_bindgen(js_name = toSecretBytes)]
+    pub fn to_secret_bytes(&self) -> Box<[u8]> {
         self.0
             .to_secret_array()
             .as_secret()

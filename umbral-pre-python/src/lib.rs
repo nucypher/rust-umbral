@@ -121,6 +121,10 @@ impl SecretKey {
         }
     }
 
+    pub fn to_secret_bytes(&self) -> PyResult<PyObject> {
+        to_secret_bytes(self)
+    }
+
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
@@ -134,10 +138,6 @@ impl SecretKey {
 
 #[pyproto]
 impl PyObjectProtocol for SecretKey {
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_secret_bytes(self)
-    }
-
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }
@@ -178,6 +178,10 @@ impl SecretKeyFactory {
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
+    pub fn to_secret_bytes(&self) -> PyResult<PyObject> {
+        to_secret_bytes(self)
+    }
+
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
@@ -191,10 +195,6 @@ impl SecretKeyFactory {
 
 #[pyproto]
 impl PyObjectProtocol for SecretKeyFactory {
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_secret_bytes(self)
-    }
-
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }

@@ -30,9 +30,11 @@ API reference
 
         Returns a public key corresponding to this secret key.
 
-    .. py:method:: __bytes__() -> bytes
+    .. py:method:: to_secret_bytes() -> bytes
 
         Serializes the object into a bytestring.
+
+        Made into an explicit method instead of `__bytes__` to avoid unintentional exposure of the secret data.
 
     .. py:staticmethod:: from_bytes(data: bytes) -> SecretKey
 
@@ -54,9 +56,11 @@ API reference
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
 
-    .. py:method:: __bytes__() -> bytes
+    .. py:method:: to_secret_bytes() -> bytes
 
         Serializes the object into a bytestring.
+
+        Made into an explicit method instead of `__bytes__` to avoid unintentional exposure of the secret data.
 
     .. py:staticmethod:: from_bytes(data: bytes) -> SecretKey
 

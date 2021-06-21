@@ -10,6 +10,9 @@ class SecretKey:
     def public_key(self) -> PublicKey:
         ...
 
+    def to_secret_bytes(self) -> bytes:
+        ...
+
     @staticmethod
     def from_bytes() -> SecretKey:
         ...
@@ -26,6 +29,9 @@ class SecretKeyFactory:
         ...
 
     def secret_key_by_label(self, label: bytes) -> SecretKey:
+        ...
+
+    def to_secret_bytes(self) -> bytes:
         ...
 
     @staticmethod
