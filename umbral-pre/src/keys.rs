@@ -252,11 +252,12 @@ impl fmt::Display for SecretKeyFactoryError {
 
 type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
+type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
 
 /// This class handles keyring material for Umbral, by allowing deterministic
 /// derivation of `SecretKey` objects based on labels.
 #[derive(Clone)]
-pub struct SecretKeyFactory(SecretBox<GenericArray<u8, SecretKeyFactorySeedSize>>);
+pub struct SecretKeyFactory(SecretBox<SecretKeyFactorySeed>);
 
 impl SecretKeyFactory {
     /// Creates a random factory.
@@ -274,9 +275,10 @@ impl SecretKeyFactory {
             .cloned()
             .chain(label.iter().cloned())
             .collect();
-        let key = kdf::<SecretKeyFactoryDerivedSize>(self.0.as_secret(), None, Some(&info));
+        let key =
+            kdf::<SecretKeyFactorySeed, SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
         let scalar = ScalarDigest::new_with_dst(&info)
-            .chain_bytes(&key)
+            .chain_secret_bytes(&key)
             .finalize();
         // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
         SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)

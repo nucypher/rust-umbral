@@ -155,6 +155,20 @@ impl CurvePoint {
     }
 }
 
+impl Default for CurvePoint {
+    fn default() -> Self {
+        CurvePoint::identity()
+    }
+}
+
+impl DefaultIsZeroes for CurvePoint {}
+
+impl CanBeZeroizedOnDrop for CurvePoint {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.zeroize()
+    }
+}
+
 impl Add<&CurveScalar> for &CurveScalar {
     type Output = CurveScalar;
 

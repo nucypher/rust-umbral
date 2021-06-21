@@ -5,6 +5,7 @@ use sha2::Sha256;
 use typenum::U1;
 
 use crate::curve::{CurvePoint, CurveScalar};
+use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
 use crate::traits::SerializableToArray;
 
 /// Hashes arbitrary data with the given domain separation tag
@@ -74,6 +75,14 @@ impl Hash {
         Self(self.0.chain(bytes.as_ref()))
     }
 
+    pub fn chain_secret_bytes<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop>(
+        self,
+        bytes: &SecretBox<T>,
+    ) -> Self {
+        // Assuming here that the bytes are not saved in `BackendDigest`.
+        Self(self.0.chain(bytes.as_secret()))
+    }
+
     pub fn digest(self) -> BackendDigest {
         self.0
     }
@@ -88,6 +97,13 @@ impl ScalarDigest {
 
     pub fn chain_bytes<T: AsRef<[u8]>>(self, bytes: T) -> Self {
         Self(self.0.chain_bytes(bytes))
+    }
+
+    pub fn chain_secret_bytes<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop>(
+        self,
+        bytes: &SecretBox<T>,
+    ) -> Self {
+        Self(self.0.chain_secret_bytes(bytes))
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {

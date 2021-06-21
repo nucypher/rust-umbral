@@ -10,6 +10,7 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
+use crate::secret_box::SecretBox;
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
@@ -94,6 +95,8 @@ impl fmt::Display for Capsule {
     }
 }
 
+type KeySeed = GenericArray<u8, <CurvePoint as RepresentableAsArray>::Size>;
+
 impl Capsule {
     fn new(point_e: CurvePoint, point_v: CurvePoint, signature: CurveScalar) -> Self {
         let params = Parameters::new();
@@ -125,7 +128,7 @@ impl Capsule {
     }
 
     /// Generates a symmetric key and its associated KEM ciphertext
-    pub(crate) fn from_public_key(delegating_pk: &PublicKey) -> (Capsule, CurvePoint) {
+    pub(crate) fn from_public_key(delegating_pk: &PublicKey) -> (Capsule, SecretBox<KeySeed>) {
         let g = CurvePoint::generator();
 
         let priv_r = CurveScalar::random_nonzero();
@@ -138,16 +141,19 @@ impl Capsule {
 
         let s = &priv_u + &(&priv_r * &h);
 
-        let shared_key = &delegating_pk.to_point() * &(&priv_r + &priv_u);
+        let shared_key = SecretBox::new(&delegating_pk.to_point() * &(&priv_r + &priv_u));
 
         let capsule = Self::new(pub_r, pub_u, s);
 
-        (capsule, shared_key)
+        (capsule, SecretBox::new(shared_key.as_secret().to_array()))
     }
 
     /// Derive the same symmetric key
-    pub(crate) fn open_original(&self, delegating_sk: &SecretKey) -> CurvePoint {
-        &(&self.point_e + &self.point_v) * delegating_sk.to_secret_scalar().as_secret()
+    pub(crate) fn open_original(&self, delegating_sk: &SecretKey) -> SecretBox<KeySeed> {
+        let shared_key = SecretBox::new(
+            &(&self.point_e + &self.point_v) * delegating_sk.to_secret_scalar().as_secret(),
+        );
+        SecretBox::new(shared_key.as_secret().to_array())
     }
 
     #[allow(clippy::many_single_char_names)]
@@ -156,7 +162,7 @@ impl Capsule {
         receiving_sk: &SecretKey,
         delegating_pk: &PublicKey,
         cfrags: &[CapsuleFrag],
-    ) -> Result<CurvePoint, OpenReencryptedError> {
+    ) -> Result<SecretBox<KeySeed>, OpenReencryptedError> {
         if cfrags.is_empty() {
             return Err(OpenReencryptedError::NoCapsuleFrags);
         }
@@ -208,8 +214,8 @@ impl Capsule {
             return Err(OpenReencryptedError::ValidationFailed);
         }
 
-        let shared_key = &(&e_prime + &v_prime) * &d;
-        Ok(shared_key)
+        let shared_key = SecretBox::new(&(&e_prime + &v_prime) * &d);
+        Ok(SecretBox::new(shared_key.as_secret().to_array()))
     }
 }
 
@@ -274,11 +280,12 @@ mod tests {
         let key_seed_reenc = capsule
             .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
             .unwrap();
-        assert_eq!(key_seed, key_seed_reenc);
+        assert_eq!(key_seed.as_secret(), key_seed_reenc.as_secret());
 
         // Empty cfrag vector
+        let result = capsule.open_reencrypted(&receiving_sk, &delegating_pk, &[]);
         assert_eq!(
-            capsule.open_reencrypted(&receiving_sk, &delegating_pk, &[]),
+            result.map(|x| x.as_secret().clone()),
             Err(OpenReencryptedError::NoCapsuleFrags)
         );
 
@@ -297,15 +304,17 @@ mod tests {
             .map(|vcfrag| vcfrag.cfrag)
             .collect();
 
+        let result = capsule.open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags);
         assert_eq!(
-            capsule.open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags),
+            result.map(|x| x.as_secret().clone()),
             Err(OpenReencryptedError::MismatchedCapsuleFrags)
         );
 
         // Mismatched capsule
         let (capsule2, _key_seed) = Capsule::from_public_key(&delegating_pk);
+        let result = capsule2.open_reencrypted(&receiving_sk, &delegating_pk, &cfrags);
         assert_eq!(
-            capsule2.open_reencrypted(&receiving_sk, &delegating_pk, &cfrags),
+            result.map(|x| x.as_secret().clone()),
             Err(OpenReencryptedError::ValidationFailed)
         );
     }
