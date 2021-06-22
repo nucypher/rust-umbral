@@ -212,7 +212,14 @@ where
 {
     let bytes = (*obj).to_array();
     let (to_show, _): (GenericArray<u8, U8>, GenericArray<u8, _>) = bytes.split();
-    write!(f, "{}:{}", T::type_name(), hex::encode(to_show))
+    let mut hex_repr = [b'*'; 16]; // exactly 16 bytes long, to fit the encode() result
+    hex::encode_to_slice(to_show, &mut hex_repr).map_err(|_| fmt::Error)?;
+    write!(
+        f,
+        "{}:{}",
+        T::type_name(),
+        String::from_utf8_lossy(&hex_repr)
+    )
 }
 
 #[cfg(test)]
