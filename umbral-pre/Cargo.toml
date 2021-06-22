@@ -11,9 +11,9 @@ categories = ["cryptography", "no-std"]
 
 [dependencies]
 k256 = { version = "0.9", default-features = false, features = ["ecdsa", "arithmetic", "zeroize"] }
-sha2 = "0.9"
+sha2 = { version = "0.9", default-features = false }
 chacha20poly1305 = { version = "0.8", features = ["xchacha20poly1305"] }
-hkdf = "0.11"
+hkdf = { version = "0.11", default-features = false }
 hex = { version = "0.4", default-features = false }
 
 # These packages are among the dependencies of the packages above.
@@ -23,7 +23,7 @@ digest = "0.9"
 generic-array = "0.14"
 aead = { version = "0.4", features = ["heapless"] }
 ecdsa = { version = "0.12.2", features = ["zeroize"] }
-signature = "1.3"
+signature = { version = "1.3", default-features = false }
 rand_core = { version = "0.6", default-features = false }
 typenum = "1.13" # typenum is a 2018-edition crate starting from 1.13
 getrandom = { version = "0.2", optional = true, default-features = false, features = ["js"] }
