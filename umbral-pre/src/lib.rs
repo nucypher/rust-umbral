@@ -113,6 +113,7 @@ mod key_frag;
 mod keys;
 mod params;
 mod pre;
+mod secret_box;
 mod traits;
 
 pub use capsule::{Capsule, OpenReencryptedError};
@@ -125,5 +126,5 @@ pub use pre::{
 };
 pub use traits::{
     ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
-    RepresentableAsArray, SerializableToArray, SizeMismatchError,
+    RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };

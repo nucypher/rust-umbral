@@ -14,7 +14,9 @@ use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
 use subtle::CtOption;
+use zeroize::{DefaultIsZeroes, Zeroize};
 
+use crate::secret_box::CanBeZeroizedOnDrop;
 use crate::traits::{
     ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
@@ -24,6 +26,12 @@ pub(crate) type CurveType = Secp256k1;
 
 type BackendScalar = Scalar<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
+
+impl CanBeZeroizedOnDrop for BackendNonZeroScalar {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.zeroize()
+    }
+}
 
 // We have to define newtypes for scalar and point here because the compiler
 // is not currently smart enough to resolve `BackendScalar` and `BackendPoint`
@@ -72,6 +80,14 @@ impl CurveScalar {
 impl Default for CurveScalar {
     fn default() -> Self {
         Self(BackendScalar::default())
+    }
+}
+
+impl DefaultIsZeroes for CurveScalar {}
+
+impl CanBeZeroizedOnDrop for CurveScalar {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.zeroize()
     }
 }
 

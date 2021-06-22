@@ -147,7 +147,7 @@ impl Capsule {
 
     /// Derive the same symmetric key
     pub(crate) fn open_original(&self, delegating_sk: &SecretKey) -> CurvePoint {
-        &(&self.point_e + &self.point_v) * &delegating_sk.to_secret_scalar()
+        &(&self.point_e + &self.point_v) * delegating_sk.to_secret_scalar().as_secret()
     }
 
     #[allow(clippy::many_single_char_names)]
@@ -168,7 +168,7 @@ impl Capsule {
         }
 
         let pub_key = receiving_sk.public_key().to_point();
-        let dh_point = &precursor * &receiving_sk.to_secret_scalar();
+        let dh_point = &precursor * receiving_sk.to_secret_scalar().as_secret();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
         let mut lc = Vec::<CurveScalar>::with_capacity(cfrags.len());
