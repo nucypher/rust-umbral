@@ -1,3 +1,14 @@
+# JavaScript bindings for `umbral-pre`
+
+[![npm package][js-npm-image]][js-npm-link] ![License][js-license-image]
+
+This repo contains the WASM-based JS bindings for the [main Rust project][umbral-pre].
+
+## Usage
+
+(This code can be found in the `example` folder)
+
+```javascript
 import * as umbral from "umbral-pre";
 
 let enc = new TextEncoder();
@@ -9,14 +20,14 @@ let dec = new TextDecoder("utf-8");
 
 // Key Generation (on Alice's side)
 let alice_sk = umbral.SecretKey.random();
-let alice_pk = umbral.PublicKey.fromSecretKey(alice_sk);
+let alice_pk = alice_sk.publicKey();
 let signing_sk = umbral.SecretKey.random();
 let signer = new umbral.Signer(signing_sk);
-let verifying_pk = umbral.PublicKey.fromSecretKey(signing_sk);
+let verifying_pk = signing_sk.publicKey();
 
 // Key Generation (on Bob's side)
 let bob_sk = umbral.SecretKey.random();
-let bob_pk = umbral.PublicKey.fromSecretKey(bob_sk);
+let bob_pk = bob_sk.publicKey();
 
 // Now let's encrypt data with Alice's public key.
 // Invocation of `encrypt()` returns both the ciphertext and a capsule.
@@ -45,10 +56,7 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generateKFrags(
-    alice_sk, bob_pk, signer, m, n,
-    true, // add the delegating key (alice_pk) to the signature
-    true, // add the receiving key (bob_pk) to the signature
-    );
+    alice_sk, bob_pk, signer, m, n, true, true);
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -56,9 +64,6 @@ let kfrags = umbral.generateKFrags(
 
 // Bob collects the resulting cfrags from several Ursulas.
 // Bob must gather at least `m` cfrags in order to open the capsule.
-
-// Ursulas can optionally check that the received kfrags are valid
-// and perform the reencryption
 
 // Ursula 0
 let cfrag0 = umbral.reencrypt(capsule, kfrags[0]);
@@ -80,3 +85,23 @@ let plaintext_bob = capsule
     .decryptReencrypted(bob_sk, alice_pk, ciphertext);
 
 console.assert(dec.decode(plaintext_bob) == plaintext, "decrypt_reencrypted() failed");
+```
+
+## Build
+
+The package is built using [`wasm-pack`](https://github.com/rustwasm/wasm-pack).
+Instead of running `wasm-build` directly, use the included `Makefile`, since it has to do some additional actions that `wasm-build` currently does not support.
+
+## Running the example
+
+After you have successfully built the WASM package, in the `example` folder run
+```
+$ npm install
+$ npm run start
+```
+Go to [localhost:8080](http://localhost:8080/) in your browser and look in the JS console.
+
+[js-npm-image]: https://img.shields.io/npm/v/umbral-pre
+[js-npm-link]: https://www.npmjs.com/package/umbral-pre
+[js-license-image]: https://img.shields.io/npm/l/umbral-pre
+[umbral-pre]: https://github.com/nucypher/rust-umbral/tree/master/umbral-pre

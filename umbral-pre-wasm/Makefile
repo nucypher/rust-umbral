@@ -7,13 +7,23 @@ SHELL = /bin/bash
 build: pkg
 
 pkg: src
-	wasm-pack build
-	# temporary fix for https://github.com/rustwasm/wasm-pack/issues/427
-	# (setting a custom package name)
-	sed -i ".bak" -e 's/"name": "umbral-pre-wasm"/"name": "umbral-pre"/g' pkg/package.json
-	# Temporary fix for https://github.com/rustwasm/wasm-pack/issues/922
-	# (adding missing package files to the manifest)
-	sed -i ".bak" -e 's/"umbral_pre_wasm_bg.wasm"/"umbral_pre_wasm_bg.wasm", "umbral_pre_wasm_bg.js", "umbral_pre_wasm_bg.wasm.d.ts"/g' pkg/package.json
-	# Add keywords
-	sed -i ".bak" -e 's/"sideEffects": false/"sideEffects": false, "keywords": ["umbral", "nucypher"]/g' pkg/package.json
-	rm pkg/package.json.bak
+	# Build for both targets
+	wasm-pack build -t bundler -d pkg/pkg-bundler
+	wasm-pack build -t nodejs -d pkg/pkg-node
+
+	# Clean-up non-essential files
+	(cd pkg/pkg-bundler && rm package.json README.md .gitignore LICENSE)
+	(cd pkg/pkg-node && rm package.json README.md .gitignore LICENSE)
+
+	# Types are duplicated, clean them up to avoid confusion
+	mv pkg/pkg-node/umbral_pre_wasm.d.ts pkg/
+	rm pkg/pkg-bundler/umbral_pre_wasm.d.ts
+
+	# Copy template
+	cp -R pkg-template/* pkg/
+
+
+.PHONY: clean
+
+clean:
+	rm -rf pkg
