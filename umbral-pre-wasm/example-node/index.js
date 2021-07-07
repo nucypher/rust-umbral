@@ -1,14 +1,3 @@
-# JavaScript bindings for `umbral-pre`
-
-[![npm package][js-npm-image]][js-npm-link] ![License][js-license-image]
-
-This repo contains the WASM-based JS bindings for the [main Rust project][umbral-pre].
-
-## Usage
-
-(This code can be found in the `example` folder)
-
-```javascript
 import * as umbral from "umbral-pre";
 
 let enc = new TextEncoder();
@@ -23,7 +12,6 @@ let alice_sk = umbral.SecretKey.random();
 let alice_pk = alice_sk.publicKey();
 let signing_sk = umbral.SecretKey.random();
 let signer = new umbral.Signer(signing_sk);
-let verifying_pk = signing_sk.publicKey();
 
 // Key Generation (on Bob's side)
 let bob_sk = umbral.SecretKey.random();
@@ -56,7 +44,10 @@ console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() fai
 let n = 3; // how many fragments to create
 let m = 2; // how many should be enough to decrypt
 let kfrags = umbral.generateKFrags(
-    alice_sk, bob_pk, signer, m, n, true, true);
+    alice_sk, bob_pk, signer, m, n,
+    true, // add the delegating key (alice_pk) to the signature
+    true, // add the receiving key (bob_pk) to the signature
+    );
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -64,6 +55,9 @@ let kfrags = umbral.generateKFrags(
 
 // Bob collects the resulting cfrags from several Ursulas.
 // Bob must gather at least `m` cfrags in order to open the capsule.
+
+// Ursulas can optionally check that the received kfrags are valid
+// and perform the reencryption
 
 // Ursula 0
 let cfrag0 = umbral.reencrypt(capsule, kfrags[0]);
@@ -85,38 +79,5 @@ let plaintext_bob = capsule
     .decryptReencrypted(bob_sk, alice_pk, ciphertext);
 
 console.assert(dec.decode(plaintext_bob) == plaintext, "decrypt_reencrypted() failed");
-```
 
-## Build
-
-The package is built using [`wasm-pack`](https://github.com/rustwasm/wasm-pack).
-Instead of running `wasm-build` directly, use the included `Makefile`, since it has to do some additional actions that `wasm-build` currently does not support:
-
-```bash
-$ make
-```
-
-## Running the examples
-
-After you have successfully built the WASM package, run one of the example projects:
-
-### `umbral-pre` in the browser
-```bash
-$ cd example-bundler
-$ yarn install
-$ yarn start
-```
-Go to [localhost:8080](http://localhost:8080/) in your browser and look in the JS console.
-
-### `umbral-pre` in Node.js:
-```bash
-$ cd example-node
-$ yarn install
-$ yarn start
-```
-Inspect console output for results.
-
-[js-npm-image]: https://img.shields.io/npm/v/umbral-pre
-[js-npm-link]: https://www.npmjs.com/package/umbral-pre
-[js-license-image]: https://img.shields.io/npm/l/umbral-pre
-[umbral-pre]: https://github.com/nucypher/rust-umbral/tree/master/umbral-pre
+console.log("Success!");

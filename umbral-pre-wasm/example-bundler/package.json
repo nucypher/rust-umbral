@@ -1,0 +1,23 @@
+{
+  "name": "umbral-pre-example-bundler",
+  "version": "0.1.0",
+  "description": "A usage example for umbral-pre",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "start": "webpack-dev-server"
+  },
+  "collaborators": [
+    "Bogdan Opanchuk <bogdan@opanchuk.net>"
+  ],
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "umbral-pre": "file:../pkg"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^5.0.0",
+    "webpack": "^4.29.3",
+    "webpack-cli": "^3.1.0",
+    "webpack-dev-server": "^3.1.5"
+  }
+}

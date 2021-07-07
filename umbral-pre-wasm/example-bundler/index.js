@@ -9,14 +9,13 @@ let dec = new TextDecoder("utf-8");
 
 // Key Generation (on Alice's side)
 let alice_sk = umbral.SecretKey.random();
-let alice_pk = umbral.PublicKey.fromSecretKey(alice_sk);
+let alice_pk = alice_sk.publicKey();
 let signing_sk = umbral.SecretKey.random();
 let signer = new umbral.Signer(signing_sk);
-let verifying_pk = umbral.PublicKey.fromSecretKey(signing_sk);
 
 // Key Generation (on Bob's side)
 let bob_sk = umbral.SecretKey.random();
-let bob_pk = umbral.PublicKey.fromSecretKey(bob_sk);
+let bob_pk = bob_sk.publicKey();
 
 // Now let's encrypt data with Alice's public key.
 // Invocation of `encrypt()` returns both the ciphertext and a capsule.
@@ -80,3 +79,5 @@ let plaintext_bob = capsule
     .decryptReencrypted(bob_sk, alice_pk, ciphertext);
 
 console.assert(dec.decode(plaintext_bob) == plaintext, "decrypt_reencrypted() failed");
+
+console.log("Success!");
