@@ -20,7 +20,8 @@ pkg: src
 	rm pkg/pkg-bundler/umbral_pre_wasm.d.ts
 
 	# Copy template
-	cp -R pkg-template/* pkg/
+	cp package.template.json pkg/package.json
+	cp LICENSE README.md pkg/
 
 
 .PHONY: clean

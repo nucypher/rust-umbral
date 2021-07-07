@@ -90,16 +90,31 @@ console.assert(dec.decode(plaintext_bob) == plaintext, "decrypt_reencrypted() fa
 ## Build
 
 The package is built using [`wasm-pack`](https://github.com/rustwasm/wasm-pack).
-Instead of running `wasm-build` directly, use the included `Makefile`, since it has to do some additional actions that `wasm-build` currently does not support.
+Instead of running `wasm-build` directly, use the included `Makefile`, since it has to do some additional actions that `wasm-build` currently does not support:
 
-## Running the example
-
-After you have successfully built the WASM package, in the `example` folder run
+```bash
+$ make
 ```
-$ npm install
-$ npm run start
+
+## Running the examples
+
+After you have successfully built the WASM package, run one of the example projects:
+
+### `umbral-pre` in the browser
+```bash
+$ cd example-bundler
+$ yarn install
+$ yarn start
 ```
 Go to [localhost:8080](http://localhost:8080/) in your browser and look in the JS console.
+
+### `umbral-pre` in Node.js:
+```bash
+$ cd example-node
+$ yarn install
+$ yarn start
+```
+Inspect console output for results.
 
 [js-npm-image]: https://img.shields.io/npm/v/umbral-pre
 [js-npm-link]: https://www.npmjs.com/package/umbral-pre
