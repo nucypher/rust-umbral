@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added separate entry points for Webpack and Node.JS in the WASM bindings, and added examples for both of these scenarios ([#60])
 - `SecretBox` struct, a wrapper making operations with secret data explicit and ensuring zeroization on drop ([#53])
 - Feature `default-rng` (enabled by default). When disabled, the library can be compiled on targets not supported by `getrandom` (e.g., ARM), but only the functions taking an explicit RNG as a parameter will be available. ([#55])
+- Added benchmarks for the main usage scenario and a feature `bench-internals` to expose some internals for benchmarking ([#54])
 
 
 ### Fixed
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 [#53]: https://github.com/nucypher/rust-umbral/pull/53
+[#54]: https://github.com/nucypher/rust-umbral/pull/54
 [#55]: https://github.com/nucypher/rust-umbral/pull/55
 [#56]: https://github.com/nucypher/rust-umbral/pull/56
 [#60]: https://github.com/nucypher/rust-umbral/pull/60
