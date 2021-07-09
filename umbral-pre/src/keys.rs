@@ -1,7 +1,8 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 
-use digest::{BlockInput, Digest, FixedOutput, Reset, Update};
+use digest::Digest;
 use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
 use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use generic_array::GenericArray;
@@ -12,9 +13,10 @@ use typenum::{U32, U64};
 use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
+use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
-    RepresentableAsArray, SerializableToArray,
+    RepresentableAsArray, SerializableToArray, SerializableToSecretArray,
 };
 
 /// ECDSA signature object.
@@ -61,51 +63,47 @@ impl fmt::Display for Signature {
     }
 }
 
-/// A secret key.
-#[derive(Clone)] // No Debug derivation, to avoid exposing the key accidentally.
-pub struct SecretKey(BackendSecretKey<CurveType>);
-
-impl PartialEq for SecretKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_secret_scalar() == other.to_secret_scalar()
+impl CanBeZeroizedOnDrop for BackendSecretKey<CurveType> {
+    fn ensure_zeroized_on_drop(&mut self) {
+        // BackendSecretKey is zeroized on drop, nothing to do
     }
 }
 
+/// A secret key.
+#[derive(Clone)]
+pub struct SecretKey(SecretBox<BackendSecretKey<CurveType>>);
+
 impl SecretKey {
+    fn new(sk: BackendSecretKey<CurveType>) -> Self {
+        Self(SecretBox::new(sk))
+    }
+
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
-        let secret_key = BackendSecretKey::<CurveType>::random(&mut OsRng);
-        Self(secret_key)
+        Self::new(BackendSecretKey::<CurveType>::random(&mut OsRng))
     }
 
     /// Returns a public key corresponding to this secret key.
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(self.0.public_key())
+        PublicKey(self.0.as_secret().public_key())
     }
 
     pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
-        let nz_scalar = BackendNonZeroScalar::new(scalar.to_backend_scalar())?;
-        Some(Self(BackendSecretKey::<CurveType>::new(nz_scalar)))
+        let nz_scalar = SecretBox::new(BackendNonZeroScalar::new(scalar.to_backend_scalar())?);
+        Some(Self::new(nz_scalar.as_secret().into()))
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
-    pub(crate) fn to_secret_scalar(&self) -> CurveScalar {
-        // TODO (#8): `BackendSecretKey` only returns a reference,
-        // but how important is this safety measure?
-        // We could return a wrapped reference, and define arithmetic operations for it.
-        // But we use this secret scalar to multiply not only points, but other scalars too.
-        // So there's no point in hiding the actual value here as long as
-        // it is going to be effectively dereferenced in other places.
-        CurveScalar::from_backend_scalar(&*self.0.secret_scalar())
+    pub(crate) fn to_secret_scalar(&self) -> SecretBox<CurveScalar> {
+        let backend_scalar = SecretBox::new(self.0.as_secret().to_secret_scalar());
+        SecretBox::new(CurveScalar::from_backend_scalar(backend_scalar.as_secret()))
     }
+}
 
-    /// Signs a message using the default RNG.
-    pub(crate) fn sign_digest(
-        &self,
-        digest: impl BlockInput + FixedOutput<OutputSize = U32> + Clone + Default + Reset + Update,
-    ) -> Signature {
-        let signer = SigningKey::<CurveType>::from(self.0.clone());
-        Signature(signer.sign_digest_with_rng(OsRng, digest))
+#[cfg(test)]
+impl PartialEq for SecretKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_secret_scalar().as_secret() == other.to_secret_scalar().as_secret()
     }
 }
 
@@ -113,17 +111,16 @@ impl RepresentableAsArray for SecretKey {
     type Size = <CurveScalar as RepresentableAsArray>::Size;
 }
 
-impl SerializableToArray for SecretKey {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        // TODO (#8): a copy of secret data is created in `to_bytes()`.
-        self.0.to_bytes()
+impl SerializableToSecretArray for SecretKey {
+    fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
+        SecretBox::new(self.0.as_secret().to_bytes())
     }
 }
 
 impl DeserializableFromArray for SecretKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
-            .map(Self)
+            .map(Self::new)
             .map_err(|_| ConstructionError::new("SecretKey", "Internal backend error"))
     }
 }
@@ -146,19 +143,23 @@ fn digest_for_signing(message: &[u8]) -> BackendDigest {
 
 /// An object used to sign messages.
 /// For security reasons cannot be serialized.
-#[derive(Clone, PartialEq)] // No Debug derivation, to avoid exposing the key accidentally.
+#[derive(Clone)]
 pub struct Signer(SecretKey);
 
 impl Signer {
     /// Creates a new signer out of a secret key.
     pub fn new(sk: &SecretKey) -> Self {
-        // TODO (#8): cloning secret data
         Self(sk.clone())
     }
 
     /// Signs the given message.
     pub fn sign(&self, message: &[u8]) -> Signature {
-        self.0.sign_digest(digest_for_signing(message))
+        let digest = digest_for_signing(message);
+        let secret_key = self.0.clone();
+        // We could use SecretBox here, but SigningKey does not implement Clone.
+        // Box is good enough, seeing as how `signing_key` does not leave this method.
+        let signing_key = Box::new(SigningKey::<CurveType>::from(secret_key.0.as_secret()));
+        Signature(signing_key.as_ref().sign_digest_with_rng(OsRng, digest))
     }
 
     /// Returns the public key that can be used to verify the signatures produced by this signer.
@@ -251,17 +252,18 @@ impl fmt::Display for SecretKeyFactoryError {
 
 type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
+type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
 
 /// This class handles keyring material for Umbral, by allowing deterministic
 /// derivation of `SecretKey` objects based on labels.
-#[derive(Clone, Copy, PartialEq)] // No Debug derivation, to avoid exposing the key accidentally.
-pub struct SecretKeyFactory(GenericArray<u8, SecretKeyFactorySeedSize>);
+#[derive(Clone)]
+pub struct SecretKeyFactory(SecretBox<SecretKeyFactorySeed>);
 
 impl SecretKeyFactory {
     /// Creates a random factory.
     pub fn random() -> Self {
-        let mut bytes = GenericArray::<u8, SecretKeyFactorySeedSize>::default();
-        OsRng.fill_bytes(&mut bytes);
+        let mut bytes = SecretBox::new(GenericArray::<u8, SecretKeyFactorySeedSize>::default());
+        OsRng.fill_bytes(&mut bytes.as_mut_secret());
         Self(bytes)
     }
 
@@ -273,12 +275,20 @@ impl SecretKeyFactory {
             .cloned()
             .chain(label.iter().cloned())
             .collect();
-        let key = kdf::<SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
+        let key =
+            kdf::<SecretKeyFactorySeed, SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
         let scalar = ScalarDigest::new_with_dst(&info)
-            .chain_bytes(&key)
+            .chain_secret_bytes(&key)
             .finalize();
         // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
         SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)
+    }
+}
+
+#[cfg(test)]
+impl PartialEq for SecretKeyFactory {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_secret() == other.0.as_secret()
     }
 }
 
@@ -286,16 +296,15 @@ impl RepresentableAsArray for SecretKeyFactory {
     type Size = SecretKeyFactorySeedSize;
 }
 
-impl SerializableToArray for SecretKeyFactory {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        // TODO (#8): a copy of secret data is created.
-        self.0
+impl SerializableToSecretArray for SecretKeyFactory {
+    fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
+        self.0.clone()
     }
 }
 
 impl DeserializableFromArray for SecretKeyFactory {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Ok(Self(*arr))
+        Ok(Self(SecretBox::new(*arr)))
     }
 }
 
@@ -315,21 +324,21 @@ impl fmt::Display for SecretKeyFactory {
 mod tests {
 
     use super::{PublicKey, SecretKey, SecretKeyFactory, Signer};
-    use crate::{DeserializableFromArray, SerializableToArray};
+    use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
     #[test]
     fn test_serialize_secret_key() {
         let sk = SecretKey::random();
-        let sk_arr = sk.to_array();
-        let sk_back = SecretKey::from_array(&sk_arr).unwrap();
-        assert_eq!(sk.to_secret_scalar(), sk_back.to_secret_scalar());
+        let sk_arr = sk.to_secret_array();
+        let sk_back = SecretKey::from_array(sk_arr.as_secret()).unwrap();
+        assert!(sk == sk_back);
     }
 
     #[test]
     fn test_serialize_secret_key_factory() {
         let skf = SecretKeyFactory::random();
-        let skf_arr = skf.to_array();
-        let skf_back = SecretKeyFactory::from_array(&skf_arr).unwrap();
+        let skf_arr = skf.to_secret_array();
+        let skf_back = SecretKeyFactory::from_array(skf_arr.as_secret()).unwrap();
         assert!(skf == skf_back);
     }
 

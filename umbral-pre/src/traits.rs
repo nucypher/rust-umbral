@@ -8,6 +8,8 @@ use generic_array::sequence::Split;
 use generic_array::{ArrayLength, GenericArray};
 use typenum::{Diff, Unsigned, U1, U8};
 
+use crate::secret_box::SecretBox;
+
 /// Errors that can happen during deserializing an object from a bytestring of correct length.
 #[derive(Debug, PartialEq)]
 pub struct ConstructionError {
@@ -104,6 +106,13 @@ pub trait RepresentableAsArray: Sized {
 pub trait SerializableToArray: RepresentableAsArray {
     /// Produces a byte array with the object's contents.
     fn to_array(&self) -> GenericArray<u8, Self::Size>;
+}
+
+/// A trait denoting that the object can be serialized to an array of bytes
+/// containing secret data.
+pub trait SerializableToSecretArray: RepresentableAsArray {
+    /// Produces a byte array with the object's contents, wrapped in a secret container.
+    fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>>;
 }
 
 /// A trait denoting that the object can be deserialized from an array of bytes

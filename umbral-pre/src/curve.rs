@@ -7,15 +7,16 @@ use core::ops::{Add, Mul, Sub};
 
 use digest::Digest;
 use ecdsa::hazmat::FromDigest;
-use elliptic_curve::ff::PrimeField;
+use elliptic_curve::group::ff::PrimeField;
 use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
-use elliptic_curve::NonZeroScalar;
-use elliptic_curve::{AffinePoint, Curve, ProjectiveArithmetic, Scalar};
+use elliptic_curve::{AffinePoint, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::OsRng;
 use subtle::CtOption;
+use zeroize::{DefaultIsZeroes, Zeroize};
 
+use crate::secret_box::CanBeZeroizedOnDrop;
 use crate::traits::{
     ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
@@ -25,6 +26,12 @@ pub(crate) type CurveType = Secp256k1;
 
 type BackendScalar = Scalar<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
+
+impl CanBeZeroizedOnDrop for BackendNonZeroScalar {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.zeroize()
+    }
+}
 
 // We have to define newtypes for scalar and point here because the compiler
 // is not currently smart enough to resolve `BackendScalar` and `BackendPoint`
@@ -76,10 +83,18 @@ impl Default for CurveScalar {
     }
 }
 
+impl DefaultIsZeroes for CurveScalar {}
+
+impl CanBeZeroizedOnDrop for CurveScalar {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.zeroize()
+    }
+}
+
 impl RepresentableAsArray for CurveScalar {
     // Currently it's the only size available.
     // A separate scalar size may appear in later versions of `elliptic_curve`.
-    type Size = <CurveType as Curve>::FieldSize;
+    type Size = FieldSize<CurveType>;
 }
 
 impl SerializableToArray for CurveScalar {
@@ -137,6 +152,20 @@ impl CurvePoint {
         *GenericArray::<u8, CompressedPointSize<CurveType>>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )
+    }
+}
+
+impl Default for CurvePoint {
+    fn default() -> Self {
+        CurvePoint::identity()
+    }
+}
+
+impl DefaultIsZeroes for CurvePoint {}
+
+impl CanBeZeroizedOnDrop for CurvePoint {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.zeroize()
     }
 }
 

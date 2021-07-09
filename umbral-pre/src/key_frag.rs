@@ -423,7 +423,7 @@ impl KeyFragBase {
 
         // Coefficients of the generating polynomial
         // `invert()` is guaranteed not to panic because `d` is nonzero.
-        let coefficient0 = &delegating_sk.to_secret_scalar() * &(d.invert().unwrap());
+        let coefficient0 = delegating_sk.to_secret_scalar().as_secret() * &(d.invert().unwrap());
 
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
         coefficients.push(coefficient0);
