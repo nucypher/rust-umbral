@@ -266,7 +266,7 @@ impl fmt::Display for SecretKeyFactoryError {
     }
 }
 
-type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
+type SecretKeyFactorySeedSize = U32; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
 type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
 
