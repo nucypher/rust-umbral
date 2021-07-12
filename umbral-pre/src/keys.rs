@@ -6,9 +6,12 @@ use digest::Digest;
 use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
 use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use generic_array::GenericArray;
-use rand_core::{OsRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
 use typenum::{U32, U64};
+
+#[cfg(feature = "default-rng")]
+use rand_core::OsRng;
 
 use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
@@ -78,9 +81,15 @@ impl SecretKey {
         Self(SecretBox::new(sk))
     }
 
-    /// Generates a secret key using the default RNG and returns it.
+    /// Creates a secret key using the given RNG.
+    pub fn random_with_rng(rng: impl CryptoRng + RngCore) -> Self {
+        Self::new(BackendSecretKey::<CurveType>::random(rng))
+    }
+
+    /// Creates a secret key using the default RNG.
+    #[cfg(feature = "default-rng")]
     pub fn random() -> Self {
-        Self::new(BackendSecretKey::<CurveType>::random(&mut OsRng))
+        Self::random_with_rng(&mut OsRng)
     }
 
     /// Returns a public key corresponding to this secret key.
@@ -152,14 +161,20 @@ impl Signer {
         Self(sk.clone())
     }
 
-    /// Signs the given message.
-    pub fn sign(&self, message: &[u8]) -> Signature {
+    /// Signs the given message using the given RNG.
+    pub fn sign_with_rng(&self, rng: &mut (impl CryptoRng + RngCore), message: &[u8]) -> Signature {
         let digest = digest_for_signing(message);
         let secret_key = self.0.clone();
         // We could use SecretBox here, but SigningKey does not implement Clone.
         // Box is good enough, seeing as how `signing_key` does not leave this method.
         let signing_key = Box::new(SigningKey::<CurveType>::from(secret_key.0.as_secret()));
-        Signature(signing_key.as_ref().sign_digest_with_rng(OsRng, digest))
+        Signature(signing_key.as_ref().sign_digest_with_rng(rng, digest))
+    }
+
+    /// Signs the given message using the default RNG.
+    #[cfg(feature = "default-rng")]
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        self.sign_with_rng(&mut OsRng, message)
     }
 
     /// Returns the public key that can be used to verify the signatures produced by this signer.
@@ -260,11 +275,17 @@ type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
 pub struct SecretKeyFactory(SecretBox<SecretKeyFactorySeed>);
 
 impl SecretKeyFactory {
-    /// Creates a random factory.
-    pub fn random() -> Self {
+    /// Creates a secret key factory using the given RNG.
+    pub fn random_with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Self {
         let mut bytes = SecretBox::new(GenericArray::<u8, SecretKeyFactorySeedSize>::default());
-        OsRng.fill_bytes(&mut bytes.as_mut_secret());
+        rng.fill_bytes(&mut bytes.as_mut_secret());
         Self(bytes)
+    }
+
+    /// Creates a secret key factory using the default RNG.
+    #[cfg(feature = "default-rng")]
+    pub fn random() -> Self {
+        Self::random_with_rng(&mut OsRng)
     }
 
     /// Creates a `SecretKey` from the given label.

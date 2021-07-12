@@ -4,7 +4,7 @@ use core::fmt;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
-use rand_core::{OsRng, RngCore};
+use rand_core::{CryptoRng, RngCore};
 use typenum::{op, U32};
 
 use crate::curve::{CurvePoint, CurveScalar};
@@ -24,9 +24,9 @@ type KeyFragIDSize = U32;
 pub(crate) struct KeyFragID(GenericArray<u8, KeyFragIDSize>);
 
 impl KeyFragID {
-    fn random() -> Self {
+    fn random(rng: &mut impl RngCore) -> Self {
         let mut bytes = GenericArray::<u8, KeyFragIDSize>::default();
-        OsRng.fill_bytes(&mut bytes);
+        rng.fill_bytes(&mut bytes);
         Self(bytes)
     }
 }
@@ -110,6 +110,7 @@ fn none_unless<T>(x: Option<T>, predicate: bool) -> Option<T> {
 
 impl KeyFragProof {
     fn from_base(
+        rng: &mut (impl CryptoRng + RngCore),
         base: &KeyFragBase,
         kfrag_id: &KeyFragID,
         kfrag_key: &CurveScalar,
@@ -121,7 +122,8 @@ impl KeyFragProof {
         let maybe_delegating_pk = Some(&base.delegating_pk);
         let maybe_receiving_pk = Some(&base.receiving_pk);
 
-        let signature_for_receiver = base.signer.sign(
+        let signature_for_receiver = base.signer.sign_with_rng(
+            rng,
             kfrag_signature_message(
                 &kfrag_id,
                 &commitment,
@@ -132,7 +134,8 @@ impl KeyFragProof {
             .as_ref(),
         );
 
-        let signature_for_proxy = base.signer.sign(
+        let signature_for_proxy = base.signer.sign_with_rng(
+            rng,
             kfrag_signature_message(
                 &kfrag_id,
                 &commitment,
@@ -237,8 +240,13 @@ impl fmt::Display for KeyFragVerificationError {
 }
 
 impl KeyFrag {
-    fn from_base(base: &KeyFragBase, sign_delegating_key: bool, sign_receiving_key: bool) -> Self {
-        let kfrag_id = KeyFragID::random();
+    fn from_base(
+        rng: &mut (impl CryptoRng + RngCore),
+        base: &KeyFragBase,
+        sign_delegating_key: bool,
+        sign_receiving_key: bool,
+    ) -> Self {
+        let kfrag_id = KeyFragID::random(rng);
 
         // The index of the re-encryption key share (which in Shamir's Secret
         // Sharing corresponds to x in the tuple (x, f(x)), with f being the
@@ -256,6 +264,7 @@ impl KeyFrag {
         let rk = poly_eval(&base.coefficients, &share_index);
 
         let proof = KeyFragProof::from_base(
+            rng,
             &base,
             &kfrag_id,
             &rk,
@@ -360,12 +369,13 @@ impl fmt::Display for VerifiedKeyFrag {
 
 impl VerifiedKeyFrag {
     pub(crate) fn from_base(
+        rng: &mut (impl CryptoRng + RngCore),
         base: &KeyFragBase,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
         Self {
-            kfrag: KeyFrag::from_base(base, sign_delegating_key, sign_receiving_key),
+            kfrag: KeyFrag::from_base(rng, base, sign_delegating_key, sign_receiving_key),
         }
     }
 
@@ -391,6 +401,7 @@ pub(crate) struct KeyFragBase {
 
 impl KeyFragBase {
     pub fn new(
+        rng: &mut (impl CryptoRng + RngCore),
         delegating_sk: &SecretKey,
         receiving_pk: &PublicKey,
         signer: &Signer,
@@ -406,7 +417,7 @@ impl KeyFragBase {
         let (d, precursor, dh_point) = loop {
             // The precursor point is used as an ephemeral public key in a DH key exchange,
             // and the resulting shared secret 'dh_point' is used to derive other secret values
-            let private_precursor = CurveScalar::random_nonzero();
+            let private_precursor = CurveScalar::random_nonzero(rng);
             let precursor = &g * &private_precursor;
 
             let dh_point = &receiving_pk_point * &private_precursor;
@@ -428,7 +439,7 @@ impl KeyFragBase {
         let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
         coefficients.push(coefficient0);
         for _i in 1..threshold {
-            coefficients.push(CurveScalar::random_nonzero());
+            coefficients.push(CurveScalar::random_nonzero(rng));
         }
 
         Self {
@@ -457,6 +468,8 @@ mod tests {
 
     use alloc::boxed::Box;
 
+    use rand_core::OsRng;
+
     use super::{KeyFrag, KeyFragBase, KeyFragVerificationError, VerifiedKeyFrag};
     use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
 
@@ -474,11 +487,11 @@ mod tests {
         let receiving_sk = SecretKey::random();
         let receiving_pk = receiving_sk.public_key();
 
-        let base = KeyFragBase::new(&delegating_sk, &receiving_pk, &signer, 2);
+        let base = KeyFragBase::new(&mut OsRng, &delegating_sk, &receiving_pk, &signer, 2);
         let vkfrags = [
-            VerifiedKeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
-            VerifiedKeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
-            VerifiedKeyFrag::from_base(&base, sign_delegating_key, sign_receiving_key),
+            VerifiedKeyFrag::from_base(&mut OsRng, &base, sign_delegating_key, sign_receiving_key),
+            VerifiedKeyFrag::from_base(&mut OsRng, &base, sign_delegating_key, sign_receiving_key),
+            VerifiedKeyFrag::from_base(&mut OsRng, &base, sign_delegating_key, sign_receiving_key),
         ];
 
         (delegating_pk, receiving_pk, verifying_pk, Box::new(vkfrags))

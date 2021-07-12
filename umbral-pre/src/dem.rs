@@ -6,8 +6,7 @@ use chacha20poly1305::aead::NewAead;
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
 use generic_array::{ArrayLength, GenericArray};
 use hkdf::Hkdf;
-use rand_core::OsRng;
-use rand_core::RngCore;
+use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
 use typenum::Unsigned;
 
@@ -96,11 +95,12 @@ impl DEM {
 
     pub fn encrypt(
         &self,
+        rng: &mut (impl CryptoRng + RngCore),
         data: &[u8],
         authenticated_data: &[u8],
     ) -> Result<Box<[u8]>, EncryptionError> {
         let mut nonce = GenericArray::<u8, NonceSize>::default();
-        OsRng.fill_bytes(&mut nonce);
+        rng.fill_bytes(&mut nonce);
         let nonce = XNonce::from_slice(&nonce);
         let payload = Payload {
             msg: data,
