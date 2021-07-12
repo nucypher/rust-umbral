@@ -52,9 +52,25 @@ API reference
 
         Generates a new random factory.
 
-    .. py:method:: secret_key_by_label(label: bytes) -> SecretKeyFactory
+    .. py:staticmethod:: seed_size() -> int
+
+        Returns the seed size required by :py:meth:`~SecretKeyFactory.from_secure_randomness`.
+
+    .. py:staticmethod:: from_secure_randomness(seed: bytes) -> SecretKeyFactory
+
+        Creates a secret key factory using the given random bytes.
+        The length of the bytestring must be the one returned by :py:meth:`~SecretKeyFactory.seed_size`.
+
+        **Warning:** make sure the given seed has been obtained
+        from a cryptographically secure source of randomness!
+
+    .. py:method:: secret_key_by_label(label: bytes) -> SecretKey
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
+
+    .. py:method:: secret_key_factory_by_label(label: bytes) -> SecretKeyFactory
+
+        Generates a new :py:class:`SecretKeyFactory` using ``label`` as a seed.
 
     .. py:method:: to_secret_bytes() -> bytes
 

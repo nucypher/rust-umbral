@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use core::cmp::Ordering;
 use core::fmt;
 
 use digest::Digest;
@@ -8,7 +9,7 @@ use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKe
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
-use typenum::{U32, U64};
+use typenum::{Unsigned, U32, U64};
 
 #[cfg(feature = "default-rng")]
 use rand_core::OsRng;
@@ -19,7 +20,7 @@ use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
-    RepresentableAsArray, SerializableToArray, SerializableToSecretArray,
+    RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };
 
 /// ECDSA signature object.
@@ -265,7 +266,7 @@ impl fmt::Display for SecretKeyFactoryError {
     }
 }
 
-type SecretKeyFactorySeedSize = U64; // the size of the seed material for key derivation
+type SecretKeyFactorySeedSize = U32; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
 type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
 
@@ -288,7 +289,30 @@ impl SecretKeyFactory {
         Self::random_with_rng(&mut OsRng)
     }
 
-    /// Creates a `SecretKey` from the given label.
+    /// Returns the seed size required by
+    /// [`from_secure_randomness`](`SecretKeyFactory::from_secure_randomness`).
+    pub fn seed_size() -> usize {
+        SecretKeyFactorySeedSize::to_usize()
+    }
+
+    /// Creates a secret key factory using the given random bytes.
+    ///
+    /// **Warning:** make sure the given seed has been obtained
+    /// from a cryptographically secure source of randomness!
+    pub fn from_secure_randomness(seed: &[u8]) -> Result<Self, SizeMismatchError> {
+        let received_size = seed.len();
+        let expected_size = Self::seed_size();
+        match received_size.cmp(&expected_size) {
+            Ordering::Greater | Ordering::Less => {
+                Err(SizeMismatchError::new(received_size, expected_size))
+            }
+            Ordering::Equal => Ok(Self(SecretBox::new(*SecretKeyFactorySeed::from_slice(
+                seed,
+            )))),
+        }
+    }
+
+    /// Creates a `SecretKey` deterministically from the given label.
     pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
         let prefix = b"KEY_DERIVATION/";
         let info: Vec<u8> = prefix
@@ -303,6 +327,19 @@ impl SecretKeyFactory {
             .finalize();
         // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
         SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)
+    }
+
+    /// Creates a `SecretKeyFactory` deterministically from the given label.
+    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+        let prefix = b"FACTORY_DERIVATION/";
+        let info: Vec<u8> = prefix
+            .iter()
+            .cloned()
+            .chain(label.iter().cloned())
+            .collect();
+        let derived_seed =
+            kdf::<SecretKeyFactorySeed, SecretKeyFactorySeedSize>(&self.0, None, Some(&info));
+        Self(derived_seed)
     }
 }
 

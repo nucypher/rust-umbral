@@ -71,12 +71,29 @@ impl SecretKeyFactory {
         Self(umbral_pre::SecretKeyFactory::random())
     }
 
+    #[wasm_bindgen(js_name = seedSize)]
+    pub fn seed_size() -> usize {
+        umbral_pre::SecretKeyFactory::seed_size()
+    }
+
+    #[wasm_bindgen(js_name = fromSecureRandomness)]
+    pub fn from_secure_randomness(seed: &[u8]) -> Result<SecretKeyFactory, JsValue> {
+        umbral_pre::SecretKeyFactory::from_secure_randomness(seed)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
     #[wasm_bindgen(js_name = secretKeyByLabel)]
     pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
         self.0
             .secret_key_by_label(label)
             .map(SecretKey)
             .map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = secretKeyFactoryByLabel)]
+    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+        Self(self.0.secret_key_factory_by_label(label))
     }
 
     #[wasm_bindgen(js_name = toSecretBytes)]
