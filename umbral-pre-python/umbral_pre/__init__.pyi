@@ -31,6 +31,9 @@ class SecretKeyFactory:
     def secret_key_by_label(self, label: bytes) -> SecretKey:
         ...
 
+    def secret_key_factory_by_label(self, label: bytes) -> SecretKeyFactory:
+        ...
+
     def to_secret_bytes(self) -> bytes:
         ...
 

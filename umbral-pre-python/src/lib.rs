@@ -178,6 +178,12 @@ impl SecretKeyFactory {
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
+    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+        Self {
+            backend: self.backend.secret_key_factory_by_label(label),
+        }
+    }
+
     pub fn to_secret_bytes(&self) -> PyResult<PyObject> {
         to_secret_bytes(self)
     }

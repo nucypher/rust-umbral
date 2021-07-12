@@ -52,9 +52,13 @@ API reference
 
         Generates a new random factory.
 
-    .. py:method:: secret_key_by_label(label: bytes) -> SecretKeyFactory
+    .. py:method:: secret_key_by_label(label: bytes) -> SecretKey
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
+
+    .. py:method:: secret_key_factory_by_label(label: bytes) -> SecretKeyFactory
+
+        Generates a new :py:class:`SecretKeyFactory` using ``label`` as a seed.
 
     .. py:method:: to_secret_bytes() -> bytes
 
