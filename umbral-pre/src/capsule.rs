@@ -96,7 +96,7 @@ impl fmt::Display for Capsule {
     }
 }
 
-type KeySeed = GenericArray<u8, <CurvePoint as RepresentableAsArray>::Size>;
+pub(crate) type KeySeed = GenericArray<u8, <CurvePoint as RepresentableAsArray>::Size>;
 
 impl Capsule {
     fn new(point_e: CurvePoint, point_v: CurvePoint, signature: CurveScalar) -> Self {
