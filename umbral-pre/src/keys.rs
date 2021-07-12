@@ -288,7 +288,7 @@ impl SecretKeyFactory {
         Self::random_with_rng(&mut OsRng)
     }
 
-    /// Creates a `SecretKey` from the given label.
+    /// Creates a `SecretKey` deterministically from the given label.
     pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
         let prefix = b"KEY_DERIVATION/";
         let info: Vec<u8> = prefix
@@ -303,6 +303,19 @@ impl SecretKeyFactory {
             .finalize();
         // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
         SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)
+    }
+
+    /// Creates a `SecretKeyFactory` deterministically from the given label.
+    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+        let prefix = b"FACTORY_DERIVATION/";
+        let info: Vec<u8> = prefix
+            .iter()
+            .cloned()
+            .chain(label.iter().cloned())
+            .collect();
+        let derived_seed =
+            kdf::<SecretKeyFactorySeed, SecretKeyFactorySeedSize>(&self.0, None, Some(&info));
+        Self(derived_seed)
     }
 }
 

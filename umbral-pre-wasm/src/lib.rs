@@ -79,6 +79,11 @@ impl SecretKeyFactory {
             .map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = secretKeyFactoryByLabel)]
+    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+        Self(self.0.secret_key_factory_by_label(label))
+    }
+
     #[wasm_bindgen(js_name = toSecretBytes)]
     pub fn to_secret_bytes(&self) -> Box<[u8]> {
         self.0
