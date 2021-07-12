@@ -28,6 +28,14 @@ class SecretKeyFactory:
     def random() -> SecretKeyFactory:
         ...
 
+    @staticmethod
+    def seed_size() -> int:
+        ...
+
+    @staticmethod
+    def from_secure_randomness(seed: bytes) -> SecretKeyFactory:
+        ...
+
     def secret_key_by_label(self, label: bytes) -> SecretKey:
         ...
 

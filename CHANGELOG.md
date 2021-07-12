@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Feature `default-rng` (enabled by default). When disabled, the library can be compiled on targets not supported by `getrandom` (e.g., ARM), but only the functions taking an explicit RNG as a parameter will be available. ([#55])
 - Added benchmarks for the main usage scenario and a feature `bench-internals` to expose some internals for benchmarking ([#54])
 - Added `SecretKeyFactory::secret_key_factory_by_label()` ([#64])
+- Added `SecretKeyFactory::from_secure_randomness()` and `seed_size()` ([#64])
 
 
 ### Fixed
