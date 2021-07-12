@@ -122,10 +122,14 @@ pub use dem::{DecryptionError, EncryptionError};
 pub use key_frag::{KeyFrag, KeyFragVerificationError, VerifiedKeyFrag};
 pub use keys::{PublicKey, SecretKey, SecretKeyFactory, SecretKeyFactoryError, Signature, Signer};
 pub use pre::{
-    decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt, ReencryptionError,
+    decrypt_original, decrypt_reencrypted, encrypt_with_rng, generate_kfrags_with_rng,
+    reencrypt_with_rng, ReencryptionError,
 };
 pub use secret_box::{CanBeZeroizedOnDrop, SecretBox};
 pub use traits::{
     ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };
+
+#[cfg(feature = "default-rng")]
+pub use pre::{encrypt, generate_kfrags, reencrypt};

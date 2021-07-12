@@ -3,6 +3,7 @@ use core::fmt;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
+use rand_core::{CryptoRng, RngCore};
 use typenum::op;
 
 use crate::capsule_frag::CapsuleFrag;
@@ -127,14 +128,17 @@ impl Capsule {
         &g * &self.signature == &self.point_v + &(&self.point_e * &h)
     }
 
-    /// Generates a symmetric key and its associated KEM ciphertext
-    pub(crate) fn from_public_key(delegating_pk: &PublicKey) -> (Capsule, SecretBox<KeySeed>) {
+    /// Generates a symmetric key and its associated KEM ciphertext, using the given RNG.
+    pub(crate) fn from_public_key(
+        rng: &mut (impl CryptoRng + RngCore),
+        delegating_pk: &PublicKey,
+    ) -> (Capsule, SecretBox<KeySeed>) {
         let g = CurvePoint::generator();
 
-        let priv_r = CurveScalar::random_nonzero();
+        let priv_r = CurveScalar::random_nonzero(rng);
         let pub_r = &g * &priv_r;
 
-        let priv_u = CurveScalar::random_nonzero();
+        let priv_u = CurveScalar::random_nonzero(rng);
         let pub_u = &g * &priv_u;
 
         let h = hash_capsule_points(&pub_r, &pub_u);
@@ -236,6 +240,8 @@ mod tests {
 
     use alloc::vec::Vec;
 
+    use rand_core::OsRng;
+
     use super::{Capsule, OpenReencryptedError};
     use crate::{
         encrypt, generate_kfrags, reencrypt, DeserializableFromArray, SecretKey,
@@ -266,7 +272,7 @@ mod tests {
         let receiving_sk = SecretKey::random();
         let receiving_pk = receiving_sk.public_key();
 
-        let (capsule, key_seed) = Capsule::from_public_key(&delegating_pk);
+        let (capsule, key_seed) = Capsule::from_public_key(&mut OsRng, &delegating_pk);
 
         let kfrags = generate_kfrags(&delegating_sk, &receiving_pk, &signer, 2, 3, true, true);
 
@@ -311,7 +317,7 @@ mod tests {
         );
 
         // Mismatched capsule
-        let (capsule2, _key_seed) = Capsule::from_public_key(&delegating_pk);
+        let (capsule2, _key_seed) = Capsule::from_public_key(&mut OsRng, &delegating_pk);
         let result = capsule2.open_reencrypted(&receiving_sk, &delegating_pk, &cfrags);
         assert_eq!(
             result.map(|x| x.as_secret().clone()),

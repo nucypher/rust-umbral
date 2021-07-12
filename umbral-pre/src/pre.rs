@@ -2,6 +2,11 @@
 
 use core::fmt;
 
+use rand_core::{CryptoRng, RngCore};
+
+#[cfg(feature = "default-rng")]
+use rand_core::OsRng;
+
 use crate::capsule::{Capsule, OpenReencryptedError};
 use crate::capsule_frag::VerifiedCapsuleFrag;
 use crate::dem::{DecryptionError, EncryptionError, DEM};
@@ -33,14 +38,24 @@ impl fmt::Display for ReencryptionError {
 /// Encrypts the given plaintext message using a DEM scheme,
 /// and encapsulates the key for later reencryption.
 /// Returns the KEM [`Capsule`] and the ciphertext.
+pub fn encrypt_with_rng(
+    rng: &mut (impl CryptoRng + RngCore),
+    delegating_pk: &PublicKey,
+    plaintext: &[u8],
+) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
+    let (capsule, key_seed) = Capsule::from_public_key(rng, delegating_pk);
+    let dem = DEM::new(&key_seed);
+    dem.encrypt(rng, plaintext, &capsule.to_array())
+        .map(|ciphertext| (capsule, ciphertext))
+}
+
+/// A synonym for [`encrypt`] with the default RNG.
+#[cfg(feature = "default-rng")]
 pub fn encrypt(
     delegating_pk: &PublicKey,
     plaintext: &[u8],
 ) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
-    let (capsule, key_seed) = Capsule::from_public_key(delegating_pk);
-    let dem = DEM::new(&key_seed);
-    dem.encrypt(plaintext, &capsule.to_array())
-        .map(|ciphertext| (capsule, ciphertext))
+    encrypt_with_rng(&mut OsRng, delegating_pk, plaintext)
 }
 
 /// Attempts to decrypt the ciphertext using the receiver's secret key.
@@ -71,6 +86,34 @@ pub fn decrypt_original(
 ///
 /// Returns a boxed slice of `num_kfrags` KeyFrags
 #[allow(clippy::too_many_arguments)]
+pub fn generate_kfrags_with_rng(
+    rng: &mut (impl CryptoRng + RngCore),
+    delegating_sk: &SecretKey,
+    receiving_pk: &PublicKey,
+    signer: &Signer,
+    threshold: usize,
+    num_kfrags: usize,
+    sign_delegating_key: bool,
+    sign_receiving_key: bool,
+) -> Box<[VerifiedKeyFrag]> {
+    let base = KeyFragBase::new(rng, delegating_sk, receiving_pk, signer, threshold);
+
+    let mut result = Vec::<VerifiedKeyFrag>::new();
+    for _ in 0..num_kfrags {
+        result.push(VerifiedKeyFrag::from_base(
+            rng,
+            &base,
+            sign_delegating_key,
+            sign_receiving_key,
+        ));
+    }
+
+    result.into_boxed_slice()
+}
+
+/// A synonym for [`generate_kfrags_with_rng`] with the default RNG.
+#[cfg(feature = "default-rng")]
+#[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
     receiving_pk: &PublicKey,
@@ -80,18 +123,16 @@ pub fn generate_kfrags(
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[VerifiedKeyFrag]> {
-    let base = KeyFragBase::new(delegating_sk, receiving_pk, signer, threshold);
-
-    let mut result = Vec::<VerifiedKeyFrag>::new();
-    for _ in 0..num_kfrags {
-        result.push(VerifiedKeyFrag::from_base(
-            &base,
-            sign_delegating_key,
-            sign_receiving_key,
-        ));
-    }
-
-    result.into_boxed_slice()
+    generate_kfrags_with_rng(
+        &mut OsRng,
+        delegating_sk,
+        receiving_pk,
+        signer,
+        threshold,
+        num_kfrags,
+        sign_delegating_key,
+        sign_receiving_key,
+    )
 }
 
 /// Reencrypts a [`Capsule`] object with a key fragment, creating a capsule fragment.
@@ -102,8 +143,18 @@ pub fn generate_kfrags(
 ///
 /// One can call [`KeyFrag::verify()`](`crate::KeyFrag::verify`)
 /// before reencryption to check its integrity.
+pub fn reencrypt_with_rng(
+    rng: &mut (impl CryptoRng + RngCore),
+    capsule: &Capsule,
+    verified_kfrag: &VerifiedKeyFrag,
+) -> VerifiedCapsuleFrag {
+    VerifiedCapsuleFrag::reencrypted(rng, capsule, &verified_kfrag.kfrag)
+}
+
+/// A synonym for [`reencrypt_with_rng`] with the default RNG.
+#[cfg(feature = "default-rng")]
 pub fn reencrypt(capsule: &Capsule, verified_kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    VerifiedCapsuleFrag::reencrypted(capsule, &verified_kfrag.kfrag)
+    reencrypt_with_rng(&mut OsRng, capsule, verified_kfrag)
 }
 
 /// Decrypts the ciphertext using previously reencrypted capsule fragments.

@@ -12,7 +12,7 @@ use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, 
 use elliptic_curve::{AffinePoint, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
-use rand_core::OsRng;
+use rand_core::{CryptoRng, RngCore};
 use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
@@ -66,8 +66,8 @@ impl CurveScalar {
     }
 
     /// Generates a random non-zero scalar (in nearly constant-time).
-    pub(crate) fn random_nonzero() -> CurveScalar {
-        Self(*BackendNonZeroScalar::random(&mut OsRng))
+    pub(crate) fn random_nonzero(rng: &mut (impl CryptoRng + RngCore)) -> CurveScalar {
+        Self(*BackendNonZeroScalar::random(rng))
     }
 
     pub(crate) fn from_digest(

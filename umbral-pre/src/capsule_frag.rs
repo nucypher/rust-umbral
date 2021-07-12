@@ -2,6 +2,7 @@ use core::fmt;
 
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
+use rand_core::{CryptoRng, RngCore};
 use typenum::op;
 
 use crate::capsule::Capsule;
@@ -68,6 +69,7 @@ impl DeserializableFromArray for CapsuleFragProof {
 impl CapsuleFragProof {
     #[allow(clippy::many_single_char_names)]
     fn from_kfrag_and_cfrag(
+        rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
         kfrag: &KeyFrag,
         cfrag_e1: &CurvePoint,
@@ -76,7 +78,7 @@ impl CapsuleFragProof {
         let params = capsule.params;
 
         let rk = kfrag.key;
-        let t = CurveScalar::random_nonzero();
+        let t = CurveScalar::random_nonzero(rng);
 
         // Here are the formulaic constituents shared with `CapsuleFrag::verify()`.
 
@@ -183,11 +185,15 @@ impl fmt::Display for CapsuleFragVerificationError {
 }
 
 impl CapsuleFrag {
-    fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag) -> Self {
+    fn reencrypted(
+        rng: &mut (impl CryptoRng + RngCore),
+        capsule: &Capsule,
+        kfrag: &KeyFrag,
+    ) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
-        let proof = CapsuleFragProof::from_kfrag_and_cfrag(&capsule, &kfrag, &e1, &v1);
+        let proof = CapsuleFragProof::from_kfrag_and_cfrag(rng, &capsule, &kfrag, &e1, &v1);
 
         Self {
             point_e1: e1,
@@ -296,9 +302,13 @@ impl fmt::Display for VerifiedCapsuleFrag {
 }
 
 impl VerifiedCapsuleFrag {
-    pub(crate) fn reencrypted(capsule: &Capsule, kfrag: &KeyFrag) -> Self {
+    pub(crate) fn reencrypted(
+        rng: &mut (impl CryptoRng + RngCore),
+        capsule: &Capsule,
+        kfrag: &KeyFrag,
+    ) -> Self {
         VerifiedCapsuleFrag {
-            cfrag: CapsuleFrag::reencrypted(capsule, kfrag),
+            cfrag: CapsuleFrag::reencrypted(rng, capsule, kfrag),
         }
     }
 }
