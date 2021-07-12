@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use core::cmp::Ordering;
 use core::fmt;
 
 use digest::Digest;
@@ -8,7 +9,7 @@ use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKe
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
-use typenum::{U32, U64};
+use typenum::{Unsigned, U32, U64};
 
 #[cfg(feature = "default-rng")]
 use rand_core::OsRng;
@@ -19,7 +20,7 @@ use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
-    RepresentableAsArray, SerializableToArray, SerializableToSecretArray,
+    RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };
 
 /// ECDSA signature object.
@@ -286,6 +287,29 @@ impl SecretKeyFactory {
     #[cfg(feature = "default-rng")]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
+    }
+
+    /// Returns the seed size required by
+    /// [`from_secure_randomness`](`SecretKeyFactory::from_secure_randomness`).
+    pub fn seed_size() -> usize {
+        SecretKeyFactorySeedSize::to_usize()
+    }
+
+    /// Creates a secret key factory using the given random bytes.
+    ///
+    /// **Warning:** make sure the given seed has been obtained
+    /// from a cryptographically secure source of randomness!
+    pub fn from_secure_randomness(seed: &[u8]) -> Result<Self, SizeMismatchError> {
+        let received_size = seed.len();
+        let expected_size = Self::seed_size();
+        match received_size.cmp(&expected_size) {
+            Ordering::Greater | Ordering::Less => {
+                Err(SizeMismatchError::new(received_size, expected_size))
+            }
+            Ordering::Equal => Ok(Self(SecretBox::new(*SecretKeyFactorySeed::from_slice(
+                seed,
+            )))),
+        }
     }
 
     /// Creates a `SecretKey` deterministically from the given label.
