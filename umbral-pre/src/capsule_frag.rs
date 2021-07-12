@@ -11,8 +11,8 @@ use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
 use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
-    SerializableToArray,
+    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
+    RepresentableAsArray, SerializableToArray,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -310,6 +310,15 @@ impl VerifiedCapsuleFrag {
         VerifiedCapsuleFrag {
             cfrag: CapsuleFrag::reencrypted(rng, capsule, kfrag),
         }
+    }
+
+    /// Restores a verified capsule frag directly from serialized bytes,
+    /// skipping [`CapsuleFrag::verify`] call.
+    ///
+    /// Intended for internal storage;
+    /// make sure that the bytes come from a trusted source.
+    pub fn from_verified_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
+        CapsuleFrag::from_bytes(data).map(|cfrag| Self { cfrag })
     }
 }
 
