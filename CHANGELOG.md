@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SecretKey`, `SecretKeyFactory` and `Signer` do not implement `PartialEq` anymore. Corresponding methods in the bindings were removed as well. ([#53])
 - Bumped `k256` to `0.9` and `ecdsa` to `0.12.2`. ([#53])
 - Bumped `pyo3` to `0.14`. ([#65])
+- Reduced the size of key material in `SecretKeyFactory` from 64 to 32 bytes. ([#64])
 
 
 ### Added
