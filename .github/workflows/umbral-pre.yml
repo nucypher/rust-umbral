@@ -57,6 +57,21 @@ jobs:
       #- run: cp ../../Cargo.lock .. # Use same Cargo.lock resolution that's checked in
       - run: cargo build --release --target ${{ matrix.target }} --no-default-features
 
+  build-benchmarks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.51.0 # MSRV
+          - stable
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+      - run: cargo build --all-features --benches
+
   test:
     runs-on: ubuntu-latest
     strategy:
