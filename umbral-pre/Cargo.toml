@@ -35,6 +35,7 @@ criterion = { version = "0.3", features = ["html_reports"] }
 
 [features]
 default = ["default-rng"]
+bench-internals = ["default-rng"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 
 [[bench]]

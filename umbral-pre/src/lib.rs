@@ -102,7 +102,9 @@
 
 extern crate alloc;
 
+#[cfg(feature = "bench-internals")]
 pub mod bench; // Re-export some internals for benchmarks.
+
 mod capsule;
 mod capsule_frag;
 mod curve;
