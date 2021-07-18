@@ -229,16 +229,16 @@ impl PublicKey {
     pub fn serialized_size() -> usize {
         umbral_pre::PublicKey::serialized_size()
     }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
 }
 
 #[pyproto]
 impl PyObjectProtocol for PublicKey {
     fn __richcmp__(&self, other: PyRef<PublicKey>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
-    }
-
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
     }
 
     fn __hash__(&self) -> PyResult<isize> {
@@ -323,16 +323,16 @@ impl Signature {
     pub fn serialized_size() -> usize {
         umbral_pre::Signature::serialized_size()
     }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
 }
 
 #[pyproto]
 impl PyObjectProtocol for Signature {
     fn __richcmp__(&self, other: PyRef<Signature>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
-    }
-
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
     }
 
     fn __hash__(&self) -> PyResult<isize> {
@@ -373,16 +373,16 @@ impl Capsule {
     pub fn serialized_size() -> usize {
         umbral_pre::Capsule::serialized_size()
     }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
 }
 
 #[pyproto]
 impl PyObjectProtocol for Capsule {
     fn __richcmp__(&self, other: PyRef<Capsule>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
-    }
-
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
     }
 
     fn __hash__(&self) -> PyResult<isize> {
@@ -471,16 +471,16 @@ impl KeyFrag {
     pub fn serialized_size() -> usize {
         umbral_pre::KeyFrag::serialized_size()
     }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
 }
 
 #[pyproto]
 impl PyObjectProtocol for KeyFrag {
     fn __richcmp__(&self, other: PyRef<KeyFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
-    }
-
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
     }
 
     fn __hash__(&self) -> PyResult<isize> {
@@ -517,16 +517,16 @@ impl VerifiedKeyFrag {
     pub fn serialized_size() -> usize {
         umbral_pre::VerifiedKeyFrag::serialized_size()
     }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
 }
 
 #[pyproto]
 impl PyObjectProtocol for VerifiedKeyFrag {
     fn __richcmp__(&self, other: PyRef<VerifiedKeyFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
-    }
-
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
     }
 
     fn __hash__(&self) -> PyResult<isize> {
@@ -615,16 +615,16 @@ impl CapsuleFrag {
     pub fn serialized_size() -> usize {
         umbral_pre::CapsuleFrag::serialized_size()
     }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
 }
 
 #[pyproto]
 impl PyObjectProtocol for CapsuleFrag {
     fn __richcmp__(&self, other: PyRef<CapsuleFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
-    }
-
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
     }
 
     fn __hash__(&self) -> PyResult<isize> {
@@ -654,10 +654,6 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
         richcmp(self, other, op)
     }
 
-    fn __bytes__(&self) -> PyResult<PyObject> {
-        to_bytes(self)
-    }
-
     fn __hash__(&self) -> PyResult<isize> {
         hash(self)
     }
@@ -679,6 +675,10 @@ impl VerifiedCapsuleFrag {
     #[staticmethod]
     pub fn serialized_size() -> usize {
         umbral_pre::VerifiedCapsuleFrag::serialized_size()
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
     }
 }
 
