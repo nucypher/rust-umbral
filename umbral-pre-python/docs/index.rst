@@ -136,14 +136,6 @@ API reference
 
         Restores the object from a bytestring.
 
-    .. py:method:: __bytes__() -> bytes
-
-        Serializes the object into a bytestring.
-
-    .. py:staticmethod:: from_bytes(data: bytes) -> Capsule
-
-        Restores the object from a bytestring.
-
     .. py:staticmethod:: serialized_size() -> int
 
         Returns the size in bytes of the serialized representation of this object.
