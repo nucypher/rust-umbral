@@ -282,6 +282,13 @@ pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
+    #[wasm_bindgen(js_name = fromVerifiedBytes)]
+    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, JsValue> {
+        umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(bytes)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()

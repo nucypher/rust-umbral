@@ -670,6 +670,13 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
 #[pymethods]
 impl VerifiedCapsuleFrag {
     #[staticmethod]
+    pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
+        umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(data)
+            .map(|vcfrag| Self { backend: vcfrag })
+            .map_err(|err| PyValueError::new_err(format!("{}", err)))
+    }
+
+    #[staticmethod]
     pub fn serialized_size() -> usize {
         umbral_pre::VerifiedCapsuleFrag::serialized_size()
     }

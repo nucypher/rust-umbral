@@ -158,6 +158,9 @@ class CapsuleFrag:
 
 class VerifiedCapsuleFrag:
 
+    def from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag:
+        ...
+
     @staticmethod
     def serialized_size() -> int:
         ...

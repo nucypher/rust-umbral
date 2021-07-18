@@ -246,6 +246,14 @@ API reference
 
     A verified capsule fragment, good for decryption.
 
+    .. py:method:: from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag
+
+        Restores a verified capsule frag directly from serialized bytes,
+        skipping :py:meth:`CapsuleFrag.verify` call.
+
+        Intended for internal storage;
+        make sure that the bytes come from a trusted source.
+
     .. py:method:: __bytes__() -> bytes
 
         Serializes the object into a bytestring.
