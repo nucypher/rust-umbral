@@ -169,6 +169,20 @@ impl SecretKeyFactory {
         }
     }
 
+    #[staticmethod]
+    pub fn seed_size() -> usize {
+        umbral_pre::SecretKeyFactory::seed_size()
+    }
+
+    #[staticmethod]
+    pub fn from_secure_randomness(seed: &[u8]) -> PyResult<SecretKeyFactory> {
+        umbral_pre::SecretKeyFactory::from_secure_randomness(seed)
+            .map(|backend_sk| SecretKeyFactory {
+                backend: backend_sk,
+            })
+            .map_err(|err| PyValueError::new_err(format!("{}", err)))
+    }
+
     pub fn secret_key_by_label(&self, label: &[u8]) -> PyResult<SecretKey> {
         self.backend
             .secret_key_by_label(label)
@@ -176,6 +190,12 @@ impl SecretKeyFactory {
                 backend: backend_sk,
             })
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
+    }
+
+    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+        Self {
+            backend: self.backend.secret_key_factory_by_label(label),
+        }
     }
 
     pub fn to_secret_bytes(&self) -> PyResult<PyObject> {

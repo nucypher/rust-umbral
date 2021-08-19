@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SecretKey`, `SecretKeyFactory` and `Signer` do not implement `PartialEq` anymore. Corresponding methods in the bindings were removed as well. ([#53])
 - Bumped `k256` to `0.9` and `ecdsa` to `0.12.2`. ([#53])
 - Bumped `pyo3` to `0.14`. ([#65])
+- Reduced the size of key material in `SecretKeyFactory` from 64 to 32 bytes. ([#64])
 
 
 ### Added
@@ -21,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Feature `default-rng` (enabled by default). When disabled, the library can be compiled on targets not supported by `getrandom` (e.g., ARM), but only the functions taking an explicit RNG as a parameter will be available. ([#55])
 - Added benchmarks for the main usage scenario and a feature `bench-internals` to expose some internals for benchmarking. ([#54])
 - Added `VerifiedCapsuleFrag::from_verified_bytes()`. ([#63])
+- Added `SecretKeyFactory::secret_key_factory_by_label()`. ([#64])
+- Added `SecretKeyFactory::from_secure_randomness()` and `seed_size()`. ([#64])
 
 
 ### Fixed
@@ -35,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#56]: https://github.com/nucypher/rust-umbral/pull/56
 [#60]: https://github.com/nucypher/rust-umbral/pull/60
 [#63]: https://github.com/nucypher/rust-umbral/pull/63
+[#64]: https://github.com/nucypher/rust-umbral/pull/64
 [#65]: https://github.com/nucypher/rust-umbral/pull/65
 
 
