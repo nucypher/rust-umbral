@@ -3,6 +3,7 @@ use core::fmt;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typenum::op;
 
 use crate::capsule::Capsule;
@@ -10,6 +11,7 @@ use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray,
@@ -151,6 +153,24 @@ impl DeserializableFromArray for CapsuleFrag {
             precursor,
             proof,
         })
+    }
+}
+
+impl Serialize for CapsuleFrag {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_serialize(self, serializer, Representation::Base64)
+    }
+}
+
+impl<'de> Deserialize<'de> for CapsuleFrag {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_deserialize(deserializer, Representation::Base64)
     }
 }
 
@@ -329,6 +349,8 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::{CapsuleFrag, VerifiedCapsuleFrag};
+    use crate::serde::tests::{check_deserialization, check_serialization};
+    use crate::serde::Representation;
     use crate::{
         encrypt, generate_kfrags, reencrypt, Capsule, DeserializableFromArray, PublicKey,
         SecretKey, SerializableToArray, Signer,
@@ -387,5 +409,17 @@ mod tests {
 
             assert_eq!(verified_cfrag_back, verified_cfrag);
         }
+    }
+
+    #[test]
+    fn test_serde_serialization() {
+        let (_delegating_pk, _receiving_pk, _verifying_pk, _capsule, verified_cfrags) =
+            prepare_cfrags();
+
+        let vcfrag = verified_cfrags[0].clone();
+        let cfrag = CapsuleFrag::from_array(&vcfrag.to_array()).unwrap();
+
+        check_serialization(&cfrag, Representation::Base64);
+        check_deserialization(&cfrag);
     }
 }

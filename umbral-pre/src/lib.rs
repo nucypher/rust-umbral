@@ -116,6 +116,7 @@ mod keys;
 mod params;
 mod pre;
 mod secret_box;
+mod serde;
 mod traits;
 
 pub use capsule::{Capsule, OpenReencryptedError};
