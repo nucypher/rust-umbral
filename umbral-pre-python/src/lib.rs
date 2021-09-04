@@ -565,7 +565,7 @@ pub fn generate_kfrags(
     receiving_pk: &PublicKey,
     signer: &Signer,
     threshold: usize,
-    num_kfrags: usize,
+    shares: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Vec<VerifiedKeyFrag> {
@@ -574,7 +574,7 @@ pub fn generate_kfrags(
         &receiving_pk.backend,
         &signer.backend,
         threshold,
-        num_kfrags,
+        shares,
         sign_delegating_key,
         sign_receiving_key,
     );

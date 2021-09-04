@@ -168,9 +168,9 @@ API reference
 
     Decrypts ``ciphertext`` with the secret key of the delegator.
 
-.. py:function:: generate_kfrags(delegating_sk: SecretKey, receiving_pk: PublicKey, signer: Signer, threshold: int, num_kfrags: int, sign_delegating_key: bool, sign_receiving_key: bool) -> List[VerifiedKeyFrag]
+.. py:function:: generate_kfrags(delegating_sk: SecretKey, receiving_pk: PublicKey, signer: Signer, threshold: int, shares: int, sign_delegating_key: bool, sign_receiving_key: bool) -> List[VerifiedKeyFrag]
 
-    Generates ``num_kfrags`` key fragments that can be used to reencrypt the capsule for the holder of the secret key corresponding to ``receiving_pk``. ``threshold`` fragments will be enough for decryption.
+    Generates ``shares`` key fragments that can be used to reencrypt the capsule for the holder of the secret key corresponding to ``receiving_pk``. ``threshold`` fragments will be enough for decryption.
 
     If ``sign_delegating_key`` or ``sign_receiving_key`` are ``True``, include these keys in the signature allowing proxies to verify the fragments were created with a given key or for a given key, respectively.
 
