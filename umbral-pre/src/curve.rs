@@ -49,7 +49,7 @@ impl CurveScalar {
         Self(*scalar)
     }
 
-    pub(crate) fn to_backend_scalar(&self) -> BackendScalar {
+    pub(crate) fn to_backend_scalar(self) -> BackendScalar {
         self.0
     }
 
@@ -136,7 +136,7 @@ impl CurvePoint {
         Self(BackendPoint::identity())
     }
 
-    pub(crate) fn to_affine_point(&self) -> BackendPointAffine {
+    pub(crate) fn to_affine_point(self) -> BackendPointAffine {
         self.0.to_affine()
     }
 
@@ -148,7 +148,7 @@ impl CurvePoint {
         cp_opt.map(Self)
     }
 
-    fn to_compressed_array(&self) -> GenericArray<u8, CompressedPointSize<CurveType>> {
+    fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize<CurveType>> {
         *GenericArray::<u8, CompressedPointSize<CurveType>>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )

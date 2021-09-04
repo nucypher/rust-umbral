@@ -125,7 +125,7 @@ impl KeyFragProof {
         let signature_for_receiver = base.signer.sign_with_rng(
             rng,
             kfrag_signature_message(
-                &kfrag_id,
+                kfrag_id,
                 &commitment,
                 &base.precursor,
                 maybe_delegating_pk,
@@ -137,7 +137,7 @@ impl KeyFragProof {
         let signature_for_proxy = base.signer.sign_with_rng(
             rng,
             kfrag_signature_message(
-                &kfrag_id,
+                kfrag_id,
                 &commitment,
                 &base.precursor,
                 none_unless(maybe_delegating_pk, sign_delegating_key),
@@ -265,7 +265,7 @@ impl KeyFrag {
 
         let proof = KeyFragProof::from_base(
             rng,
-            &base,
+            base,
             &kfrag_id,
             &rk,
             sign_delegating_key,

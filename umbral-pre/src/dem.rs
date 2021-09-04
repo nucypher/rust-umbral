@@ -66,7 +66,7 @@ pub(crate) fn kdf<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop, S: ArrayLength<u
     let def_info = info.unwrap_or(&[]);
 
     // We can only get an error here if `S` is too large, and it's known at compile-time.
-    hk.expand(&def_info, okm.as_mut_secret()).unwrap();
+    hk.expand(def_info, okm.as_mut_secret()).unwrap();
 
     okm
 }

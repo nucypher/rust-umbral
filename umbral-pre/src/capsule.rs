@@ -189,7 +189,7 @@ impl Capsule {
 
         let mut e_prime = CurvePoint::identity();
         let mut v_prime = CurvePoint::identity();
-        for (i, cfrag) in (&cfrags).iter().enumerate() {
+        for (i, cfrag) in cfrags.iter().enumerate() {
             // There is a minuscule probability that coefficients for two different frags are equal,
             // in which case we'd rather fail gracefully.
             let lambda_i =
