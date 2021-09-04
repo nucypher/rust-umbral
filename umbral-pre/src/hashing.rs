@@ -113,7 +113,7 @@ impl ScalarDigest {
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {
         let mut digest = self;
         for point in points {
-            digest = digest.chain_point(&point);
+            digest = digest.chain_point(point);
         }
         digest
     }

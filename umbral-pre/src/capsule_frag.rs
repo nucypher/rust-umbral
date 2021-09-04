@@ -193,7 +193,7 @@ impl CapsuleFrag {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
-        let proof = CapsuleFragProof::from_kfrag_and_cfrag(rng, &capsule, &kfrag, &e1, &v1);
+        let proof = CapsuleFragProof::from_kfrag_and_cfrag(rng, capsule, kfrag, &e1, &v1);
 
         Self {
             point_e1: e1,

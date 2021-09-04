@@ -51,7 +51,7 @@ impl Signature {
     /// Verifies that the given message was signed with the secret counterpart of the given key.
     /// The message is hashed internally.
     pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
-        verifying_key.verify_digest(digest_for_signing(message), &self)
+        verifying_key.verify_digest(digest_for_signing(message), self)
     }
 }
 
@@ -204,7 +204,7 @@ pub struct PublicKey(BackendPublicKey<CurveType>);
 
 impl PublicKey {
     /// Returns the underlying curve point of the public key.
-    pub(crate) fn to_point(&self) -> CurvePoint {
+    pub(crate) fn to_point(self) -> CurvePoint {
         CurvePoint::from_backend_point(&self.0.to_projective())
     }
 
@@ -231,7 +231,7 @@ impl SerializableToArray for PublicKey {
 
 impl DeserializableFromArray for PublicKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let cp = CurvePoint::from_array(&arr)?;
+        let cp = CurvePoint::from_array(arr)?;
         BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
             .map(Self)
             .map_err(|_| ConstructionError::new("PublicKey", "Internal backend error"))
