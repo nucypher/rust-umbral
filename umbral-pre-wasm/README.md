@@ -98,23 +98,8 @@ $ make
 
 ## Running the examples
 
-After you have successfully built the WASM package, run one of the example projects:
+After you have successfully built the WASM package, run one of the example projects in the `examples` directory.
 
-### `umbral-pre` in the browser
-```bash
-$ cd example-bundler
-$ yarn install
-$ yarn start
-```
-Go to [localhost:8080](http://localhost:8080/) in your browser and look in the JS console.
-
-### `umbral-pre` in Node.js:
-```bash
-$ cd example-node
-$ yarn install
-$ yarn start
-```
-Inspect console output for results.
 
 [js-npm-image]: https://img.shields.io/npm/v/umbral-pre
 [js-npm-link]: https://www.npmjs.com/package/umbral-pre

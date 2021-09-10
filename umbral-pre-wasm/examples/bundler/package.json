@@ -12,7 +12,7 @@
   ],
   "license": "GPL-3.0-only",
   "dependencies": {
-    "umbral-pre": "file:../pkg"
+    "umbral-pre": "file:../../pkg"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^5.0.0",
