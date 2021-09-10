@@ -1,4 +1,4 @@
-const { addBeforeLoader, addAfterLoader, loaderByName, removeLoaders, getLoaders, throwUnexpectedConfigError } = require('@craco/craco');
+const { addBeforeLoader, loaderByName } = require("@craco/craco");
 
 module.exports = {
   webpack: {
@@ -7,7 +7,7 @@ module.exports = {
 
       webpackConfig.module.rules.forEach((rule) => {
         (rule.oneOf || []).forEach((oneOf) => {
-          if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {
+          if (oneOf.loader && oneOf.loader.indexOf("file-loader") >= 0) {
             oneOf.exclude.push(wasmExtensionRegExp);
           }
         });
@@ -18,12 +18,12 @@ module.exports = {
         exclude: /node_modules/,
         loaders: [
           {
-            loader:'wasm-loader'
-          }
+            loader: "wasm-loader",
+          },
         ],
       };
 
-      addBeforeLoader(webpackConfig, loaderByName('file-loader'), wasmLoader);
+      addBeforeLoader(webpackConfig, loaderByName("file-loader"), wasmLoader);
       return webpackConfig;
     },
   },

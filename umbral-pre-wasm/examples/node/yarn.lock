@@ -2,5 +2,5 @@
 # yarn lockfile v1
 
 
-"umbral-pre@file:../pkg":
+"umbral-pre@file:../../pkg":
   version "0.2.0"
