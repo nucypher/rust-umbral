@@ -1,5 +1,13 @@
 # `umbral-pre` in the browser
 
+This example takes advantage of experimental async WASM loading in `webpack-5`. See `webpack.config.js` for details:
+
+```
+  experiments: {
+    asyncWebAssembly: true,
+  },
+```
+
 ## Usage
 
 ```bash

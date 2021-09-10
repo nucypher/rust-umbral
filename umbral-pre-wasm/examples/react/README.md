@@ -1,5 +1,8 @@
 # `umbral-pre` in React:
 
+This example takes advantage of `craco` - React utility that overrides `create-react-app` configuration without ejecting it.
+See `craco.config.js` for details.
+
 ## Usage
 
 ```bash
