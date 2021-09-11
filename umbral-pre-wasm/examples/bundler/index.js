@@ -35,7 +35,7 @@ let capsule = result.capsule;
 // and decrypt the ciphertext with her private key.
 
 let plaintext_alice = umbral.decryptOriginal(alice_sk, capsule, ciphertext);
-console.assert(dec.decode(plaintext_alice) == plaintext, "decrypt_original() failed");
+console.assert(dec.decode(plaintext_alice) === plaintext, "decryptOriginal() failed");
 
 // When Alice wants to grant Bob access to open her encrypted messages,
 // she creates re-encryption key fragments, or "kfrags", which are then
@@ -78,6 +78,6 @@ let plaintext_bob = capsule
     .withCFrag(cfrag1)
     .decryptReencrypted(bob_sk, alice_pk, ciphertext);
 
-console.assert(dec.decode(plaintext_bob) == plaintext, "decrypt_reencrypted() failed");
+console.assert(dec.decode(plaintext_bob) === plaintext, "decryptReencrypted() failed");
 
 console.log("Success!");
