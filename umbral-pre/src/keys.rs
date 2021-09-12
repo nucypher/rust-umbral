@@ -8,6 +8,7 @@ use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingK
 use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
 use typenum::{Unsigned, U32, U64};
 
@@ -18,6 +19,7 @@ use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
@@ -44,6 +46,24 @@ impl DeserializableFromArray for Signature {
         BackendSignature::<CurveType>::from_bytes(arr.as_slice())
             .map(Self)
             .map_err(|_| ConstructionError::new("Signature", "Internal backend error"))
+    }
+}
+
+impl Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_serialize(self, serializer, Representation::Base64)
+    }
+}
+
+impl<'de> Deserialize<'de> for Signature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_deserialize(deserializer, Representation::Base64)
     }
 }
 
@@ -238,6 +258,24 @@ impl DeserializableFromArray for PublicKey {
     }
 }
 
+impl Serialize for PublicKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_serialize(self, serializer, Representation::Hex)
+    }
+}
+
+impl<'de> Deserialize<'de> for PublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_deserialize(deserializer, Representation::Hex)
+    }
+}
+
 impl HasTypeName for PublicKey {
     fn type_name() -> &'static str {
         "PublicKey"
@@ -382,6 +420,8 @@ impl fmt::Display for SecretKeyFactory {
 mod tests {
 
     use super::{PublicKey, SecretKey, SecretKeyFactory, Signer};
+    use crate::serde::tests::{check_deserialization, check_serialization};
+    use crate::serde::Representation;
     use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
     #[test]
@@ -432,5 +472,20 @@ mod tests {
 
         assert_eq!(pk, vk);
         assert!(signature.verify(&vk, message));
+    }
+
+    #[test]
+    fn test_serde_serialization() {
+        let sk = SecretKey::random();
+        let pk = sk.public_key();
+        let message = b"asdafdahsfdasdfasd";
+        let signer = Signer::new(&sk);
+        let signature = signer.sign(message);
+
+        check_serialization(&pk, Representation::Hex);
+        check_deserialization(&pk);
+
+        check_serialization(&signature, Representation::Base64);
+        check_deserialization(&signature);
     }
 }

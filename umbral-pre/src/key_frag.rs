@@ -5,12 +5,14 @@ use core::fmt;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typenum::{op, U32};
 
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
 use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray,
@@ -198,6 +200,24 @@ impl DeserializableFromArray for KeyFrag {
             precursor,
             proof,
         })
+    }
+}
+
+impl Serialize for KeyFrag {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_serialize(self, serializer, Representation::Base64)
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyFrag {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_deserialize(deserializer, Representation::Base64)
     }
 }
 
@@ -471,6 +491,8 @@ mod tests {
     use rand_core::OsRng;
 
     use super::{KeyFrag, KeyFragBase, KeyFragVerificationError, VerifiedKeyFrag};
+    use crate::serde::tests::{check_deserialization, check_serialization};
+    use crate::serde::Representation;
     use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
 
     fn prepare_kfrags(
@@ -538,5 +560,17 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_serde_serialization() {
+        let (_delegating_pk, _receiving_pk, _verifying_pk, verified_kfrags) =
+            prepare_kfrags(true, true);
+
+        let vkfrag = verified_kfrags[0].clone();
+        let kfrag = KeyFrag::from_array(&vkfrag.to_array()).unwrap();
+
+        check_serialization(&kfrag, Representation::Base64);
+        check_deserialization(&kfrag);
     }
 }

@@ -4,3 +4,7 @@ members = [
     "umbral-pre-wasm",
     "umbral-pre-python",
 ]
+
+# Prevents feature conflicts between [dependencies] and [dev-dependencies]
+# Will be the default in 2021 edition.
+resolver = "2"

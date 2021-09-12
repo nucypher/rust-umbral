@@ -4,6 +4,7 @@ use core::fmt;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typenum::op;
 
 use crate::capsule_frag::CapsuleFrag;
@@ -12,6 +13,7 @@ use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_sha
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::secret_box::SecretBox;
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
@@ -81,6 +83,24 @@ impl DeserializableFromArray for Capsule {
         let signature = CurveScalar::take_last(rest)?;
         Self::new_verified(point_e, point_v, signature)
             .ok_or_else(|| ConstructionError::new("Capsule", "Self-verification failed"))
+    }
+}
+
+impl Serialize for Capsule {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serde_serialize(self, serializer, Representation::Base64)
+    }
+}
+
+impl<'de> Deserialize<'de> for Capsule {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        serde_deserialize(deserializer, Representation::Base64)
     }
 }
 
@@ -243,6 +263,8 @@ mod tests {
     use rand_core::OsRng;
 
     use super::{Capsule, OpenReencryptedError};
+    use crate::serde::tests::{check_deserialization, check_serialization};
+    use crate::serde::Representation;
     use crate::{
         encrypt, generate_kfrags, reencrypt, DeserializableFromArray, SecretKey,
         SerializableToArray, Signer,
@@ -323,5 +345,15 @@ mod tests {
             result.map(|x| x.as_secret().clone()),
             Err(OpenReencryptedError::ValidationFailed)
         );
+    }
+
+    #[test]
+    fn test_serde_serialization() {
+        let delegating_sk = SecretKey::random();
+        let delegating_pk = delegating_sk.public_key();
+        let (capsule, _key_seed) = Capsule::from_public_key(&mut OsRng, &delegating_pk);
+
+        check_serialization(&capsule, Representation::Base64);
+        check_deserialization(&capsule);
     }
 }

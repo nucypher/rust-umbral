@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `VerifiedCapsuleFrag::from_verified_bytes()`. ([#63])
 - Added `SecretKeyFactory::secret_key_factory_by_label()`. ([#64])
 - Added `SecretKeyFactory::from_secure_randomness()` and `seed_size()`. ([#64])
+- `serde` support for `Capsule`, `CapsuleFrag`, `KeyFrag`, `PublicKey`, and `Signature`. ([#67])
 
 
 ### Fixed
@@ -40,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#63]: https://github.com/nucypher/rust-umbral/pull/63
 [#64]: https://github.com/nucypher/rust-umbral/pull/64
 [#65]: https://github.com/nucypher/rust-umbral/pull/65
+[#67]: https://github.com/nucypher/rust-umbral/pull/67
 
 
 ## [0.2.0] - 2021-06-14
