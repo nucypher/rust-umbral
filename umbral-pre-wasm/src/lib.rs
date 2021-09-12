@@ -523,7 +523,7 @@ pub fn generate_kfrags(
     receiving_pk: &PublicKey,
     signer: &Signer,
     threshold: usize,
-    num_kfrags: usize,
+    shares: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Vec<JsValue> {
@@ -532,7 +532,7 @@ pub fn generate_kfrags(
         &receiving_pk.0,
         &signer.0,
         threshold,
-        num_kfrags,
+        shares,
         sign_delegating_key,
         sign_receiving_key,
     );

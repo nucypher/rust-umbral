@@ -69,7 +69,7 @@ pub fn decrypt_original(
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
-/// Creates `num_kfrags` fragments of `delegating_sk`,
+/// Creates `shares` fragments of `delegating_sk`,
 /// which will be possible to reencrypt to allow the creator of `receiving_pk`
 /// decrypt the ciphertext encrypted with `delegating_sk`.
 ///
@@ -84,7 +84,7 @@ pub fn decrypt_original(
 /// corresponds to given delegating or receiving public keys
 /// by supplying them to [`KeyFrag::verify()`](`crate::KeyFrag::verify`).
 ///
-/// Returns a boxed slice of `num_kfrags` KeyFrags
+/// Returns a boxed slice of `shares` KeyFrags
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags_with_rng(
     rng: &mut (impl CryptoRng + RngCore),
@@ -92,14 +92,14 @@ pub fn generate_kfrags_with_rng(
     receiving_pk: &PublicKey,
     signer: &Signer,
     threshold: usize,
-    num_kfrags: usize,
+    shares: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[VerifiedKeyFrag]> {
     let base = KeyFragBase::new(rng, delegating_sk, receiving_pk, signer, threshold);
 
     let mut result = Vec::<VerifiedKeyFrag>::new();
-    for _ in 0..num_kfrags {
+    for _ in 0..shares {
         result.push(VerifiedKeyFrag::from_base(
             rng,
             &base,
@@ -119,7 +119,7 @@ pub fn generate_kfrags(
     receiving_pk: &PublicKey,
     signer: &Signer,
     threshold: usize,
-    num_kfrags: usize,
+    shares: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
 ) -> Box<[VerifiedKeyFrag]> {
@@ -129,7 +129,7 @@ pub fn generate_kfrags(
         receiving_pk,
         signer,
         threshold,
-        num_kfrags,
+        shares,
         sign_delegating_key,
         sign_receiving_key,
     )

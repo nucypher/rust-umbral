@@ -140,7 +140,7 @@ def generate_kfrags(
         receiving_pk: PublicKey,
         signer: SecretKey,
         threshold: int,
-        num_kfrags: int,
+        shares: int,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
         ) -> List[VerifiedKeyFrag]:
