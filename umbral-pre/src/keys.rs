@@ -70,8 +70,8 @@ impl<'de> Deserialize<'de> for Signature {
 impl Signature {
     /// Verifies that the given message was signed with the secret counterpart of the given key.
     /// The message is hashed internally.
-    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
-        verifying_key.verify_digest(digest_for_signing(message), self)
+    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
+        verifying_pk.verify_digest(digest_for_signing(message), self)
     }
 }
 

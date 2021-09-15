@@ -123,10 +123,10 @@ API reference
 
     Wrapper for ECDSA signatures.
 
-    .. py:method:: verify(verifying_key: PublicKey, message: bytes) -> bool
+    .. py:method:: verify(verifying_pk: PublicKey, message: bytes) -> bool
 
         Returns ``True`` if the ``message`` was signed by someone possessing the secret counterpart
-        to ``verifying_key``.
+        to ``verifying_pk``.
 
     .. py:method:: __bytes__() -> bytes
 

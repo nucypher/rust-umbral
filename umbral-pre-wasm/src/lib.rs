@@ -175,8 +175,8 @@ pub struct Signature(umbral_pre::Signature);
 
 #[wasm_bindgen]
 impl Signature {
-    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
-        self.0.verify(&verifying_key.0, message)
+    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
+        self.0.verify(&verifying_pk.0, message)
     }
 
     #[wasm_bindgen(js_name = toBytes)]

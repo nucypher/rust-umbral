@@ -79,7 +79,7 @@ class Signer:
 
 class Signature:
 
-    def verify(verifying_key: PublicKey, message: bytes) -> bool:
+    def verify(verifying_pk: PublicKey, message: bytes) -> bool:
         ...
 
     @staticmethod

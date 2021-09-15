@@ -335,8 +335,8 @@ impl Signature {
         from_bytes(data)
     }
 
-    pub fn verify(&self, verifying_key: &PublicKey, message: &[u8]) -> bool {
-        self.backend.verify(&verifying_key.backend, message)
+    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
+        self.backend.verify(&verifying_pk.backend, message)
     }
 
     #[staticmethod]
