@@ -11,7 +11,12 @@
     "url": "https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-wasm"
   },
   "files": [
-    "*.wasm",
+    "pkg-node/*.wasm",
+    "pkg-node/*.ts",
+    "pkg-node/*.js",
+    "pkg-bundler/*.wasm",
+    "pkg-bundler/*.ts",
+    "pkg-bundler/*.js",
     "*.ts",
     "*.js"
   ],
