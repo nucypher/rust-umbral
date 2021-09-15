@@ -64,11 +64,11 @@ API reference
         **Warning:** make sure the given seed has been obtained
         from a cryptographically secure source of randomness!
 
-    .. py:method:: secret_key_by_label(label: bytes) -> SecretKey
+    .. py:method:: make_key(label: bytes) -> SecretKey
 
         Generates a new :py:class:`SecretKey` using ``label`` as a seed.
 
-    .. py:method:: secret_key_factory_by_label(label: bytes) -> SecretKeyFactory
+    .. py:method:: make_factory(label: bytes) -> SecretKeyFactory
 
         Generates a new :py:class:`SecretKeyFactory` using ``label`` as a seed.
 

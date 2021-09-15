@@ -351,7 +351,7 @@ impl SecretKeyFactory {
     }
 
     /// Creates a `SecretKey` deterministically from the given label.
-    pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
+    pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
         let prefix = b"KEY_DERIVATION/";
         let info: Vec<u8> = prefix
             .iter()
@@ -368,7 +368,7 @@ impl SecretKeyFactory {
     }
 
     /// Creates a `SecretKeyFactory` deterministically from the given label.
-    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+    pub fn make_factory(&self, label: &[u8]) -> Self {
         let prefix = b"FACTORY_DERIVATION/";
         let info: Vec<u8> = prefix
             .iter()
@@ -443,9 +443,9 @@ mod tests {
     #[test]
     fn test_secret_key_factory() {
         let skf = SecretKeyFactory::random();
-        let sk1 = skf.secret_key_by_label(b"foo");
-        let sk2 = skf.secret_key_by_label(b"foo");
-        let sk3 = skf.secret_key_by_label(b"bar");
+        let sk1 = skf.make_key(b"foo");
+        let sk2 = skf.make_key(b"foo");
+        let sk3 = skf.make_key(b"bar");
 
         assert!(sk1 == sk2);
         assert!(sk1 != sk3);

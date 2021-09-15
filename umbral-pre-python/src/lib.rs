@@ -183,18 +183,18 @@ impl SecretKeyFactory {
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
-    pub fn secret_key_by_label(&self, label: &[u8]) -> PyResult<SecretKey> {
+    pub fn make_key(&self, label: &[u8]) -> PyResult<SecretKey> {
         self.backend
-            .secret_key_by_label(label)
+            .make_key(label)
             .map(|backend_sk| SecretKey {
                 backend: backend_sk,
             })
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
-    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
+    pub fn make_factory(&self, label: &[u8]) -> Self {
         Self {
-            backend: self.backend.secret_key_factory_by_label(label),
+            backend: self.backend.make_factory(label),
         }
     }
 

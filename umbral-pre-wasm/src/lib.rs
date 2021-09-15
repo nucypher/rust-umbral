@@ -83,17 +83,14 @@ impl SecretKeyFactory {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen(js_name = secretKeyByLabel)]
-    pub fn secret_key_by_label(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
-        self.0
-            .secret_key_by_label(label)
-            .map(SecretKey)
-            .map_err(map_js_err)
+    #[wasm_bindgen(js_name = makeKey)]
+    pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
+        self.0.make_key(label).map(SecretKey).map_err(map_js_err)
     }
 
-    #[wasm_bindgen(js_name = secretKeyFactoryByLabel)]
-    pub fn secret_key_factory_by_label(&self, label: &[u8]) -> Self {
-        Self(self.0.secret_key_factory_by_label(label))
+    #[wasm_bindgen(js_name = makeFactory)]
+    pub fn make_factory(&self, label: &[u8]) -> Self {
+        Self(self.0.make_factory(label))
     }
 
     #[wasm_bindgen(js_name = toSecretBytes)]

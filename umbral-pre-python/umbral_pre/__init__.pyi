@@ -36,10 +36,10 @@ class SecretKeyFactory:
     def from_secure_randomness(seed: bytes) -> SecretKeyFactory:
         ...
 
-    def secret_key_by_label(self, label: bytes) -> SecretKey:
+    def make_key(self, label: bytes) -> SecretKey:
         ...
 
-    def secret_key_factory_by_label(self, label: bytes) -> SecretKeyFactory:
+    def make_factory(self, label: bytes) -> SecretKeyFactory:
         ...
 
     def to_secret_bytes(self) -> bytes:
