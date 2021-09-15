@@ -51,19 +51,19 @@ console.assert(dec.decode(plaintext_alice) === plaintext, "decryptOriginal() fai
 
 // When Alice wants to grant Bob access to open her encrypted messages,
 // she creates re-encryption key fragments, or "kfrags", which are then
-// sent to `n` proxies or Ursulas.
+// sent to `shares` proxies or Ursulas.
 
-let n = 3; // how many fragments to create
-let m = 2; // how many should be enough to decrypt
+let shares = 3; // how many fragments to create
+let threshold = 2; // how many should be enough to decrypt
 let kfrags = umbral.generateKFrags(
-    alice_sk, bob_pk, signer, m, n, true, true);
+    alice_sk, bob_pk, signer, threshold, shares, true, true);
 
 // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
 // obtaining this way a "capsule fragment", or cfrag.
 
 // Bob collects the resulting cfrags from several Ursulas.
-// Bob must gather at least `m` cfrags in order to open the capsule.
+// Bob must gather at least `threshold` cfrags in order to open the capsule.
 
 // Ursula 0
 let cfrag0 = umbral.reencrypt(capsule, kfrags[0]);
@@ -73,7 +73,7 @@ let cfrag1 = umbral.reencrypt(capsule, kfrags[1]);
 
 // ...
 
-// Finally, Bob opens the capsule by using at least `m` cfrags,
+// Finally, Bob opens the capsule by using at least `threshold` cfrags,
 // and then decrypts the re-encrypted ciphertext.
 
 // Another deviation from the Rust API.

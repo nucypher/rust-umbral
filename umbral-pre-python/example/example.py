@@ -35,14 +35,14 @@ assert plaintext_alice == plaintext
 
 # When Alice wants to grant Bob access to open her encrypted
 # messages, she creates re-encryption key fragments,
-# or "kfrags", which are then sent to `n` proxies or Ursulas.
+# or "kfrags", which are then sent to `shares` proxies or Ursulas.
 
-n = 3 # how many fragments to create
-m = 2 # how many should be enough to decrypt
+shares = 3 # how many fragments to create
+threshold = 2 # how many should be enough to decrypt
 
 # Split Re-Encryption Key Generation (aka Delegation)
 verified_kfrags = umbral_pre.generate_kfrags(
-    alice_sk, bob_pk, signer, m, n,
+    alice_sk, bob_pk, signer, threshold, shares,
     True, # add the delegating key (alice_pk) to the signature
     True, # add the receiving key (bob_pk) to the signature
 )
@@ -54,7 +54,7 @@ verified_kfrags = umbral_pre.generate_kfrags(
 # a "capsule fragment", or cfrag.
 
 # Bob collects the resulting cfrags from several Ursulas.
-# Bob must gather at least `m` cfrags
+# Bob must gather at least `threshold` cfrags
 # in order to open the capsule.
 
 # Simulate network transfer
@@ -78,7 +78,7 @@ verified_cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1])
 cfrag0 = CapsuleFrag.from_bytes(bytes(verified_cfrag0))
 cfrag1 = CapsuleFrag.from_bytes(bytes(verified_cfrag1))
 
-# Finally, Bob opens the capsule by using at least `m` cfrags,
+# Finally, Bob opens the capsule by using at least `threshold` cfrags,
 # and then decrypts the re-encrypted ciphertext.
 
 # Bob must check that cfrags are valid

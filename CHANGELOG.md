@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped `k256` to `0.9` and `ecdsa` to `0.12.2`. ([#53])
 - Bumped `pyo3` to `0.14`. ([#65])
 - Reduced the size of key material in `SecretKeyFactory` from 64 to 32 bytes. ([#64])
-- Renamed `num_kfrags` to `shares` in `genereate_kfrags` ([#69])
+- Renamed `num_kfrags` to `shares` in `genereate_kfrags`. ([#69])
+- Renamed `SecretKeyFactory::secret_key_by_label()`/`secret_factory_by_label()` to `make_key()`/`make_factory()`. ([#71])
+- Renamed remaining instances of `verifying_key` parameter to `verifying_pk`. ([#71])
 
 
 ### Added
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#65]: https://github.com/nucypher/rust-umbral/pull/65
 [#67]: https://github.com/nucypher/rust-umbral/pull/67
 [#69]: https://github.com/nucypher/rust-umbral/pull/69
+[#71]: https://github.com/nucypher/rust-umbral/pull/71
 
 
 ## [0.2.0] - 2021-06-14
