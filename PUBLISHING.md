@@ -31,7 +31,7 @@ See https://doc.rust-lang.org/cargo/reference/publishing.html for more info on p
 In `umbral-pre-python` dir:
 
 - Clean `dist` (if it is not empty).
-- `python setup.py register`.
+- `python setup.py sdist` (generate source distribution).
 - `docker run --rm -v `pwd`/..:/io quay.io/pypa/manylinux2014_x86_64 /io/umbral-pre-python/build-wheels.sh` (generate Linux wheels).
 - `twine upload dist/*`.
 
