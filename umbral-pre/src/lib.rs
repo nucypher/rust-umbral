@@ -43,11 +43,11 @@
 //!
 //! // When Alice wants to grant Bob access to open her encrypted messages,
 //! // she creates re-encryption key fragments, or "kfrags", which are then
-//! // sent to `n` proxies or Ursulas.
+//! // sent to `shares` proxies or Ursulas.
 //!
-//! let n = 3; // how many fragments to create
-//! let m = 2; // how many should be enough to decrypt
-//! let verified_kfrags = generate_kfrags(&alice_sk, &bob_pk, &signer, m, n, true, true);
+//! let shares = 3; // how many fragments to create
+//! let threshold = 2; // how many should be enough to decrypt
+//! let verified_kfrags = generate_kfrags(&alice_sk, &bob_pk, &signer, threshold, shares, true, true);
 //!
 //! // Bob asks several Ursulas to re-encrypt the capsule so he can open it.
 //! // Each Ursula performs re-encryption on the capsule using the kfrag provided by Alice,
@@ -58,7 +58,7 @@
 //! let kfrag1 = KeyFrag::from_array(&verified_kfrags[1].to_array()).unwrap();
 //!
 //! // Bob collects the resulting cfrags from several Ursulas.
-//! // Bob must gather at least `m` cfrags in order to open the capsule.
+//! // Bob must gather at least `threshold` cfrags in order to open the capsule.
 //!
 //! // Ursulas must check that the received kfrags are valid
 //! // and perform the reencryption
@@ -77,7 +77,7 @@
 //! let cfrag0 = CapsuleFrag::from_array(&verified_cfrag0.to_array()).unwrap();
 //! let cfrag1 = CapsuleFrag::from_array(&verified_cfrag1.to_array()).unwrap();
 //!
-//! // Finally, Bob opens the capsule by using at least `m` cfrags,
+//! // Finally, Bob opens the capsule by using at least `threshold` cfrags,
 //! // and then decrypts the re-encrypted ciphertext.
 //!
 //! // Bob must check that cfrags are valid
