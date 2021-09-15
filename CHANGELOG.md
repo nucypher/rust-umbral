@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+
+## [0.3.0] - 2021-09-15
+
 ### Changed
 
 - `SecretKey` and `SecretKeyFactory` no longer implement `SerializableToArray`, but implement `SerializableToSecretArray` instead. Correspondingly, in the bindings these objects implement `to_secret_bytes()` instead of `__bytes__()` (for Python), and `toSecretBytes()` instead of `toBytes()` (for WASM). ([#53])
@@ -53,5 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.3.0...HEAD
 [0.2.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.2.0
+[0.3.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.3.0

@@ -4,7 +4,7 @@
     "Bogdan Opanchuk <bogdan@opanchuk.net>"
   ],
   "description": "Implementation of Umbral proxy reencryption algorithm",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
