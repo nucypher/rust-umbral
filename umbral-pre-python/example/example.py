@@ -58,25 +58,25 @@ verified_kfrags = umbral_pre.generate_kfrags(
 # in order to open the capsule.
 
 # Simulate network transfer
-kfrag0 = KeyFrag.from_bytes(bytes(verified_kfrags[0]))
-kfrag1 = KeyFrag.from_bytes(bytes(verified_kfrags[1]))
+kfrag0 = umbral_pre.KeyFrag.from_bytes(bytes(verified_kfrags[0]))
+kfrag1 = umbral_pre.KeyFrag.from_bytes(bytes(verified_kfrags[1]))
 
 # Ursulas must check that the received kfrags
 # are valid and perform the reencryption.
 
 # Ursula 0
 verified_kfrag0 = kfrag0.verify(verifying_pk, alice_pk, bob_pk)
-verified_cfrag0 = umbral_pre.reencrypt(capsule, kfrags[0])
+verified_cfrag0 = umbral_pre.reencrypt(capsule, verified_kfrag0)
 
 # Ursula 1
 verified_kfrag1 = kfrag1.verify(verifying_pk, alice_pk, bob_pk)
-verified_cfrag1 = umbral_pre.reencrypt(capsule, kfrags[1])
+verified_cfrag1 = umbral_pre.reencrypt(capsule, verified_kfrag1)
 
 # ...
 
 # Simulate network transfer
-cfrag0 = CapsuleFrag.from_bytes(bytes(verified_cfrag0))
-cfrag1 = CapsuleFrag.from_bytes(bytes(verified_cfrag1))
+cfrag0 = umbral_pre.CapsuleFrag.from_bytes(bytes(verified_cfrag0))
+cfrag1 = umbral_pre.CapsuleFrag.from_bytes(bytes(verified_cfrag1))
 
 # Finally, Bob opens the capsule by using at least `threshold` cfrags,
 # and then decrypts the re-encrypted ciphertext.
