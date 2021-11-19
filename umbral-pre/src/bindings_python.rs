@@ -1,3 +1,9 @@
+//! Type wrappers and a module builder for Python bindings.
+
+// TODO (#30): ideally, we would write documentation for the bindings as docstrings here,
+// and let Sphinx pick it up... but it's not great at doing so.
+#![allow(missing_docs)]
+
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -76,7 +82,7 @@ where
     })
 }
 
-fn richcmp<T, U>(obj: &T, other: PyRef<T>, op: CompareOp) -> PyResult<bool>
+fn richcmp<T, U>(obj: &T, other: PyRef<'_, T>, op: CompareOp) -> PyResult<bool>
 where
     T: PyClass + PartialEq + AsBackend<U>,
     U: HasTypeName,
@@ -420,7 +426,7 @@ impl PyObjectProtocol for Capsule {
 
 #[pyfunction]
 pub fn encrypt(
-    py: Python,
+    py: Python<'_>,
     delegating_pk: &PublicKey,
     plaintext: &[u8],
 ) -> PyResult<(Capsule, PyObject)> {
@@ -438,7 +444,7 @@ pub fn encrypt(
 
 #[pyfunction]
 pub fn decrypt_original(
-    py: Python,
+    py: Python<'_>,
     delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
@@ -716,7 +722,7 @@ pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleF
 
 #[pyfunction]
 pub fn decrypt_reencrypted(
-    py: Python,
+    py: Python<'_>,
     receiving_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
@@ -740,7 +746,7 @@ pub fn decrypt_reencrypted(
 }
 
 /// A Python module implemented in Rust.
-pub fn build_module(py: Python, m: &PyModule) -> PyResult<()> {
+pub fn build_module(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<SecretKey>()?;
     m.add_class::<SecretKeyFactory>()?;
     m.add_class::<PublicKey>()?;
