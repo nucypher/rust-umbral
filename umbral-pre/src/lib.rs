@@ -100,10 +100,17 @@
 #![warn(missing_docs, rust_2018_idioms, unused_qualifications)]
 #![no_std]
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[macro_use]
 extern crate alloc;
 
 #[cfg(feature = "bench-internals")]
 pub mod bench; // Re-export some internals for benchmarks.
+
+#[cfg(feature = "bindings-python")]
+pub mod bindings_python;
 
 mod capsule;
 mod capsule_frag;
