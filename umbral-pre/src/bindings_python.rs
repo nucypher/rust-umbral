@@ -745,23 +745,27 @@ pub fn decrypt_reencrypted(
     .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
-/// A Python module implemented in Rust.
-pub fn build_module(py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    m.add_class::<SecretKey>()?;
-    m.add_class::<SecretKeyFactory>()?;
-    m.add_class::<PublicKey>()?;
-    m.add_class::<Signer>()?;
-    m.add_class::<Signature>()?;
-    m.add_class::<Capsule>()?;
-    m.add_class::<KeyFrag>()?;
-    m.add_class::<VerifiedKeyFrag>()?;
-    m.add_class::<CapsuleFrag>()?;
-    m.add_class::<VerifiedCapsuleFrag>()?;
-    m.add("VerificationError", py.get_type::<VerificationError>())?;
-    m.add_function(wrap_pyfunction!(encrypt, m)?)?;
-    m.add_function(wrap_pyfunction!(decrypt_original, m)?)?;
-    m.add_function(wrap_pyfunction!(generate_kfrags, m)?)?;
-    m.add_function(wrap_pyfunction!(reencrypt, m)?)?;
-    m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)?;
-    Ok(())
+// Since adding functions in pyo3 requires a two-step process
+// (`#[pyfunction]` + `wrap_pyfunction!`), and `wrap_pyfunction`
+// needs `#[pyfunction]` in the same module, we need these trampolines
+// to build modules externally.
+
+pub fn register_encrypt(m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(encrypt, m)?)
+}
+
+pub fn register_decrypt_original(m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(decrypt_original, m)?)
+}
+
+pub fn register_generate_kfrags(m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(generate_kfrags, m)?)
+}
+
+pub fn register_reencrypt(m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(reencrypt, m)?)
+}
+
+pub fn register_decrypt_reencrypted(m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)
 }
