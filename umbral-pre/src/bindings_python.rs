@@ -102,7 +102,7 @@ create_exception!(umbral, VerificationError, PyException);
 
 #[pyclass(module = "umbral")]
 pub struct SecretKey {
-    backend: umbral_pre::SecretKey,
+    pub backend: umbral_pre::SecretKey,
 }
 
 impl AsBackend<umbral_pre::SecretKey> for SecretKey {
@@ -232,9 +232,9 @@ impl PyObjectProtocol for SecretKeyFactory {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct PublicKey {
-    backend: umbral_pre::PublicKey,
+    pub backend: umbral_pre::PublicKey,
 }
 
 impl AsBackend<umbral_pre::PublicKey> for PublicKey {
@@ -283,7 +283,7 @@ impl PyObjectProtocol for PublicKey {
 
 #[pyclass(module = "umbral")]
 pub struct Signer {
-    backend: umbral_pre::Signer,
+    pub backend: umbral_pre::Signer,
 }
 
 impl AsBackend<umbral_pre::Signer> for Signer {
@@ -376,9 +376,9 @@ impl PyObjectProtocol for Signature {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Capsule {
-    backend: umbral_pre::Capsule,
+    pub backend: umbral_pre::Capsule,
 }
 
 impl AsBackend<umbral_pre::Capsule> for Capsule {
@@ -532,7 +532,7 @@ impl PyObjectProtocol for KeyFrag {
 #[pyclass(module = "umbral")]
 #[derive(PartialEq, Clone)]
 pub struct VerifiedKeyFrag {
-    backend: umbral_pre::VerifiedKeyFrag,
+    pub backend: umbral_pre::VerifiedKeyFrag,
 }
 
 impl AsBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
@@ -688,7 +688,7 @@ impl PyObjectProtocol for CapsuleFrag {
 #[pyclass(module = "umbral")]
 #[derive(PartialEq, Clone)]
 pub struct VerifiedCapsuleFrag {
-    backend: umbral_pre::VerifiedCapsuleFrag,
+    pub backend: umbral_pre::VerifiedCapsuleFrag,
 }
 
 impl AsBackend<umbral_pre::VerifiedCapsuleFrag> for VerifiedCapsuleFrag {
