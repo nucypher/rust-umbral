@@ -6,6 +6,7 @@
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::format;
 
 use pyo3::class::basic::CompareOp;
 use pyo3::create_exception;
