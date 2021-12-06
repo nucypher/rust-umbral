@@ -1,9 +1,12 @@
 #![no_std]
 
-// Use `wee_alloc` as the global allocator.
-extern crate wee_alloc;
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+// TODO: Global allocator conflicts with umbral-pre-wasm, where the biddings are consumed
+//       Where should we set the global allocator?
+//
+// // Use `wee_alloc` as the global allocator.
+// extern crate wee_alloc;
+// #[global_allocator]
+// static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 extern crate alloc;
 
@@ -141,6 +144,16 @@ impl PublicKey {
 
     pub fn equals(&self, other: &PublicKey) -> bool {
         self.0 == other.0
+    }
+}
+
+impl PublicKey {
+    pub fn from(public_key: umbral_pre::PublicKey) -> Self {
+        PublicKey(public_key)
+    }
+
+    pub fn inner(&self) -> umbral_pre::PublicKey {
+        self.0
     }
 }
 
