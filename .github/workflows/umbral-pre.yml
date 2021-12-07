@@ -133,4 +133,6 @@ jobs:
       image: dockcross/manylinux2014-x64
       options: "-v `pwd`/..:/io"
     steps:
-    - run:  /io/umbral-pre-python/build-wheels.sh
+      - name:  "build the wheels"
+        run:  |
+          /io/umbral-pre-python/build-wheels.sh
