@@ -128,7 +128,7 @@ jobs:
           path: cobertura.xml
 
   build-linux-wheels:
-    runs-on: macos-10.15
+    runs-on: ubuntu-latest
     container:
       image: dockcross/manylinux2014-x64
       options: "-v `pwd`/..:/io"
