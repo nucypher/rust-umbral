@@ -126,3 +126,11 @@ jobs:
         with:
           name: code-coverage-report
           path: cobertura.xml
+
+  build-linux-wheels:
+    runs-on: macos-10.15
+    container:
+      image: dockcross/manylinux2014-x64
+      options: "-v `pwd`/..:/io"
+    steps:
+    - run:  /io/umbral-pre-python/build-wheels.sh
