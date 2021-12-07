@@ -131,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: dockcross/manylinux2014-x64
-      options: "-v .${{ env.GITHUB_WORKSPACE }}:/io"
+      options: "-v ${{env.GITHUB_WORKSPACE}}:/io"
     steps:
       - name:  "build the wheels"
         run:  |
