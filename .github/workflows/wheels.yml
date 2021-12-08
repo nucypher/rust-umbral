@@ -1,8 +1,9 @@
 name: Wheels
 
-on: [push, pull_request]
-
-
+on:
+  create:
+    tags:
+      - v*
 
 jobs:
   build_wheels:
