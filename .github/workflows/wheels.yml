@@ -1,9 +1,16 @@
 name: Wheels
 
 on:
-  # create:
-  #   tags:
-  #     - v*
+  # Trigger the workflow on push or pull request,
+  # but only for the main branch
+  push:
+    branches:
+      - main
+      - wheel-gen
+  pull_request:
+    branches:
+      - main
+      - wheel-gen
   workflow_run:
     workflows: [umbral-pre]
     branches: [ wheel-gen ]
