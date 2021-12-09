@@ -11,14 +11,17 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt;
-use umbral_pre_bindings_wasm::PublicKey;
 
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 use umbral_pre::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
+
+use umbral_pre::bindings_wasm::{
+    Capsule, PublicKey, SecretKey, Signer, VerifiedCapsuleFrag, VerifiedKeyFrag,
+};
 
 fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
     Error::new(&format!("{}", err)).into()
@@ -329,12 +332,16 @@ impl CapsuleWithFrags {
         delegating_pk: &PublicKey,
         ciphertext: &[u8],
     ) -> Result<Box<[u8]>, JsValue> {
-        let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
-            self.cfrags.iter().cloned().map(|x| x.0).collect();
+        let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> = self
+            .cfrags
+            .iter()
+            .cloned()
+            .map(|x| x.inner().clone())
+            .collect();
         umbral_pre::decrypt_reencrypted(
-            &receiving_sk.0,
+            receiving_sk.inner(),
             delegating_pk.inner(),
-            &self.capsule.0,
+            self.capsule.inner(),
             backend_cfrags,
             ciphertext,
         )
@@ -368,7 +375,7 @@ impl EncryptionResult {
 #[wasm_bindgen]
 pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, JsValue> {
     umbral_pre::encrypt(delegating_pk.inner(), plaintext)
-        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
+        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule::new(capsule)))
         .map_err(map_js_err)
 }
 
@@ -378,7 +385,8 @@ pub fn decrypt_original(
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Result<Box<[u8]>, JsValue> {
-    umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
+    umbral_pre::decrypt_original(delegating_sk.inner(), capsule.inner(), ciphertext)
+        .map_err(map_js_err)
 }
 
 #[wasm_bindgen]
@@ -395,7 +403,7 @@ impl KeyFrag {
         self.0
             .clone()
             .verify(verifying_pk.inner(), None, None)
-            .map(VerifiedKeyFrag)
+            .map(VerifiedKeyFrag::new)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
@@ -410,7 +418,7 @@ impl KeyFrag {
         self.0
             .clone()
             .verify(verifying_pk.inner(), Some(backend_delegating_pk), None)
-            .map(VerifiedKeyFrag)
+            .map(VerifiedKeyFrag::new)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
@@ -425,7 +433,7 @@ impl KeyFrag {
         self.0
             .clone()
             .verify(verifying_pk.inner(), None, Some(backend_receiving_pk))
-            .map(VerifiedKeyFrag)
+            .map(VerifiedKeyFrag::new)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
@@ -446,7 +454,7 @@ impl KeyFrag {
                 Some(backend_delegating_pk),
                 Some(backend_receiving_pk),
             )
-            .map(VerifiedKeyFrag)
+            .map(VerifiedKeyFrag::new)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
@@ -523,9 +531,9 @@ pub fn generate_kfrags(
     sign_receiving_key: bool,
 ) -> Vec<JsValue> {
     let backend_kfrags = umbral_pre::generate_kfrags(
-        &delegating_sk.0,
+        delegating_sk.inner(),
         receiving_pk.inner(),
-        &signer.0,
+        signer.inner(),
         threshold,
         shares,
         sign_delegating_key,
@@ -538,13 +546,12 @@ pub fn generate_kfrags(
     backend_kfrags
         .iter()
         .cloned()
-        .map(VerifiedKeyFrag)
+        .map(VerifiedKeyFrag::new)
         .map(JsValue::from)
         .collect()
 }
 
 #[wasm_bindgen]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, kfrag.0.clone());
-    VerifiedCapsuleFrag(backend_cfrag)
+    VerifiedCapsuleFrag(umbral_pre::reencrypt(&capsule.0, &kfrag.0))
 }

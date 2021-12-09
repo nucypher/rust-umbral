@@ -118,6 +118,11 @@ pub mod bench; // Re-export some internals for benchmarks.
 
 #[cfg(feature = "bindings-python")]
 pub mod bindings_python;
+#[cfg(feature = "bindings-wasm")]
+pub mod bindings_wasm;
+
+// #[cfg_attr(feature = "bindings-wasm", macro_use)]
+// extern crate serde;
 
 mod capsule;
 mod capsule_frag;

@@ -8,9 +8,6 @@
 // #[global_allocator]
 // static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[macro_use]
-extern crate serde;
-
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -22,6 +19,9 @@ use core::fmt;
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
+use serde::{Deserialize, Serialize};
+
+use crate as umbral_pre;
 use umbral_pre::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
 fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
