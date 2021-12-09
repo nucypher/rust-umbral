@@ -6,7 +6,7 @@ on:
   #     - v*
   workflow_run:
     workflows: [umbral-pre]
-    # branches: [ master ]
+    branches: [ wheel-gen ]
     types: [ completed ]
 
 jobs:
