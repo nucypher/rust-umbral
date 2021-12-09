@@ -1,9 +1,13 @@
 name: Wheels
 
 on:
-  create:
-    tags:
-      - v*
+  # create:
+  #   tags:
+  #     - v*
+  workflow_run:
+    workflows: [umbral-pre]
+    branches: [ master ]
+    types: [ completed ]
 
 jobs:
   build_wheels:
@@ -24,6 +28,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - uses: ahmadnassri/action-workflow-run-wait@v1
 
       - uses: actions-rs/toolchain@v1
         with:
