@@ -12,8 +12,8 @@ use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use alloc::{vec, vec::Vec};
-use umbral_pre_bindings_wasm::PublicKey;
 use core::fmt;
+use umbral_pre_bindings_wasm::PublicKey;
 
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
@@ -37,7 +37,7 @@ impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     #[wasm_bindgen(js_name = publicKey)]
     pub fn public_key(&self) -> PublicKey {
-        PublicKey::from(self.0.public_key())
+        PublicKey::new(self.0.public_key())
     }
 
     #[wasm_bindgen(js_name = toSecretBytes)]
@@ -134,7 +134,7 @@ impl Signer {
 
     #[wasm_bindgen(js_name = verifyingKey)]
     pub fn verifying_key(&self) -> PublicKey {
-        PublicKey::from(self.0.verifying_key())
+        PublicKey::new(self.0.verifying_key())
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -150,7 +150,7 @@ pub struct Signature(umbral_pre::Signature);
 #[wasm_bindgen]
 impl Signature {
     pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
-        self.0.verify(&verifying_pk.inner(), message)
+        self.0.verify(verifying_pk.inner(), message)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
@@ -234,9 +234,9 @@ impl CapsuleFrag {
             .clone()
             .verify(
                 &capsule.0,
-                &verifying_pk.inner(),
-                &delegating_pk.inner(),
-                &receiving_pk.inner(),
+                verifying_pk.inner(),
+                delegating_pk.inner(),
+                receiving_pk.inner(),
             )
             .map(VerifiedCapsuleFrag)
             .map_err(|(err, _cfrag)| map_js_err(err))
@@ -333,7 +333,7 @@ impl CapsuleWithFrags {
             self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
             &receiving_sk.0,
-            &delegating_pk.inner(),
+            delegating_pk.inner(),
             &self.capsule.0,
             backend_cfrags,
             ciphertext,
@@ -367,8 +367,7 @@ impl EncryptionResult {
 
 #[wasm_bindgen]
 pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, JsValue> {
-    let backend_pk = delegating_pk.inner();
-    umbral_pre::encrypt(&backend_pk, plaintext)
+    umbral_pre::encrypt(delegating_pk.inner(), plaintext)
         .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
         .map_err(map_js_err)
 }
@@ -395,7 +394,7 @@ impl KeyFrag {
     pub fn verify(&self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
         self.0
             .clone()
-            .verify(&verifying_pk.inner(), None, None)
+            .verify(verifying_pk.inner(), None, None)
             .map(VerifiedKeyFrag)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
@@ -410,7 +409,7 @@ impl KeyFrag {
 
         self.0
             .clone()
-            .verify(&verifying_pk.inner(), Some(&backend_delegating_pk), None)
+            .verify(verifying_pk.inner(), Some(backend_delegating_pk), None)
             .map(VerifiedKeyFrag)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
@@ -425,7 +424,7 @@ impl KeyFrag {
 
         self.0
             .clone()
-            .verify(&verifying_pk.inner(), None, Some(&backend_receiving_pk))
+            .verify(verifying_pk.inner(), None, Some(backend_receiving_pk))
             .map(VerifiedKeyFrag)
             .map_err(|(err, _kfrag)| map_js_err(err))
     }
@@ -443,9 +442,9 @@ impl KeyFrag {
         self.0
             .clone()
             .verify(
-                &verifying_pk.inner(),
-                Some(&backend_delegating_pk),
-                Some(&backend_receiving_pk),
+                verifying_pk.inner(),
+                Some(backend_delegating_pk),
+                Some(backend_receiving_pk),
             )
             .map(VerifiedKeyFrag)
             .map_err(|(err, _kfrag)| map_js_err(err))
@@ -525,7 +524,7 @@ pub fn generate_kfrags(
 ) -> Vec<JsValue> {
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.0,
-        &receiving_pk.inner(),
+        receiving_pk.inner(),
         &signer.0,
         threshold,
         shares,

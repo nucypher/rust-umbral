@@ -372,6 +372,7 @@ impl KeyFrag {
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`KeyFrag::verify`] or [`KeyFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize)]
 pub struct VerifiedKeyFrag {
     kfrag: KeyFrag,
 }

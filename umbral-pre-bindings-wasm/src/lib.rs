@@ -8,6 +8,9 @@
 // #[global_allocator]
 // static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+#[macro_use]
+extern crate serde;
+
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -26,24 +29,30 @@ fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub struct SecretKey(umbral_pre::SecretKey);
+pub struct SecretKey {
+    backend: umbral_pre::SecretKey,
+}
 
 #[wasm_bindgen]
 impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
-        Self(umbral_pre::SecretKey::random())
+        Self {
+            backend: umbral_pre::SecretKey::random(),
+        }
     }
 
     /// Generates a secret key using the default RNG and returns it.
     #[wasm_bindgen(js_name = publicKey)]
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(self.0.public_key())
+        PublicKey {
+            backend: self.backend.public_key(),
+        }
     }
 
     #[wasm_bindgen(js_name = toSecretBytes)]
     pub fn to_secret_bytes(&self) -> Box<[u8]> {
-        self.0
+        self.backend
             .to_secret_array()
             .as_secret()
             .to_vec()
@@ -53,14 +62,20 @@ impl SecretKey {
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<SecretKey, JsValue> {
         umbral_pre::SecretKey::from_bytes(data)
-            .map(Self)
+            .map(|sk| Self { backend: sk })
             .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
-        format!("{}", self.0)
+        format!("{}", self.backend)
+    }
+}
+
+impl SecretKey {
+    pub fn inner(&self) -> &umbral_pre::SecretKey {
+        &self.backend
     }
 }
 
@@ -88,7 +103,10 @@ impl SecretKeyFactory {
 
     #[wasm_bindgen(js_name = makeKey)]
     pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
-        self.0.make_key(label).map(SecretKey).map_err(map_js_err)
+        self.0
+            .make_key(label)
+            .map(|sk| SecretKey { backend: sk })
+            .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = makeFactory)]
@@ -120,40 +138,45 @@ impl SecretKeyFactory {
 }
 
 #[wasm_bindgen]
-pub struct PublicKey(umbral_pre::PublicKey);
+#[derive(Serialize, Deserialize)]
+pub struct PublicKey {
+    backend: umbral_pre::PublicKey,
+}
 
 #[wasm_bindgen]
 impl PublicKey {
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+        self.backend.to_array().to_vec().into_boxed_slice()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<PublicKey, JsValue> {
         umbral_pre::PublicKey::from_bytes(data)
-            .map(Self)
+            .map(PublicKey::new)
             .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
-        format!("{}", self.0)
+        format!("{}", self.backend)
     }
 
     pub fn equals(&self, other: &PublicKey) -> bool {
-        self.0 == other.0
+        self.backend == other.backend
     }
 }
 
 impl PublicKey {
-    pub fn from(public_key: umbral_pre::PublicKey) -> Self {
-        PublicKey(public_key)
+    pub fn new(public_key: umbral_pre::PublicKey) -> Self {
+        PublicKey {
+            backend: public_key,
+        }
     }
 
-    pub fn inner(&self) -> umbral_pre::PublicKey {
-        self.0
+    pub fn inner(&self) -> &umbral_pre::PublicKey {
+        &self.backend
     }
 }
 
@@ -164,7 +187,7 @@ pub struct Signer(umbral_pre::Signer);
 impl Signer {
     #[wasm_bindgen(constructor)]
     pub fn new(secret_key: &SecretKey) -> Self {
-        Self(umbral_pre::Signer::new(&secret_key.0))
+        Self(umbral_pre::Signer::new(&secret_key.backend))
     }
 
     pub fn sign(&self, message: &[u8]) -> Signature {
@@ -173,7 +196,9 @@ impl Signer {
 
     #[wasm_bindgen(js_name = verifyingKey)]
     pub fn verifying_key(&self) -> PublicKey {
-        PublicKey(self.0.verifying_key())
+        PublicKey {
+            backend: self.0.verifying_key(),
+        }
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -183,13 +208,19 @@ impl Signer {
     }
 }
 
+impl Signer {
+    pub fn inner(&self) -> &umbral_pre::Signer {
+        &self.0
+    }
+}
+
 #[wasm_bindgen]
 pub struct Signature(umbral_pre::Signature);
 
 #[wasm_bindgen]
 impl Signature {
     pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
-        self.0.verify(&verifying_pk.0, message)
+        self.0.verify(&verifying_pk.backend, message)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
@@ -216,8 +247,10 @@ impl Signature {
 }
 
 #[wasm_bindgen]
-#[derive(Clone, Copy)]
-pub struct Capsule(umbral_pre::Capsule);
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct Capsule {
+    backend: umbral_pre::Capsule,
+}
 
 #[wasm_bindgen]
 impl Capsule {
@@ -234,24 +267,34 @@ impl Capsule {
 
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+        self.backend.to_array().to_vec().into_boxed_slice()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<Capsule, JsValue> {
         umbral_pre::Capsule::from_bytes(data)
-            .map(Self)
+            .map(Capsule::new)
             .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
-        format!("{}", self.0)
+        format!("{}", self.backend)
     }
 
     pub fn equals(&self, other: &Capsule) -> bool {
-        self.0 == other.0
+        self.backend == other.backend
+    }
+}
+
+impl Capsule {
+    pub fn new(capsule: umbral_pre::Capsule) -> Capsule {
+        Capsule { backend: capsule }
+    }
+
+    pub fn inner(&self) -> &umbral_pre::Capsule {
+        &self.backend
     }
 }
 
@@ -271,12 +314,12 @@ impl CapsuleFrag {
     ) -> Result<VerifiedCapsuleFrag, JsValue> {
         self.0
             .verify(
-                &capsule.0,
-                &verifying_pk.0,
-                &delegating_pk.0,
-                &receiving_pk.0,
+                &capsule.backend,
+                &verifying_pk.backend,
+                &delegating_pk.backend,
+                &receiving_pk.backend,
             )
-            .map(VerifiedCapsuleFrag)
+            .map(VerifiedCapsuleFrag::new)
             .map_err(map_js_err)
     }
 
@@ -304,31 +347,43 @@ impl CapsuleFrag {
 }
 
 #[wasm_bindgen]
-#[derive(Clone)]
-pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
+#[derive(Clone, Serialize, Deserialize)]
+pub struct VerifiedCapsuleFrag {
+    backend: umbral_pre::VerifiedCapsuleFrag,
+}
 
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
     pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, JsValue> {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(bytes)
-            .map(Self)
+            .map(|vcfrag| VerifiedCapsuleFrag { backend: vcfrag })
             .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+        self.backend.to_array().to_vec().into_boxed_slice()
     }
 
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
-        format!("{}", self.0)
+        format!("{}", self.backend)
     }
 
     pub fn equals(&self, other: &VerifiedCapsuleFrag) -> bool {
-        self.0 == other.0
+        self.backend == other.backend
+    }
+}
+
+impl VerifiedCapsuleFrag {
+    pub fn new(vcfrag: umbral_pre::VerifiedCapsuleFrag) -> Self {
+        Self { backend: vcfrag }
+    }
+
+    pub fn inner(&self) -> &umbral_pre::VerifiedCapsuleFrag {
+        &self.backend
     }
 }
 
@@ -358,11 +413,11 @@ impl CapsuleWithFrags {
         ciphertext: &[u8],
     ) -> Result<Box<[u8]>, JsValue> {
         let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
-            self.cfrags.iter().cloned().map(|x| x.0).collect();
+            self.cfrags.iter().cloned().map(|x| x.backend).collect();
         umbral_pre::decrypt_reencrypted(
-            &receiving_sk.0,
-            &delegating_pk.0,
-            &self.capsule.0,
+            &receiving_sk.backend,
+            &delegating_pk.backend,
+            &self.capsule.backend,
             backend_cfrags.as_slice(),
             ciphertext,
         )
@@ -395,9 +450,9 @@ impl EncryptionResult {
 
 #[wasm_bindgen]
 pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, JsValue> {
-    let backend_pk = delegating_pk.0;
+    let backend_pk = delegating_pk.backend;
     umbral_pre::encrypt(&backend_pk, plaintext)
-        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
+        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule::new(capsule)))
         .map_err(map_js_err)
 }
 
@@ -407,7 +462,8 @@ pub fn decrypt_original(
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> Result<Box<[u8]>, JsValue> {
-    umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
+    umbral_pre::decrypt_original(&delegating_sk.backend, &capsule.backend, ciphertext)
+        .map_err(map_js_err)
 }
 
 #[wasm_bindgen]
@@ -422,8 +478,8 @@ impl KeyFrag {
     #[wasm_bindgen]
     pub fn verify(&self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
         self.0
-            .verify(&verifying_pk.0, None, None)
-            .map(VerifiedKeyFrag)
+            .verify(&verifying_pk.backend, None, None)
+            .map(VerifiedKeyFrag::new)
             .map_err(map_js_err)
     }
 
@@ -433,11 +489,11 @@ impl KeyFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
     ) -> Result<VerifiedKeyFrag, JsValue> {
-        let backend_delegating_pk = delegating_pk.0;
+        let backend_delegating_pk = delegating_pk.backend;
 
         self.0
-            .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
-            .map(VerifiedKeyFrag)
+            .verify(&verifying_pk.backend, Some(&backend_delegating_pk), None)
+            .map(VerifiedKeyFrag::new)
             .map_err(map_js_err)
     }
 
@@ -447,11 +503,11 @@ impl KeyFrag {
         verifying_pk: &PublicKey,
         receiving_pk: &PublicKey,
     ) -> Result<VerifiedKeyFrag, JsValue> {
-        let backend_receiving_pk = receiving_pk.0;
+        let backend_receiving_pk = receiving_pk.backend;
 
         self.0
-            .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
-            .map(VerifiedKeyFrag)
+            .verify(&verifying_pk.backend, None, Some(&backend_receiving_pk))
+            .map(VerifiedKeyFrag::new)
             .map_err(map_js_err)
     }
 
@@ -462,16 +518,16 @@ impl KeyFrag {
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
     ) -> Result<VerifiedKeyFrag, JsValue> {
-        let backend_delegating_pk = delegating_pk.0;
-        let backend_receiving_pk = receiving_pk.0;
+        let backend_delegating_pk = delegating_pk.backend;
+        let backend_receiving_pk = receiving_pk.backend;
 
         self.0
             .verify(
-                &verifying_pk.0,
+                &verifying_pk.backend,
                 Some(&backend_delegating_pk),
                 Some(&backend_receiving_pk),
             )
-            .map(VerifiedKeyFrag)
+            .map(VerifiedKeyFrag::new)
             .map_err(map_js_err)
     }
 
@@ -499,30 +555,43 @@ impl KeyFrag {
 }
 
 #[wasm_bindgen]
-pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
+#[derive(Serialize, Deserialize)]
+pub struct VerifiedKeyFrag {
+    backend: umbral_pre::VerifiedKeyFrag,
+}
 
 #[wasm_bindgen]
 impl VerifiedKeyFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
     pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, JsValue> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
-            .map(Self)
+            .map(VerifiedKeyFrag::new)
             .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+        self.backend.to_array().to_vec().into_boxed_slice()
     }
 
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
-        format!("{}", self.0)
+        format!("{}", self.backend)
     }
 
     pub fn equals(&self, other: &VerifiedKeyFrag) -> bool {
-        self.0 == other.0
+        self.backend == other.backend
+    }
+}
+
+impl VerifiedKeyFrag {
+    pub fn new(vkfrag: umbral_pre::VerifiedKeyFrag) -> VerifiedKeyFrag {
+        VerifiedKeyFrag { backend: vkfrag }
+    }
+
+    pub fn inner(&self) -> &umbral_pre::VerifiedKeyFrag {
+        &self.backend
     }
 }
 
@@ -538,8 +607,8 @@ pub fn generate_kfrags(
     sign_receiving_key: bool,
 ) -> Vec<JsValue> {
     let backend_kfrags = umbral_pre::generate_kfrags(
-        &delegating_sk.0,
-        &receiving_pk.0,
+        &delegating_sk.backend,
+        &receiving_pk.backend,
         &signer.0,
         threshold,
         shares,
@@ -553,13 +622,13 @@ pub fn generate_kfrags(
     backend_kfrags
         .iter()
         .cloned()
-        .map(VerifiedKeyFrag)
+        .map(VerifiedKeyFrag::new)
         .map(JsValue::from)
         .collect()
 }
 
 #[wasm_bindgen]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0);
-    VerifiedCapsuleFrag(backend_cfrag)
+    let vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend);
+    VerifiedCapsuleFrag::new(vcfrag)
 }

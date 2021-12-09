@@ -22,6 +22,9 @@ use crate::traits::{
 #[cfg(feature = "serde-support")]
 use crate::serde::{serde_deserialize, serde_serialize, Representation};
 
+#[cfg(feature = "bindings-wasm")]
+extern crate serde;
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CapsuleFragProof {
     point_e2: CurvePoint,
@@ -313,8 +316,8 @@ impl CapsuleFrag {
 
 /// Verified capsule fragment, good for dencryption.
 /// Can be serialized, but cannot be deserialized directly.
-/// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
-#[derive(Debug, Clone, PartialEq)]
+/// It can only be obtained from [`CapsuleFrag::verify`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VerifiedCapsuleFrag {
     cfrag: CapsuleFrag,
 }
