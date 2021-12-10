@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 No changes yet.
 
 
+## [0.3.3] - 2021-12-10
+
+### Added
+
+- Github actions configured for automatic build and push of Python wheels.
+
+
+### Fixed
+
+- Fixed Python example
+- Improved/updated documentation
+
+
 ## [0.3.0] - 2021-09-15
 
 ### Changed
