@@ -5,9 +5,12 @@ on:
     paths-ignore:
       - README.md
   push:
-    branches: master
+    branches:
+      - master
     paths-ignore:
       - README.md
+    tags:
+      - v*
 
 env:
   CARGO_INCREMENTAL: 0
