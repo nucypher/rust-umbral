@@ -6,14 +6,12 @@ For now it has to be done manually.
 
 ## Release commit
 
-- Update `CHANGELOG.md` (replace `Unpublished` with the version and the release date).
-- Bump version in `umbral-pre/Cargo.toml`.
-- Bump version in `umbral-pre-python/Cargo.toml`.
-- Bump version in `umbral-pre-python/docs/conf.py`.
-- Bump version in `umbral-pre-python/setup.py`.
-- Bump version in `umbral-pre-wasm/Cargo.toml`.
-- Bump version in `umbral-pre-wasm/package.template.json`.
-- Tag the release commit with the version tag (in `v*.*.*` format).
+- Update `CHANGELOG.md` (replace `Unreleased` with the version and the release date).
+- Use Python [Bumpversion](https://github.com/c4urself/bump2version/) to autmoatically update relevant version strings throughout the repo.
+  - `bump2version minor --current-version <major>.<minor>.<patch>`
+- git push the commit and tag
+  - `git push upstream master --tags`
+
 
 
 ## Rust crate
@@ -28,13 +26,8 @@ See https://doc.rust-lang.org/cargo/reference/publishing.html for more info on p
 
 ## Python package
 
-In `umbral-pre-python` dir:
-
-- Clean `dist` (if it is not empty).
-- `python setup.py sdist` (generate source distribution).
-- `docker run --rm -v `pwd`/..:/io quay.io/pypa/manylinux2014_x86_64 /io/umbral-pre-python/build-wheels.sh` (generate Linux wheels).
-- `twine upload dist/*`.
-
+Gitub Actions are configured to take care of this automatically.
+- Can be [manually triggered here](https://github.com/nucypher/rust-umbral/actions/workflows/wheels.yml) (manual mode has not been tested)
 
 ## NPM package
 
