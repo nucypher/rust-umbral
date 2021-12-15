@@ -372,6 +372,7 @@ impl KeyFrag {
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`KeyFrag::verify`] or [`KeyFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
+// TODO: Can I use serde to serialize this?
 #[cfg_attr(feature = "bindings-wasm", derive(Serialize, Deserialize))]
 pub struct VerifiedKeyFrag {
     kfrag: KeyFrag,

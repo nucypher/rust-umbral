@@ -317,7 +317,9 @@ impl CapsuleFrag {
 /// Verified capsule fragment, good for dencryption.
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`CapsuleFrag::verify`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+// TODO: Can I use serde to serialize this?
+#[cfg_attr(feature = "bindings-wasm", derive(Serialize, Deserialize))]
 pub struct VerifiedCapsuleFrag {
     cfrag: CapsuleFrag,
 }

@@ -17,7 +17,7 @@ use core::fmt;
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
-use umbral_pre::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
+use umbral_pre::{DeserializableFromArray, SerializableToArray};
 
 use umbral_pre::bindings_wasm::{
     Capsule, PublicKey, SecretKey, Signer, VerifiedCapsuleFrag, VerifiedKeyFrag,
