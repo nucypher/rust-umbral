@@ -80,15 +80,6 @@ jobs:
     strategy:
       matrix:
         include:
-          # 32-bit Linux
-          - target: i686-unknown-linux-gnu
-            rust: 1.51.0 # MSRV
-            deps: sudo apt install gcc-multilib
-          - target: i686-unknown-linux-gnu
-            rust: stable
-            deps: sudo apt install gcc-multilib
-
-          # 64-bit Linux
           - target: x86_64-unknown-linux-gnu
             rust: 1.51.0 # MSRV
           - target: x86_64-unknown-linux-gnu
@@ -103,8 +94,8 @@ jobs:
           target: ${{ matrix.target }}
           override: true
       - run: ${{ matrix.deps }}
-      - run: cargo check --target ${{ matrix.target }} --all-features
-      - run: cargo test --release --target ${{ matrix.target }} --all-features
+      - run: cargo check --all-features
+      - run: cargo test --release --all-features
 
   trigger-wheels:
     runs-on: ubuntu-latest
