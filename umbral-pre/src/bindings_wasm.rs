@@ -347,7 +347,7 @@ impl CapsuleFrag {
 }
 
 #[wasm_bindgen]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct VerifiedCapsuleFrag {
     backend: umbral_pre::VerifiedCapsuleFrag,
 }
@@ -555,7 +555,7 @@ impl KeyFrag {
 }
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct VerifiedKeyFrag {
     backend: umbral_pre::VerifiedKeyFrag,
 }
