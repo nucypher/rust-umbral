@@ -1,13 +1,3 @@
-#![no_std]
-
-// TODO: Global allocator conflicts with umbral-pre-wasm, where the biddings are consumed
-//       Where should we set the global allocator?
-//
-// // Use `wee_alloc` as the global allocator.
-// extern crate wee_alloc;
-// #[global_allocator]
-// static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
 extern crate alloc;
 
 use alloc::boxed::Box;
