@@ -4,6 +4,13 @@ Ideally it would be done by a CI action.
 For now it has to be done manually.
 
 
+## Keeping the changelog and bumping the version
+
+For every version, list the "Changed" items first (meaning backward incompatible changes), then "Added" (new features), then "Fixed" (bug fixes, or other improvements that do not change the API/ABI).
+Rust has some specifics in what is considered a breaking change; refer to https://doc.rust-lang.org/cargo/reference/semver.html for the full list.
+The version number part (major/minor/patch) that is bumped should correspond to whether there is something in "Changed" or "Added" categories.
+
+
 ## Release commit
 
 - Update `CHANGELOG.md` (replace `Unpublished` with the version and the release date).
