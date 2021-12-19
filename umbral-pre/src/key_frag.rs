@@ -5,18 +5,22 @@ use core::fmt;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typenum::{op, U32};
+
+#[cfg(feature = "serde-support")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
 use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray,
 };
+
+#[cfg(feature = "serde-support")]
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 
 #[allow(clippy::upper_case_acronyms)]
 type KeyFragIDSize = U32;
@@ -203,6 +207,8 @@ impl DeserializableFromArray for KeyFrag {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for KeyFrag {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -212,6 +218,8 @@ impl Serialize for KeyFrag {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for KeyFrag {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -491,9 +499,14 @@ mod tests {
     use rand_core::OsRng;
 
     use super::{KeyFrag, KeyFragBase, KeyFragVerificationError, VerifiedKeyFrag};
-    use crate::serde::tests::{check_deserialization, check_serialization};
-    use crate::serde::Representation;
+
     use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::tests::{check_deserialization, check_serialization};
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::Representation;
 
     fn prepare_kfrags(
         sign_delegating_key: bool,
@@ -562,6 +575,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde-support")]
     #[test]
     fn test_serde_serialization() {
         let (_delegating_pk, _receiving_pk, _verifying_pk, verified_kfrags) =

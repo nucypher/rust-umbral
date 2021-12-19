@@ -8,6 +8,11 @@
 //! Bob is able to combine these independent re-encryptions and decrypt the original message
 //! using his private key.
 //!
+//! ## Available feature flags
+//!
+//! * `default-rng` - adds methods that use the system RNG (default).
+//! * `serde-support` - implements `serde`-based serialization and deserialization.
+//!
 //! # Usage
 //!
 //! ```
@@ -99,6 +104,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, rust_2018_idioms, unused_qualifications)]
 #![no_std]
+// Allows us to mark items in the documentation as gated under specific features.
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate alloc;
 
@@ -116,8 +123,10 @@ mod keys;
 mod params;
 mod pre;
 mod secret_box;
-mod serde;
 mod traits;
+
+#[cfg(feature = "serde-support")]
+mod serde;
 
 pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::{CapsuleFrag, CapsuleFragVerificationError, VerifiedCapsuleFrag};

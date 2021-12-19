@@ -3,19 +3,23 @@ use core::fmt;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typenum::op;
+
+#[cfg(feature = "serde-support")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray,
 };
+
+#[cfg(feature = "serde-support")]
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CapsuleFragProof {
@@ -156,6 +160,8 @@ impl DeserializableFromArray for CapsuleFrag {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for CapsuleFrag {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -165,6 +171,8 @@ impl Serialize for CapsuleFrag {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for CapsuleFrag {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -349,12 +357,17 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::{CapsuleFrag, VerifiedCapsuleFrag};
-    use crate::serde::tests::{check_deserialization, check_serialization};
-    use crate::serde::Representation;
+
     use crate::{
         encrypt, generate_kfrags, reencrypt, Capsule, DeserializableFromArray, PublicKey,
         SecretKey, SerializableToArray, Signer,
     };
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::tests::{check_deserialization, check_serialization};
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::Representation;
 
     fn prepare_cfrags() -> (
         PublicKey,
@@ -411,6 +424,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "serde-support")]
     #[test]
     fn test_serde_serialization() {
         let (_delegating_pk, _receiving_pk, _verifying_pk, _capsule, verified_cfrags) =

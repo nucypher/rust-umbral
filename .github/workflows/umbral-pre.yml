@@ -104,7 +104,7 @@ jobs:
           override: true
       - run: ${{ matrix.deps }}
       - run: cargo check --target ${{ matrix.target }} --all-features
-      - run: cargo test --release --target ${{ matrix.target }}
+      - run: cargo test --release --target ${{ matrix.target }} --all-features
 
   trigger-wheels:
     runs-on: ubuntu-latest

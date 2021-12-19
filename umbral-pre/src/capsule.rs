@@ -4,8 +4,10 @@ use core::fmt;
 use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typenum::op;
+
+#[cfg(feature = "serde-support")]
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{CurvePoint, CurveScalar};
@@ -13,11 +15,13 @@ use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_sha
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::secret_box::SecretBox;
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
 };
+
+#[cfg(feature = "serde-support")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
 #[derive(Debug, PartialEq)]
@@ -86,6 +90,8 @@ impl DeserializableFromArray for Capsule {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for Capsule {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -95,6 +101,8 @@ impl Serialize for Capsule {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for Capsule {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -263,12 +271,17 @@ mod tests {
     use rand_core::OsRng;
 
     use super::{Capsule, OpenReencryptedError};
-    use crate::serde::tests::{check_deserialization, check_serialization};
-    use crate::serde::Representation;
+
     use crate::{
         encrypt, generate_kfrags, reencrypt, DeserializableFromArray, SecretKey,
         SerializableToArray, Signer,
     };
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::tests::{check_deserialization, check_serialization};
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::Representation;
 
     #[test]
     fn test_serialize() {
@@ -347,6 +360,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "serde-support")]
     #[test]
     fn test_serde_serialization() {
         let delegating_sk = SecretKey::random();

@@ -8,22 +8,26 @@ use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingK
 use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
 use typenum::{Unsigned, U32, U64};
 
 #[cfg(feature = "default-rng")]
 use rand_core::OsRng;
 
+#[cfg(feature = "serde-support")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };
+
+#[cfg(feature = "serde-support")]
+use crate::serde::{serde_deserialize, serde_serialize, Representation};
 
 /// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq)]
@@ -49,6 +53,8 @@ impl DeserializableFromArray for Signature {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -58,6 +64,8 @@ impl Serialize for Signature {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for Signature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -109,6 +117,7 @@ impl SecretKey {
 
     /// Creates a secret key using the default RNG.
     #[cfg(feature = "default-rng")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
     }
@@ -194,6 +203,7 @@ impl Signer {
 
     /// Signs the given message using the default RNG.
     #[cfg(feature = "default-rng")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn sign(&self, message: &[u8]) -> Signature {
         self.sign_with_rng(&mut OsRng, message)
     }
@@ -258,6 +268,8 @@ impl DeserializableFromArray for PublicKey {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -267,6 +279,8 @@ impl Serialize for PublicKey {
     }
 }
 
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -323,6 +337,7 @@ impl SecretKeyFactory {
 
     /// Creates a secret key factory using the default RNG.
     #[cfg(feature = "default-rng")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
     }
@@ -420,9 +435,12 @@ impl fmt::Display for SecretKeyFactory {
 mod tests {
 
     use super::{PublicKey, SecretKey, SecretKeyFactory, Signer};
-    use crate::serde::tests::{check_deserialization, check_serialization};
-    use crate::serde::Representation;
     use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
+
+    #[cfg(feature = "serde-support")]
+    use crate::serde::tests::{check_deserialization, check_serialization};
+    #[cfg(feature = "serde-support")]
+    use crate::serde::Representation;
 
     #[test]
     fn test_serialize_secret_key() {
@@ -474,6 +492,7 @@ mod tests {
         assert!(signature.verify(&vk, message));
     }
 
+    #[cfg(feature = "serde-support")]
     #[test]
     fn test_serde_serialization() {
         let sk = SecretKey::random();

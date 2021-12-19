@@ -6,7 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- `serde` support for types is now gated under the `serde-support` feature (not enabled by default). ([#82])
+
+
+[#82]: https://github.com/nucypher/rust-umbral/pull/82
 
 
 ## [0.3.3] - 2021-12-10
