@@ -116,8 +116,10 @@ mod keys;
 mod params;
 mod pre;
 mod secret_box;
-mod serde;
 mod traits;
+
+#[cfg(feature = "serde-support")]
+mod serde;
 
 pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::{CapsuleFrag, CapsuleFragVerificationError, VerifiedCapsuleFrag};

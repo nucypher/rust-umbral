@@ -15,7 +15,7 @@ sha2 = { version = "0.9", default-features = false }
 chacha20poly1305 = { version = "0.8", features = ["xchacha20poly1305"] }
 hkdf = { version = "0.11", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
-serde = { version = "1", default-features = false }
+serde = { version = "1", default-features = false, optional = true }
 base64 = { version = "0.13", default-features = false, features = ["alloc"] }
 
 # These packages are among the dependencies of the packages above.
@@ -41,6 +41,7 @@ rmp-serde = "0.15"
 default = ["default-rng"]
 bench-internals = ["default-rng"]
 default-rng = ["getrandom", "rand_core/getrandom"]
+serde-support = ["serde"]
 
 [[bench]]
 name = "bench"
