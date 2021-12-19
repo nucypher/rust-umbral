@@ -317,7 +317,7 @@ impl SecretKeyFactory {
     /// Creates a secret key factory using the given RNG.
     pub fn random_with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Self {
         let mut bytes = SecretBox::new(GenericArray::<u8, SecretKeyFactorySeedSize>::default());
-        rng.fill_bytes(&mut bytes.as_mut_secret());
+        rng.fill_bytes(bytes.as_mut_secret());
         Self(bytes)
     }
 
