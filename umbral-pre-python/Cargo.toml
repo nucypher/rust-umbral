@@ -8,6 +8,6 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.14", features = ["extension-module"] }
+pyo3 = { version = "0.15" }
 umbral-pre = { path = "../umbral-pre" }
 generic-array = "0.14"
