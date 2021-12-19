@@ -41,7 +41,7 @@ impl CanBeZeroizedOnDrop for BackendNonZeroScalar {
 //     type PointSize = <Point as RepresentableAsArray>::Size;
 // isn't leaking the `Point` (probably because type aliases are just inlined).
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct CurveScalar(BackendScalar);
 
 impl CurveScalar {
@@ -74,12 +74,6 @@ impl CurveScalar {
         d: impl Digest<OutputSize = <CurveScalar as RepresentableAsArray>::Size>,
     ) -> Self {
         Self(BackendScalar::from_digest(d))
-    }
-}
-
-impl Default for CurveScalar {
-    fn default() -> Self {
-        Self(BackendScalar::default())
     }
 }
 
