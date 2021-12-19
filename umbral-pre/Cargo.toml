@@ -43,6 +43,12 @@ bench-internals = ["default-rng"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 serde-support = ["serde"]
 
+# What features to use when building documentation on docs.rs
+[package.metadata.docs.rs]
+features = ["serde-support"]
+# Used to conditionally enable the unstable feature `doc-cfg`
+rustc-args = ["--cfg", "docsrs"]
+
 [[bench]]
 name = "bench"
 path = "bench/bench.rs"

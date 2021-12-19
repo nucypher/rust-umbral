@@ -91,6 +91,7 @@ impl DeserializableFromArray for Capsule {
 }
 
 #[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for Capsule {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -101,6 +102,7 @@ impl Serialize for Capsule {
 }
 
 #[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for Capsule {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

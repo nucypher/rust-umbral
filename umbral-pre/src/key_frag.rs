@@ -208,6 +208,7 @@ impl DeserializableFromArray for KeyFrag {
 }
 
 #[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl Serialize for KeyFrag {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -218,6 +219,7 @@ impl Serialize for KeyFrag {
 }
 
 #[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 impl<'de> Deserialize<'de> for KeyFrag {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
