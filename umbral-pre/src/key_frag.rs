@@ -363,14 +363,22 @@ impl KeyFrag {
             kfrag: self.clone(),
         })
     }
+
+    /// Explicitly skips verification.
+    /// Useful in cases when the verifying keys are impossible to obtain independently.
+    ///
+    /// **Warning:** make sure you considered the implications of not enforcing verification.
+    pub fn skip_verification(self) -> VerifiedKeyFrag {
+        VerifiedKeyFrag { kfrag: self }
+    }
 }
 
 /// Verified key fragment, good for reencryption.
 /// Can be serialized, but cannot be deserialized directly.
-/// It can only be obtained from [`KeyFrag::verify`].
+/// It can only be obtained from [`KeyFrag::verify`] or [`KeyFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedKeyFrag {
-    pub(crate) kfrag: KeyFrag,
+    kfrag: KeyFrag,
 }
 
 impl RepresentableAsArray for VerifiedKeyFrag {
@@ -414,6 +422,14 @@ impl VerifiedKeyFrag {
     /// make sure that the bytes come from a trusted source.
     pub fn from_verified_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
         KeyFrag::from_bytes(data).map(|kfrag| Self { kfrag })
+    }
+
+    /// Clears the verification status from the keyfrag.
+    /// Useful for the cases where it needs to be put in the protocol structure
+    /// containing [`KeyFrag`] types (since those are the ones
+    /// that can be serialized/deserialized freely).
+    pub fn to_unverified(&self) -> KeyFrag {
+        self.kfrag.clone()
     }
 }
 

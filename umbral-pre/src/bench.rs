@@ -5,7 +5,7 @@
 use rand_core::OsRng;
 
 use crate::capsule::{Capsule, KeySeed, OpenReencryptedError};
-use crate::capsule_frag::{CapsuleFrag, VerifiedCapsuleFrag};
+use crate::capsule_frag::CapsuleFrag;
 use crate::keys::{PublicKey, SecretKey};
 use crate::secret_box::SecretBox;
 
@@ -29,9 +29,4 @@ pub fn capsule_open_reencrypted(
     cfrags: &[CapsuleFrag],
 ) -> Result<SecretBox<KeySeed>, OpenReencryptedError> {
     capsule.open_reencrypted(receiving_sk, delegating_pk, cfrags)
-}
-
-/// Extracts the internal [`CapsuleFrag`] from a [`VerifiedCapsuleFrag`].
-pub fn get_cfrag(verified_cfrag: &VerifiedCapsuleFrag) -> &CapsuleFrag {
-    &verified_cfrag.cfrag
 }

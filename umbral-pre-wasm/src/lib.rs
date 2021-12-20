@@ -267,6 +267,11 @@ impl CapsuleFrag {
             .map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = skipVerification)]
+    pub fn skip_verification(&self) -> VerifiedCapsuleFrag {
+        VerifiedCapsuleFrag(self.0.clone().skip_verification())
+    }
+
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()
@@ -301,6 +306,11 @@ impl VerifiedCapsuleFrag {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(bytes)
             .map(Self)
             .map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = toUnverified)]
+    pub fn to_unverified(&self) -> CapsuleFrag {
+        CapsuleFrag(self.0.to_unverified())
     }
 
     #[wasm_bindgen(js_name = toBytes)]
@@ -462,6 +472,11 @@ impl KeyFrag {
             .map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = skipVerification)]
+    pub fn skip_verification(&self) -> VerifiedKeyFrag {
+        VerifiedKeyFrag(self.0.clone().skip_verification())
+    }
+
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()
@@ -495,6 +510,11 @@ impl VerifiedKeyFrag {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
             .map(Self)
             .map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = toUnverified)]
+    pub fn to_unverified(&self) -> KeyFrag {
+        KeyFrag(self.0.to_unverified())
     }
 
     #[wasm_bindgen(js_name = toBytes)]

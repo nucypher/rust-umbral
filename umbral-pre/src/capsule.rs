@@ -316,7 +316,10 @@ mod tests {
             .map(|kfrag| reencrypt(&capsule, &kfrag))
             .collect();
 
-        let cfrags: Vec<_> = vcfrags.iter().cloned().map(|vcfrag| vcfrag.cfrag).collect();
+        let cfrags: Vec<_> = vcfrags
+            .iter()
+            .map(|vcfrag| vcfrag.to_unverified())
+            .collect();
 
         let key_seed_reenc = capsule
             .open_reencrypted(&receiving_sk, &delegating_pk, &cfrags)
@@ -342,7 +345,7 @@ mod tests {
             .iter()
             .cloned()
             .chain(vcfrags2[1..2].iter().cloned())
-            .map(|vcfrag| vcfrag.cfrag)
+            .map(|vcfrag| vcfrag.to_unverified())
             .collect();
 
         let result = capsule.open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags);
