@@ -12,6 +12,8 @@
 //!
 //! * `default-rng` - adds methods that use the system RNG (default).
 //! * `serde-support` - implements `serde`-based serialization and deserialization.
+//! * `bindings-python` - adds a `bindings_python` submodule allowing dependent crates
+//!        to use and re-export some of the Python-wrapped Umbral types.
 //!
 //! # Usage
 //!
