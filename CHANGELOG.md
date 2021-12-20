@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Python bindings are exposed as a feature `bindings-python` in the main crate, to allow dependent crates to create their own Python bindings and re-export some Python-wrapped Umbral types. ([#74])
 - `KeyFrag::skip_verification()`, `VerifiedKeyFrag::to_unverified()`, `CapsuleFrag::skip_verification()`, `VerifiedCapsuleFrag::to_unverified()`, and
 the corresponding methods in Python and WASM bindings. ([#84])
 
 
+[#74]: https://github.com/nucypher/rust-umbral/pull/74
 [#82]: https://github.com/nucypher/rust-umbral/pull/82
 [#84]: https://github.com/nucypher/rust-umbral/pull/84
 
