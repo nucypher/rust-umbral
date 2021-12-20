@@ -297,14 +297,22 @@ impl CapsuleFrag {
             cfrag: self.clone(),
         })
     }
+
+    /// Explicitly skips verification.
+    /// Useful in cases when the verifying keys are impossible to obtain independently.
+    ///
+    /// **Warning:** make sure you considered the implications of not enforcing verification.
+    pub fn skip_verification(self) -> VerifiedCapsuleFrag {
+        VerifiedCapsuleFrag { cfrag: self }
+    }
 }
 
 /// Verified capsule fragment, good for dencryption.
 /// Can be serialized, but cannot be deserialized directly.
-/// It can only be obtained from [`CapsuleFrag::verify`].
+/// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedCapsuleFrag {
-    pub(crate) cfrag: CapsuleFrag,
+    cfrag: CapsuleFrag,
 }
 
 impl RepresentableAsArray for VerifiedCapsuleFrag {
@@ -347,6 +355,14 @@ impl VerifiedCapsuleFrag {
     /// make sure that the bytes come from a trusted source.
     pub fn from_verified_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
         CapsuleFrag::from_bytes(data).map(|cfrag| Self { cfrag })
+    }
+
+    /// Clears the verification status from the capsule frag.
+    /// Useful for the cases where it needs to be put in the protocol structure
+    /// containing [`CapsuleFrag`] types (since those are the ones
+    /// that can be serialized/deserialized freely).
+    pub fn to_unverified(&self) -> CapsuleFrag {
+        self.cfrag.clone()
     }
 }
 

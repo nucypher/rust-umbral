@@ -116,6 +116,9 @@ class KeyFrag:
             ) -> VerifiedKeyFrag:
         ...
 
+    def skip_verification(self) -> VerifiedKeyFrag:
+        ...
+
     @staticmethod
     def from_bytes() -> KeyFrag:
         ...
@@ -128,6 +131,9 @@ class KeyFrag:
 class VerifiedKeyFrag:
 
     def from_verified_bytes(data: bytes) -> VerifiedKeyFrag:
+        ...
+
+    def to_unverified(self) -> KeyFrag:
         ...
 
     @staticmethod
@@ -158,6 +164,9 @@ class CapsuleFrag:
             ) -> VerifiedCapsuleFrag:
         ...
 
+    def skip_verification(self) -> VerifiedCapsuleFrag:
+        ...
+
     @staticmethod
     def from_bytes() -> CapsuleFrag:
         ...
@@ -170,6 +179,9 @@ class CapsuleFrag:
 class VerifiedCapsuleFrag:
 
     def from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag:
+        ...
+
+    def to_unverified(self) -> CapsuleFrag:
         ...
 
     @staticmethod

@@ -3,8 +3,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkGroup, Criterion};
 
 #[cfg(feature = "bench-internals")]
 use umbral_pre::bench::{
-    capsule_from_public_key, capsule_open_original, capsule_open_reencrypted, get_cfrag,
-    unsafe_hash_to_point,
+    capsule_from_public_key, capsule_open_original, capsule_open_reencrypted, unsafe_hash_to_point,
 };
 
 use umbral_pre::{
@@ -74,7 +73,7 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
 
     let cfrags: Vec<_> = vcfrags[0..threshold]
         .iter()
-        .map(|vcfrag| get_cfrag(&vcfrag).clone())
+        .map(|vcfrag| vcfrag.to_unverified())
         .collect();
 
     group.bench_function("Capsule::open_reencrypted", |b| {

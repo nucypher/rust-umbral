@@ -482,6 +482,12 @@ impl KeyFrag {
             })
     }
 
+    pub fn skip_verification(&self) -> VerifiedKeyFrag {
+        VerifiedKeyFrag {
+            backend: self.backend.clone().skip_verification(),
+        }
+    }
+
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
@@ -536,6 +542,12 @@ impl VerifiedKeyFrag {
     #[staticmethod]
     pub fn serialized_size() -> usize {
         umbral_pre::VerifiedKeyFrag::serialized_size()
+    }
+
+    pub fn to_unverified(&self) -> KeyFrag {
+        KeyFrag {
+            backend: self.backend.to_unverified(),
+        }
     }
 
     fn __bytes__(&self) -> PyResult<PyObject> {
@@ -626,6 +638,12 @@ impl CapsuleFrag {
             })
     }
 
+    pub fn skip_verification(&self) -> VerifiedCapsuleFrag {
+        VerifiedCapsuleFrag {
+            backend: self.backend.clone().skip_verification(),
+        }
+    }
+
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes(data)
@@ -695,6 +713,12 @@ impl VerifiedCapsuleFrag {
     #[staticmethod]
     pub fn serialized_size() -> usize {
         umbral_pre::VerifiedCapsuleFrag::serialized_size()
+    }
+
+    pub fn to_unverified(&self) -> CapsuleFrag {
+        CapsuleFrag {
+            backend: self.backend.to_unverified(),
+        }
     }
 
     fn __bytes__(&self) -> PyResult<PyObject> {

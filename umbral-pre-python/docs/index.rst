@@ -190,6 +190,15 @@ API reference
 
         Verifies the integrity of the fragment using the signing key and, optionally, the delegating and the receiving keys (if they were included in the signature in :py:func:`generate_kfrags`).
 
+    .. py:method:: skip_verification() -> VerifiedKeyFrag:
+
+        Explicitly skips verification.
+        Useful in cases when the verifying keys are impossible to obtain independently.
+
+        .. warning::
+
+            Make sure you considered the implications of not enforcing verification.
+
     .. py:method:: __bytes__() -> bytes
 
         Serializes the object into a bytestring.
@@ -218,6 +227,11 @@ API reference
         Intended for internal storage;
         make sure that the bytes come from a trusted source.
 
+    .. py:method:: to_unverified() -> KeyFrag:
+
+        Clears the verification status from the keyfrag.
+        Useful for the cases where it needs to be put in the protocol structure containing :py:class:`KeyFrag` types (since those are the ones that can be serialized/deserialized freely).
+
     .. py:method:: __bytes__() -> bytes
 
         Serializes the object into a bytestring.
@@ -233,6 +247,15 @@ API reference
     .. py:method:: verify(capsule: Capsule, verifying_pk: PublicKey, delegating_pk: PublicKey, receiving_pk: PublicKey) -> VerifiedCapsuleFrag
 
         Verifies the integrity of the fragment.
+
+    .. py:method:: skip_verification() -> VerifiedCapsuleFrag:
+
+        Explicitly skips verification.
+        Useful in cases when the verifying keys are impossible to obtain independently.
+
+        .. warning::
+
+            Make sure you considered the implications of not enforcing verification.
 
     .. py:method:: __bytes__() -> bytes
 
@@ -261,6 +284,11 @@ API reference
 
         Intended for internal storage;
         make sure that the bytes come from a trusted source.
+
+    .. py:method:: to_unverified() -> KeyFrag:
+
+        Clears the verification status from the capsule frag.
+        Useful for the cases where it needs to be put in the protocol structure containing :py:class:`CapsuleFrag` types (since those are the ones that can be serialized/deserialized freely).
 
     .. py:method:: __bytes__() -> bytes
 

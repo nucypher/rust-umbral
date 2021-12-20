@@ -11,7 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `serde` support for types is now gated under the `serde-support` feature (not enabled by default). ([#82])
 
 
+### Added
+
+- `KeyFrag::skip_verification()`, `VerifiedKeyFrag::to_unverified()`, `CapsuleFrag::skip_verification()`, `VerifiedCapsuleFrag::to_unverified()`, and
+the corresponding methods in Python and WASM bindings. ([#84])
+
+
 [#82]: https://github.com/nucypher/rust-umbral/pull/82
+[#84]: https://github.com/nucypher/rust-umbral/pull/84
 
 
 ## [0.3.3] - 2021-12-10
