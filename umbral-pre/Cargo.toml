@@ -17,6 +17,7 @@ hkdf = { version = "0.11", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, optional = true }
 base64 = { version = "0.13", default-features = false, features = ["alloc"] }
+pyo3 = { version = "0.15", optional = true }
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
@@ -40,8 +41,10 @@ rmp-serde = "0.15"
 [features]
 default = ["default-rng"]
 bench-internals = ["default-rng"]
+bindings-python = ["pyo3", "std"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 serde-support = ["serde"]
+std = []
 
 # What features to use when building documentation on docs.rs
 [package.metadata.docs.rs]

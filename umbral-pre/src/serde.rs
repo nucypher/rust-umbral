@@ -1,3 +1,5 @@
+//! Utilities to interact with `serde`.
+
 use core::fmt;
 use core::marker::PhantomData;
 
@@ -5,14 +7,19 @@ use serde::{de, Deserializer, Serializer};
 
 use crate::traits::{DeserializableFromArray, HasTypeName, SerializableToArray};
 
+/// Defines the representation to use in text-based `serde` formats.
 pub(crate) enum Representation {
+    /// Use base64 representation for byte arrays.
     Base64,
+    /// Use hex representation for byte arrays.
     Hex,
 }
 
 // We cannot have a generic implementation of Serialize over everything
 // that supports SerializableToArray, so we have to use this helper function
 // and define implementations manually.
+/// A helper function that will serialize a byte array efficiently
+/// depending on whether the target format is text or binary based.
 pub(crate) fn serde_serialize<T, S>(
     obj: &T,
     serializer: S,
@@ -98,6 +105,8 @@ where
 // We cannot have a generic implementation of Deerialize over everything
 // that supports DeserializableFromArray, so we have to use this helper function
 // and define implementations manually.
+/// A helper function that will deserialize from a byte array,
+/// matching the format used by [`serde_serialize`].
 pub(crate) fn serde_deserialize<'de, T, D>(
     deserializer: D,
     representation: Representation,
