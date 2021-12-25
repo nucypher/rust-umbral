@@ -18,9 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 the corresponding methods in Python and WASM bindings. ([#84])
 
 
+### Fixed
+
+- Make the source distribution of Python bindings actually usable, by removing a dependency on a workspace directory. ([#86])
+
+
 [#74]: https://github.com/nucypher/rust-umbral/pull/74
 [#82]: https://github.com/nucypher/rust-umbral/pull/82
 [#84]: https://github.com/nucypher/rust-umbral/pull/84
+[#86]: https://github.com/nucypher/rust-umbral/pull/86
 
 
 ## [0.3.3] - 2021-12-10
