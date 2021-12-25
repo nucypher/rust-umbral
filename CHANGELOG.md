@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing here yet.
+
+
+## [0.4.0] - 2021-12-24
+
 ### Changed
 
 - `serde` support for types is now gated under the `serde-support` feature (not enabled by default). ([#82])
@@ -91,6 +96,7 @@ the corresponding methods in Python and WASM bindings. ([#84])
 
 - Initial release.
 
-[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.4.0...HEAD
 [0.2.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.2.0
 [0.3.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.3.0
+[0.4.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.4.0
