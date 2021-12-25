@@ -97,9 +97,22 @@ jobs:
         run: |
           python -m pip install --upgrade wheel setuptools setuptools-rust
 
+      # Assuming here that the version of the Python bindings
+      # is matched to the version of the main Rust crate (as it should be at all times),
+      # and we are running this at a release commit.
+      - name: Replace the relative path to `umbral-pre` in Cargo.toml with the specific version
+        working-directory: ./umbral-pre-python
+        run: python replace_version.py relative-to-published
+
       - name: Build sdist
         working-directory: ./umbral-pre-python
         run: python setup.py sdist
+
+      # Roll back the changes
+      - name: Replace the specific version of `umbral-pre` in Cargo.toml with the relative path
+        if: always()
+        working-directory: ./umbral-pre-python
+        run: python replace_version.py published-to-relative
 
       - uses: actions/upload-artifact@v2
         with:
