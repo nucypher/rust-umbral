@@ -128,13 +128,15 @@ impl SecretKey {
     }
 
     pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
-        let nz_scalar = SecretBox::new(BackendNonZeroScalar::new(scalar.to_backend_scalar())?);
+        let maybe_nz_scalar: Option<BackendNonZeroScalar> =
+            BackendNonZeroScalar::new(scalar.to_backend_scalar()).into();
+        let nz_scalar = SecretBox::new(maybe_nz_scalar?);
         Some(Self::new(nz_scalar.as_secret().into()))
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
     pub(crate) fn to_secret_scalar(&self) -> SecretBox<CurveScalar> {
-        let backend_scalar = SecretBox::new(self.0.as_secret().to_secret_scalar());
+        let backend_scalar = SecretBox::new(self.0.as_secret().to_nonzero_scalar());
         SecretBox::new(CurveScalar::from_backend_scalar(backend_scalar.as_secret()))
     }
 }
@@ -152,13 +154,13 @@ impl RepresentableAsArray for SecretKey {
 
 impl SerializableToSecretArray for SecretKey {
     fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
-        SecretBox::new(self.0.as_secret().to_bytes())
+        SecretBox::new(self.0.as_secret().to_be_bytes())
     }
 }
 
 impl DeserializableFromArray for SecretKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
+        BackendSecretKey::<CurveType>::from_be_bytes(arr.as_slice())
             .map(Self::new)
             .map_err(|_| ConstructionError::new("SecretKey", "Internal backend error"))
     }

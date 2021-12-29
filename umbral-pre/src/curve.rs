@@ -6,9 +6,11 @@ use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 
 use digest::Digest;
-use ecdsa::hazmat::FromDigest;
+use elliptic_curve::bigint::U256; // Note that this type is different from typenum::U256
 use elliptic_curve::group::ff::PrimeField;
-use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
+use elliptic_curve::ops::Reduce;
+use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
+use elliptic_curve::Field;
 use elliptic_curve::{AffinePoint, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
@@ -23,6 +25,7 @@ use crate::traits::{
 };
 
 pub(crate) type CurveType = Secp256k1;
+type CompressedPointSize = <FieldSize<CurveType> as ModulusSize>::CompressedPointSize;
 
 type BackendScalar = Scalar<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
@@ -73,7 +76,9 @@ impl CurveScalar {
     pub(crate) fn from_digest(
         d: impl Digest<OutputSize = <CurveScalar as RepresentableAsArray>::Size>,
     ) -> Self {
-        Self(BackendScalar::from_digest(d))
+        Self(<BackendScalar as Reduce<U256>>::from_be_bytes_reduced(
+            d.finalize(),
+        ))
     }
 }
 
@@ -99,7 +104,9 @@ impl SerializableToArray for CurveScalar {
 
 impl DeserializableFromArray for CurveScalar {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Scalar::<CurveType>::from_repr(*arr)
+        // unwrap CtOption into Option
+        let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(*arr).into();
+        maybe_scalar
             .map(Self)
             .ok_or_else(|| ConstructionError::new("CurveScalar", "Internal backend error"))
     }
@@ -135,15 +142,16 @@ impl CurvePoint {
     }
 
     pub(crate) fn from_compressed_array(
-        arr: &GenericArray<u8, CompressedPointSize<CurveType>>,
+        arr: &GenericArray<u8, CompressedPointSize>,
     ) -> Option<Self> {
         let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
-        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
+        // Unwrap CtOption into Option
+        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep).into();
         cp_opt.map(Self)
     }
 
-    fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize<CurveType>> {
-        *GenericArray::<u8, CompressedPointSize<CurveType>>::from_slice(
+    fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize> {
+        *GenericArray::<u8, CompressedPointSize>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )
     }
@@ -204,7 +212,7 @@ impl Mul<&CurveScalar> for &CurveScalar {
 }
 
 impl RepresentableAsArray for CurvePoint {
-    type Size = CompressedPointSize<CurveType>;
+    type Size = CompressedPointSize;
 }
 
 impl SerializableToArray for CurvePoint {
