@@ -4,7 +4,7 @@ use generic_array::GenericArray;
 use sha2::Sha256;
 use typenum::U1;
 
-use crate::curve::{CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, NonZeroCurveScalar};
 use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
 use crate::traits::SerializableToArray;
 
@@ -118,11 +118,8 @@ impl ScalarDigest {
         digest
     }
 
-    pub fn finalize(self) -> CurveScalar {
-        // TODO (#35): use the standard method when it is available in RustCrypto.
-        // TODO (#39): Ideally this should return a non-zero scalar.
-        //     (when it does, the loop in `KeyFragFactory::new()` can be removed)
-        CurveScalar::from_digest(self.0.digest())
+    pub fn finalize(self) -> NonZeroCurveScalar {
+        NonZeroCurveScalar::from_digest(self.0.digest())
     }
 }
 
@@ -175,23 +172,27 @@ mod tests {
         let s: CurveScalar = ScalarDigest::new_with_dst(b"abc")
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
-            .finalize();
+            .finalize()
+            .into();
         let s_same: CurveScalar = ScalarDigest::new_with_dst(b"abc")
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
-            .finalize();
+            .finalize()
+            .into();
         assert_eq!(s, s_same);
 
         let s_diff: CurveScalar = ScalarDigest::new_with_dst(b"abc")
             .chain_points(&[p2, p1])
             .chain_bytes(bytes)
-            .finalize();
+            .finalize()
+            .into();
         assert_ne!(s, s_diff);
 
         let s_diff_tag: CurveScalar = ScalarDigest::new_with_dst(b"def")
             .chain_points(&[p1, p2])
             .chain_bytes(bytes)
-            .finalize();
+            .finalize()
+            .into();
         assert_ne!(s, s_diff_tag);
     }
 

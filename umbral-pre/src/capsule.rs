@@ -10,7 +10,7 @@ use typenum::op;
 use crate::serde::{serde_deserialize, serde_serialize, Representation};
 
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
@@ -33,9 +33,6 @@ pub enum OpenReencryptedError {
     MismatchedCapsuleFrags,
     /// Some of the given capsule fragments are repeated.
     RepeatingCapsuleFrags,
-    /// An internally hashed value is zero.
-    /// See [rust-umbral#39](https://github.com/nucypher/rust-umbral/issues/39).
-    ZeroHash,
     /// Internal validation of the result has failed.
     /// Can be caused by an incorrect (possibly modified) capsule
     /// or some of the capsule fragments.
@@ -48,8 +45,6 @@ impl fmt::Display for OpenReencryptedError {
             Self::NoCapsuleFrags => write!(f, "Empty CapsuleFrag sequence"),
             Self::MismatchedCapsuleFrags => write!(f, "CapsuleFrags are not pairwise consistent"),
             Self::RepeatingCapsuleFrags => write!(f, "Some of the CapsuleFrags are repeated"),
-            // Will be removed when #39 is fixed
-            Self::ZeroHash => write!(f, "An internally hashed value is zero"),
             Self::ValidationFailed => write!(f, "Internal validation failed"),
         }
     }
@@ -163,10 +158,10 @@ impl Capsule {
     ) -> (Capsule, SecretBox<KeySeed>) {
         let g = CurvePoint::generator();
 
-        let priv_r = CurveScalar::random_nonzero(rng);
+        let priv_r = NonZeroCurveScalar::random(rng);
         let pub_r = &g * &priv_r;
 
-        let priv_u = CurveScalar::random_nonzero(rng);
+        let priv_u = NonZeroCurveScalar::random(rng);
         let pub_u = &g * &priv_u;
 
         let h = hash_capsule_points(&pub_r, &pub_u);
@@ -209,7 +204,7 @@ impl Capsule {
         let dh_point = &precursor * receiving_sk.to_secret_scalar().as_secret();
 
         // Combination of CFrags via Shamir's Secret Sharing reconstruction
-        let mut lc = Vec::<CurveScalar>::with_capacity(cfrags.len());
+        let mut lc = Vec::<NonZeroCurveScalar>::with_capacity(cfrags.len());
         for cfrag in cfrags {
             let coeff = hash_to_polynomial_arg(&precursor, &pub_key, &dh_point, &cfrag.kfrag_id);
             lc.push(coeff);
@@ -234,13 +229,7 @@ impl Capsule {
 
         let orig_pub_key = delegating_pk.to_point();
 
-        // Have to convert from subtle::CtOption here.
-        let inv_d_opt: Option<CurveScalar> = d.invert().into();
-        // At the moment we cannot guarantee statically that the digest `d` is non-zero.
-        // Technically, it is supposed to be non-zero by the choice of `precursor`,
-        // but if is was somehow replaced by an incorrect value,
-        // we'd rather fail gracefully than panic.
-        let inv_d = inv_d_opt.ok_or(OpenReencryptedError::ZeroHash)?;
+        let inv_d = d.invert();
 
         if &orig_pub_key * &(&s * &inv_d) != &(&e_prime * &h) + &v_prime {
             return Err(OpenReencryptedError::ValidationFailed);
@@ -251,7 +240,7 @@ impl Capsule {
     }
 }
 
-fn lambda_coeff(xs: &[CurveScalar], i: usize) -> Option<CurveScalar> {
+fn lambda_coeff(xs: &[NonZeroCurveScalar], i: usize) -> Option<CurveScalar> {
     let mut res = CurveScalar::one();
     for j in 0..xs.len() {
         if j != i {

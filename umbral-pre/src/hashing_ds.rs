@@ -4,19 +4,18 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use crate::curve::{CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, NonZeroCurveScalar};
 use crate::hashing::ScalarDigest;
 use crate::key_frag::KeyFragID;
 use crate::keys::PublicKey;
 use crate::traits::SerializableToArray;
 
-// TODO (#39): Ideally this should return a non-zero scalar.
 pub(crate) fn hash_to_polynomial_arg(
     precursor: &CurvePoint,
     pubkey: &CurvePoint,
     dh_point: &CurvePoint,
     kfrag_id: &KeyFragID,
-) -> CurveScalar {
+) -> NonZeroCurveScalar {
     ScalarDigest::new_with_dst(b"POLYNOMIAL_ARG")
         .chain_point(precursor)
         .chain_point(pubkey)
@@ -29,7 +28,7 @@ pub(crate) fn hash_to_shared_secret(
     precursor: &CurvePoint,
     pubkey: &CurvePoint,
     dh_point: &CurvePoint,
-) -> CurveScalar {
+) -> NonZeroCurveScalar {
     ScalarDigest::new_with_dst(b"SHARED_SECRET")
         .chain_point(precursor)
         .chain_point(pubkey)
@@ -37,14 +36,17 @@ pub(crate) fn hash_to_shared_secret(
         .finalize()
 }
 
-pub(crate) fn hash_capsule_points(capsule_e: &CurvePoint, capsule_v: &CurvePoint) -> CurveScalar {
+pub(crate) fn hash_capsule_points(
+    capsule_e: &CurvePoint,
+    capsule_v: &CurvePoint,
+) -> NonZeroCurveScalar {
     ScalarDigest::new_with_dst(b"CAPSULE_POINTS")
         .chain_point(capsule_e)
         .chain_point(capsule_v)
         .finalize()
 }
 
-pub(crate) fn hash_to_cfrag_verification(points: &[CurvePoint]) -> CurveScalar {
+pub(crate) fn hash_to_cfrag_verification(points: &[CurvePoint]) -> NonZeroCurveScalar {
     ScalarDigest::new_with_dst(b"CFRAG_VERIFICATION")
         .chain_points(points)
         .finalize()

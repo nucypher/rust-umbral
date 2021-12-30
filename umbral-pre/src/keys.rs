@@ -17,7 +17,7 @@ use rand_core::OsRng;
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
+use crate::curve::{CurvePoint, CurveScalar, CurveType, NonZeroCurveScalar};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
@@ -127,24 +127,20 @@ impl SecretKey {
         PublicKey(self.0.as_secret().public_key())
     }
 
-    pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
-        let maybe_nz_scalar: Option<BackendNonZeroScalar> =
-            BackendNonZeroScalar::new(scalar.to_backend_scalar()).into();
-        let nz_scalar = SecretBox::new(maybe_nz_scalar?);
-        Some(Self::new(nz_scalar.as_secret().into()))
+    fn from_nonzero_scalar(scalar: SecretBox<NonZeroCurveScalar>) -> Self {
+        // TODO: SecretBox it
+        let backend_sk =
+            BackendSecretKey::<CurveType>::from(scalar.as_secret().as_backend_scalar());
+
+        Self::new(backend_sk)
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
-    pub(crate) fn to_secret_scalar(&self) -> SecretBox<CurveScalar> {
+    pub(crate) fn to_secret_scalar(&self) -> SecretBox<NonZeroCurveScalar> {
         let backend_scalar = SecretBox::new(self.0.as_secret().to_nonzero_scalar());
-        SecretBox::new(CurveScalar::from_backend_scalar(backend_scalar.as_secret()))
-    }
-}
-
-#[cfg(test)]
-impl PartialEq for SecretKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_secret_scalar().as_secret() == other.to_secret_scalar().as_secret()
+        SecretBox::new(NonZeroCurveScalar::from_backend_scalar(
+            *backend_scalar.as_secret(),
+        ))
     }
 }
 
@@ -304,22 +300,6 @@ impl fmt::Display for PublicKey {
     }
 }
 
-/// Errors that can happen when using a [`SecretKeyFactory`].
-#[derive(Debug, PartialEq)]
-pub enum SecretKeyFactoryError {
-    /// An internally hashed value is zero.
-    /// See [rust-umbral#39](https://github.com/nucypher/rust-umbral/issues/39).
-    ZeroHash,
-}
-
-impl fmt::Display for SecretKeyFactoryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ZeroHash => write!(f, "Resulting secret key is zero"),
-        }
-    }
-}
-
 type SecretKeyFactorySeedSize = U32; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
 type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
@@ -368,7 +348,7 @@ impl SecretKeyFactory {
     }
 
     /// Creates a `SecretKey` deterministically from the given label.
-    pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
+    pub fn make_key(&self, label: &[u8]) -> SecretKey {
         let prefix = b"KEY_DERIVATION/";
         let info: Vec<u8> = prefix
             .iter()
@@ -377,11 +357,12 @@ impl SecretKeyFactory {
             .collect();
         let key =
             kdf::<SecretKeyFactorySeed, SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
-        let scalar = ScalarDigest::new_with_dst(&info)
-            .chain_secret_bytes(&key)
-            .finalize();
-        // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
-        SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)
+        let nz_scalar = SecretBox::new(
+            ScalarDigest::new_with_dst(&info)
+                .chain_secret_bytes(&key)
+                .finalize(),
+        );
+        SecretKey::from_nonzero_scalar(nz_scalar)
     }
 
     /// Creates a `SecretKeyFactory` deterministically from the given label.
@@ -395,13 +376,6 @@ impl SecretKeyFactory {
         let derived_seed =
             kdf::<SecretKeyFactorySeed, SecretKeyFactorySeedSize>(&self.0, None, Some(&info));
         Self(derived_seed)
-    }
-}
-
-#[cfg(test)]
-impl PartialEq for SecretKeyFactory {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.as_secret() == other.0.as_secret()
     }
 }
 
@@ -449,7 +423,7 @@ mod tests {
         let sk = SecretKey::random();
         let sk_arr = sk.to_secret_array();
         let sk_back = SecretKey::from_array(sk_arr.as_secret()).unwrap();
-        assert!(sk == sk_back);
+        assert!(sk.to_secret_array().as_secret() == sk_back.to_secret_array().as_secret());
     }
 
     #[test]
@@ -457,7 +431,7 @@ mod tests {
         let skf = SecretKeyFactory::random();
         let skf_arr = skf.to_secret_array();
         let skf_back = SecretKeyFactory::from_array(skf_arr.as_secret()).unwrap();
-        assert!(skf == skf_back);
+        assert!(skf.to_secret_array().as_secret() == skf_back.to_secret_array().as_secret());
     }
 
     #[test]
@@ -467,8 +441,8 @@ mod tests {
         let sk2 = skf.make_key(b"foo");
         let sk3 = skf.make_key(b"bar");
 
-        assert!(sk1 == sk2);
-        assert!(sk1 != sk3);
+        assert!(sk1.to_secret_array().as_secret() == sk2.to_secret_array().as_secret());
+        assert!(sk1.to_secret_array().as_secret() != sk3.to_secret_array().as_secret());
     }
 
     #[test]

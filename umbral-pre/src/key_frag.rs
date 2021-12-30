@@ -10,7 +10,7 @@ use typenum::{op, U32};
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::curve::{CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
 use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_signature_message};
 use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
@@ -440,7 +440,7 @@ pub(crate) struct KeyFragBase {
     params: Parameters,
     delegating_pk: PublicKey,
     receiving_pk: PublicKey,
-    coefficients: Box<[CurveScalar]>,
+    coefficients: Box<[NonZeroCurveScalar]>,
 }
 
 impl KeyFragBase {
@@ -458,32 +458,23 @@ impl KeyFragBase {
 
         let receiving_pk_point = receiving_pk.to_point();
 
-        let (d, precursor, dh_point) = loop {
-            // The precursor point is used as an ephemeral public key in a DH key exchange,
-            // and the resulting shared secret 'dh_point' is used to derive other secret values
-            let private_precursor = CurveScalar::random_nonzero(rng);
-            let precursor = &g * &private_precursor;
+        // The precursor point is used as an ephemeral public key in a DH key exchange,
+        // and the resulting shared secret 'dh_point' is used to derive other secret values
+        let private_precursor = NonZeroCurveScalar::random(rng);
+        let precursor = &g * &private_precursor;
 
-            let dh_point = &receiving_pk_point * &private_precursor;
+        let dh_point = &receiving_pk_point * &private_precursor;
 
-            // Secret value 'd' allows to make Umbral non-interactive
-            let d = hash_to_shared_secret(&precursor, &receiving_pk_point, &dh_point);
-
-            // At the moment we cannot statically ensure `d` is a `NonZeroScalar`,
-            // but we need it to be non-zero for the algorithm to work.
-            if !d.is_zero() {
-                break (d, precursor, dh_point);
-            }
-        };
+        // Secret value 'd' allows to make Umbral non-interactive
+        let d = hash_to_shared_secret(&precursor, &receiving_pk_point, &dh_point);
 
         // Coefficients of the generating polynomial
-        // `invert()` is guaranteed not to panic because `d` is nonzero.
-        let coefficient0 = delegating_sk.to_secret_scalar().as_secret() * &(d.invert().unwrap());
+        let coefficient0 = delegating_sk.to_secret_scalar().as_secret() * &(d.invert());
 
-        let mut coefficients = Vec::<CurveScalar>::with_capacity(threshold);
+        let mut coefficients = Vec::<NonZeroCurveScalar>::with_capacity(threshold);
         coefficients.push(coefficient0);
         for _i in 1..threshold {
-            coefficients.push(CurveScalar::random_nonzero(rng));
+            coefficients.push(NonZeroCurveScalar::random(rng));
         }
 
         Self {
@@ -499,8 +490,8 @@ impl KeyFragBase {
 }
 
 // Coefficients of the generating polynomial
-fn poly_eval(coeffs: &[CurveScalar], x: &CurveScalar) -> CurveScalar {
-    let mut result: CurveScalar = coeffs[coeffs.len() - 1];
+fn poly_eval(coeffs: &[NonZeroCurveScalar], x: &NonZeroCurveScalar) -> CurveScalar {
+    let mut result: CurveScalar = (&coeffs[coeffs.len() - 1]).into();
     for i in (0..coeffs.len() - 1).rev() {
         result = &(&result * x) + &coeffs[i];
     }

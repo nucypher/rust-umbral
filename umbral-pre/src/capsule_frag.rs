@@ -9,7 +9,7 @@ use typenum::op;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::capsule::Capsule;
-use crate::curve::{CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
@@ -84,7 +84,7 @@ impl CapsuleFragProof {
         let params = capsule.params;
 
         let rk = kfrag.key;
-        let t = CurveScalar::random_nonzero(rng);
+        let t = NonZeroCurveScalar::random(rng);
 
         // Here are the formulaic constituents shared with `CapsuleFrag::verify()`.
 
@@ -105,7 +105,7 @@ impl CapsuleFragProof {
 
         ////////
 
-        let z3 = &t + &(&rk * &h);
+        let z3 = &(&rk * &h) + &t;
 
         Self {
             point_e2: e2,
