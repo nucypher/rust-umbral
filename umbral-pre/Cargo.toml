@@ -50,7 +50,7 @@ std = []
 [package.metadata.docs.rs]
 features = ["serde-support"]
 # Used to conditionally enable the unstable feature `doc-cfg`
-rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [[bench]]
 name = "bench"
