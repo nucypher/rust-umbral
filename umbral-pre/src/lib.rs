@@ -134,7 +134,7 @@ mod pre;
 mod secret_box;
 mod traits;
 
-#[cfg(feature = "serde-support")]
+#[cfg(any(feature = "serde-support", feature = "bindings-wasm"))]
 mod serde;
 
 pub use capsule::{Capsule, OpenReencryptedError};

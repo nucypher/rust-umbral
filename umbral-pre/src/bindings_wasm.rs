@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use serde::{Deserialize, Serialize};
 
 use crate as umbral_pre;
-use umbral_pre::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
+use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
 fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
     Error::new(&format!("{}", err)).into()
@@ -372,8 +372,8 @@ impl VerifiedCapsuleFrag {
         Self { backend: vcfrag }
     }
 
-    pub fn inner(&self) -> &umbral_pre::VerifiedCapsuleFrag {
-        &self.backend
+    pub fn inner(&self) -> umbral_pre::VerifiedCapsuleFrag {
+        self.backend.clone()
     }
 }
 
