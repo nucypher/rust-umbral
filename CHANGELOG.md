@@ -6,7 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing here yet.
+### Changed
+
+- `k256` dependency bumped to 0.10 (and to match it, `chacha20poly1305` to 0.9, `elliptic-curve` to 0.11, `ecdsa` to 0.13, `signature` to 1.4, MSRV to 1.56, and Rust edition to 2021). ([#87])
+- ABI changed because of the internal change in hashing to scalars (we can hash to non-zero scalars now). Correspondingly, `OpenReencryptedError::ZeroHash` and `SecretKeyFactoryError` have been removed, and `SecretKeyFactory::make_key()` was made infallible. ([#87])
+
+
+### Fixed
+
+- Some previously missed potentially secret values are zeroized in drop. ([#87])
+
+
+[#87]: https://github.com/nucypher/rust-umbral/pull/87
 
 
 ## [0.4.0] - 2021-12-24
