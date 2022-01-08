@@ -24,7 +24,7 @@ pyo3 = { version = "0.15", optional = true }
 elliptic-curve = { version = "0.11" }
 digest = "0.9"
 generic-array = "0.14"
-aead = { version = "0.4", features = ["heapless"] }
+aead = { version = "0.4", default-features = false }
 ecdsa = { version = "0.13" }
 signature = { version = "1.4", default-features = false }
 rand_core = { version = "0.6", default-features = false }
