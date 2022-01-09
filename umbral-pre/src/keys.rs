@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::fmt;
@@ -20,7 +19,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::curve::{CurvePoint, CurveScalar, CurveType, NonZeroCurveScalar};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
-use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
+use crate::secret_box::SecretBox;
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
@@ -95,19 +94,16 @@ impl fmt::Display for Signature {
     }
 }
 
-impl CanBeZeroizedOnDrop for BackendSecretKey<CurveType> {
-    fn ensure_zeroized_on_drop(&mut self) {
-        // BackendSecretKey is zeroized on drop, nothing to do
-    }
-}
-
+// TODO (#89): derive `ZeroizeOnDrop` for `SecretKey` when it's available.
+// For now we know that `BackendSecretKey` is zeroized on drop (as of elliptic-curve=0.11),
+// but cannot check that at compile-time.
 /// A secret key.
 #[derive(Clone)]
-pub struct SecretKey(SecretBox<BackendSecretKey<CurveType>>);
+pub struct SecretKey(BackendSecretKey<CurveType>);
 
 impl SecretKey {
     fn new(sk: BackendSecretKey<CurveType>) -> Self {
-        Self(SecretBox::new(sk))
+        Self(sk)
     }
 
     /// Creates a secret key using the given RNG.
@@ -124,20 +120,17 @@ impl SecretKey {
 
     /// Returns a public key corresponding to this secret key.
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(self.0.as_secret().public_key())
+        PublicKey(self.0.public_key())
     }
 
     fn from_nonzero_scalar(scalar: SecretBox<NonZeroCurveScalar>) -> Self {
-        // TODO: SecretBox it
-        let backend_sk =
-            BackendSecretKey::<CurveType>::from(scalar.as_secret().as_backend_scalar());
-
-        Self::new(backend_sk)
+        let backend_scalar_ref = scalar.as_secret().as_backend_scalar();
+        Self::new(BackendSecretKey::<CurveType>::from(backend_scalar_ref))
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
     pub(crate) fn to_secret_scalar(&self) -> SecretBox<NonZeroCurveScalar> {
-        let backend_scalar = SecretBox::new(self.0.as_secret().to_nonzero_scalar());
+        let backend_scalar = SecretBox::new(self.0.to_nonzero_scalar());
         SecretBox::new(NonZeroCurveScalar::from_backend_scalar(
             *backend_scalar.as_secret(),
         ))
@@ -150,7 +143,7 @@ impl RepresentableAsArray for SecretKey {
 
 impl SerializableToSecretArray for SecretKey {
     fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
-        SecretBox::new(self.0.as_secret().to_be_bytes())
+        SecretBox::new(self.0.to_be_bytes())
     }
 }
 
@@ -193,10 +186,9 @@ impl Signer {
     pub fn sign_with_rng(&self, rng: &mut (impl CryptoRng + RngCore), message: &[u8]) -> Signature {
         let digest = digest_for_signing(message);
         let secret_key = self.0.clone();
-        // We could use SecretBox here, but SigningKey does not implement Clone.
-        // Box is good enough, seeing as how `signing_key` does not leave this method.
-        let signing_key = Box::new(SigningKey::<CurveType>::from(secret_key.0.as_secret()));
-        Signature(signing_key.as_ref().sign_digest_with_rng(rng, digest))
+        // `k256::SigningKey` is zeroized on `Drop` as of `k256=0.10`.
+        let signing_key = SigningKey::<CurveType>::from(secret_key.0);
+        Signature(signing_key.sign_digest_with_rng(rng, digest))
     }
 
     /// Signs the given message using the default RNG.

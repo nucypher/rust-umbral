@@ -158,17 +158,18 @@ impl Capsule {
     ) -> (Capsule, SecretBox<KeySeed>) {
         let g = CurvePoint::generator();
 
-        let priv_r = NonZeroCurveScalar::random(rng);
-        let pub_r = &g * &priv_r;
+        let priv_r = SecretBox::new(NonZeroCurveScalar::random(rng));
+        let pub_r = &g * priv_r.as_secret();
 
-        let priv_u = NonZeroCurveScalar::random(rng);
-        let pub_u = &g * &priv_u;
+        let priv_u = SecretBox::new(NonZeroCurveScalar::random(rng));
+        let pub_u = &g * priv_u.as_secret();
 
         let h = hash_capsule_points(&pub_r, &pub_u);
 
-        let s = &priv_u + &(&priv_r * &h);
+        let s = priv_u.as_secret() + &(priv_r.as_secret() * &h);
 
-        let shared_key = SecretBox::new(&delegating_pk.to_point() * &(&priv_r + &priv_u));
+        let shared_key =
+            SecretBox::new(&delegating_pk.to_point() * &(priv_r.as_secret() + priv_u.as_secret()));
 
         let capsule = Self::new(pub_r, pub_u, s);
 
