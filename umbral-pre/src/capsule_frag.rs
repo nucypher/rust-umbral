@@ -195,7 +195,7 @@ impl fmt::Display for CapsuleFrag {
     }
 }
 
-/// Possible errors that can be returned by [`CapsuleFrag::verify`].
+/// Possible errors that can be returned by [`CapsuleFrag::verify`]. 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CapsuleFragVerificationError {
     /// Inconsistent internal state leading to signature verification failure.
@@ -313,7 +313,7 @@ impl CapsuleFrag {
 
 /// Verified capsule fragment, good for dencryption.
 /// Can be serialized, but cannot be deserialized directly.
-/// It can only be obtained from [`CapsuleFrag::verify`].
+/// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bindings-wasm", derive(Serialize, Deserialize))]
 pub struct VerifiedCapsuleFrag {
