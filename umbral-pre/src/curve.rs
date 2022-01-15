@@ -6,9 +6,11 @@ use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 
 use digest::Digest;
-use ecdsa::hazmat::FromDigest;
+use elliptic_curve::bigint::U256; // Note that this type is different from typenum::U256
 use elliptic_curve::group::ff::PrimeField;
-use elliptic_curve::sec1::{CompressedPointSize, EncodedPoint, FromEncodedPoint, ToEncodedPoint};
+use elliptic_curve::ops::Reduce;
+use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
+use elliptic_curve::Field;
 use elliptic_curve::{AffinePoint, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
@@ -23,6 +25,7 @@ use crate::traits::{
 };
 
 pub(crate) type CurveType = Secp256k1;
+type CompressedPointSize = <FieldSize<CurveType> as ModulusSize>::CompressedPointSize;
 
 type BackendScalar = Scalar<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
@@ -45,35 +48,12 @@ impl CanBeZeroizedOnDrop for BackendNonZeroScalar {
 pub struct CurveScalar(BackendScalar);
 
 impl CurveScalar {
-    pub(crate) fn from_backend_scalar(scalar: &BackendScalar) -> Self {
-        Self(*scalar)
-    }
-
-    pub(crate) fn to_backend_scalar(self) -> BackendScalar {
-        self.0
-    }
-
     pub(crate) fn invert(&self) -> CtOption<Self> {
         self.0.invert().map(Self)
     }
 
     pub(crate) fn one() -> Self {
         Self(BackendScalar::one())
-    }
-
-    pub(crate) fn is_zero(&self) -> bool {
-        self.0.is_zero().into()
-    }
-
-    /// Generates a random non-zero scalar (in nearly constant-time).
-    pub(crate) fn random_nonzero(rng: &mut (impl CryptoRng + RngCore)) -> CurveScalar {
-        Self(*BackendNonZeroScalar::random(rng))
-    }
-
-    pub(crate) fn from_digest(
-        d: impl Digest<OutputSize = <CurveScalar as RepresentableAsArray>::Size>,
-    ) -> Self {
-        Self(BackendScalar::from_digest(d))
     }
 }
 
@@ -99,7 +79,9 @@ impl SerializableToArray for CurveScalar {
 
 impl DeserializableFromArray for CurveScalar {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Scalar::<CurveType>::from_repr(*arr)
+        // unwrap CtOption into Option
+        let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(*arr).into();
+        maybe_scalar
             .map(Self)
             .ok_or_else(|| ConstructionError::new("CurveScalar", "Internal backend error"))
     }
@@ -108,6 +90,61 @@ impl DeserializableFromArray for CurveScalar {
 impl HasTypeName for CurveScalar {
     fn type_name() -> &'static str {
         "CurveScalar"
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct NonZeroCurveScalar(BackendNonZeroScalar);
+
+impl CanBeZeroizedOnDrop for NonZeroCurveScalar {
+    fn ensure_zeroized_on_drop(&mut self) {
+        self.0.zeroize()
+    }
+}
+
+impl NonZeroCurveScalar {
+    /// Generates a random non-zero scalar (in nearly constant-time).
+    pub(crate) fn random(rng: &mut (impl CryptoRng + RngCore)) -> Self {
+        Self(BackendNonZeroScalar::random(rng))
+    }
+
+    pub(crate) fn from_backend_scalar(source: BackendNonZeroScalar) -> Self {
+        Self(source)
+    }
+
+    pub(crate) fn as_backend_scalar(&self) -> &BackendNonZeroScalar {
+        &self.0
+    }
+
+    pub(crate) fn invert(&self) -> Self {
+        // At the moment there is no infallible invert() for non-zero scalars
+        // (see https://github.com/RustCrypto/elliptic-curves/issues/499).
+        // But we know it will never fail.
+        let inv = self.0.invert().unwrap();
+        // We know that the inversion of a nonzero scalar is nonzero,
+        // so it is safe to unwrap again.
+        Self(BackendNonZeroScalar::new(inv).unwrap())
+    }
+
+    pub(crate) fn from_digest(
+        d: impl Digest<OutputSize = <CurveScalar as RepresentableAsArray>::Size>,
+    ) -> Self {
+        // There's currently no way to make the required digest output size
+        // depend on the target scalar size, so we are hardcoding it to 256 bit
+        // (that is, equal to the scalar size).
+        Self(<BackendNonZeroScalar as Reduce<U256>>::from_be_bytes_reduced(d.finalize()))
+    }
+}
+
+impl From<NonZeroCurveScalar> for CurveScalar {
+    fn from(source: NonZeroCurveScalar) -> Self {
+        CurveScalar(*source.0)
+    }
+}
+
+impl From<&NonZeroCurveScalar> for CurveScalar {
+    fn from(source: &NonZeroCurveScalar) -> Self {
+        CurveScalar(*source.0)
     }
 }
 
@@ -135,15 +172,16 @@ impl CurvePoint {
     }
 
     pub(crate) fn from_compressed_array(
-        arr: &GenericArray<u8, CompressedPointSize<CurveType>>,
+        arr: &GenericArray<u8, CompressedPointSize>,
     ) -> Option<Self> {
         let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
-        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep);
+        // Unwrap CtOption into Option
+        let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep).into();
         cp_opt.map(Self)
     }
 
-    fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize<CurveType>> {
-        *GenericArray::<u8, CompressedPointSize<CurveType>>::from_slice(
+    fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize> {
+        *GenericArray::<u8, CompressedPointSize>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )
     }
@@ -171,6 +209,22 @@ impl Add<&CurveScalar> for &CurveScalar {
     }
 }
 
+impl Add<&NonZeroCurveScalar> for &CurveScalar {
+    type Output = CurveScalar;
+
+    fn add(self, other: &NonZeroCurveScalar) -> CurveScalar {
+        CurveScalar(self.0.add(&(*other.0)))
+    }
+}
+
+impl Add<&NonZeroCurveScalar> for &NonZeroCurveScalar {
+    type Output = CurveScalar;
+
+    fn add(self, other: &NonZeroCurveScalar) -> CurveScalar {
+        CurveScalar(self.0.add(&(*other.0)))
+    }
+}
+
 impl Add<&CurvePoint> for &CurvePoint {
     type Output = CurvePoint;
 
@@ -187,11 +241,27 @@ impl Sub<&CurveScalar> for &CurveScalar {
     }
 }
 
+impl Sub<&NonZeroCurveScalar> for &NonZeroCurveScalar {
+    type Output = CurveScalar;
+
+    fn sub(self, other: &NonZeroCurveScalar) -> CurveScalar {
+        CurveScalar(self.0.sub(&(*other.0)))
+    }
+}
+
 impl Mul<&CurveScalar> for &CurvePoint {
     type Output = CurvePoint;
 
     fn mul(self, other: &CurveScalar) -> CurvePoint {
         CurvePoint(self.0.mul(&(other.0)))
+    }
+}
+
+impl Mul<&NonZeroCurveScalar> for &CurvePoint {
+    type Output = CurvePoint;
+
+    fn mul(self, other: &NonZeroCurveScalar) -> CurvePoint {
+        CurvePoint(self.0.mul(&(*other.0)))
     }
 }
 
@@ -203,8 +273,34 @@ impl Mul<&CurveScalar> for &CurveScalar {
     }
 }
 
+impl Mul<&NonZeroCurveScalar> for &CurveScalar {
+    type Output = CurveScalar;
+
+    fn mul(self, other: &NonZeroCurveScalar) -> CurveScalar {
+        CurveScalar(self.0.mul(&(*other.0)))
+    }
+}
+
+impl Mul<&NonZeroCurveScalar> for &NonZeroCurveScalar {
+    type Output = NonZeroCurveScalar;
+
+    fn mul(self, other: &NonZeroCurveScalar) -> NonZeroCurveScalar {
+        let scalar: BackendScalar = self.0.mul(&(*other.0));
+
+        // Converting from CtOption
+        let maybe_nz_scalar: Option<BackendNonZeroScalar> =
+            BackendNonZeroScalar::new(scalar).into();
+
+        // RustCrypto does not support multiplying non-zero scalars preserving the invariant.
+        // But we know it always results in a non-zero scalar, so we can safely unwrap.
+        NonZeroCurveScalar::from_backend_scalar(
+            maybe_nz_scalar.expect("The product of two non-zero scalars must be non-zero"),
+        )
+    }
+}
+
 impl RepresentableAsArray for CurvePoint {
-    type Size = CompressedPointSize<CurveType>;
+    type Size = CompressedPointSize;
 }
 
 impl SerializableToArray for CurvePoint {

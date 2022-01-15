@@ -9,10 +9,11 @@ use typenum::op;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::capsule::Capsule;
-use crate::curve::{CurvePoint, CurveScalar};
+use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
 use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
+use crate::secret_box::SecretBox;
 use crate::traits::{
     fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray,
@@ -84,7 +85,7 @@ impl CapsuleFragProof {
         let params = capsule.params;
 
         let rk = kfrag.key;
-        let t = CurveScalar::random_nonzero(rng);
+        let t = SecretBox::new(NonZeroCurveScalar::random(rng));
 
         // Here are the formulaic constituents shared with `CapsuleFrag::verify()`.
 
@@ -97,15 +98,15 @@ impl CapsuleFragProof {
         let u = params.u;
         let u1 = kfrag.proof.commitment;
 
-        let e2 = &e * &t;
-        let v2 = &v * &t;
-        let u2 = &u * &t;
+        let e2 = &e * t.as_secret();
+        let v2 = &v * t.as_secret();
+        let u2 = &u * t.as_secret();
 
         let h = hash_to_cfrag_verification(&[e, *e1, e2, v, *v1, v2, u, u1, u2]);
 
         ////////
 
-        let z3 = &t + &(&rk * &h);
+        let z3 = &(&rk * &h) + t.as_secret();
 
         Self {
             point_e2: e2,

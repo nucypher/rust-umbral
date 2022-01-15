@@ -84,8 +84,8 @@ impl SecretKeyFactory {
     }
 
     #[wasm_bindgen(js_name = makeKey)]
-    pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
-        self.0.make_key(label).map(SecretKey).map_err(map_js_err)
+    pub fn make_key(&self, label: &[u8]) -> SecretKey {
+        SecretKey(self.0.make_key(label))
     }
 
     #[wasm_bindgen(js_name = makeFactory)]

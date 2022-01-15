@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::fmt;
@@ -17,10 +16,10 @@ use rand_core::OsRng;
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::curve::{BackendNonZeroScalar, CurvePoint, CurveScalar, CurveType};
+use crate::curve::{CurvePoint, CurveScalar, CurveType, NonZeroCurveScalar};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
-use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
+use crate::secret_box::SecretBox;
 use crate::traits::{
     fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
@@ -95,19 +94,16 @@ impl fmt::Display for Signature {
     }
 }
 
-impl CanBeZeroizedOnDrop for BackendSecretKey<CurveType> {
-    fn ensure_zeroized_on_drop(&mut self) {
-        // BackendSecretKey is zeroized on drop, nothing to do
-    }
-}
-
+// TODO (#89): derive `ZeroizeOnDrop` for `SecretKey` when it's available.
+// For now we know that `BackendSecretKey` is zeroized on drop (as of elliptic-curve=0.11),
+// but cannot check that at compile-time.
 /// A secret key.
 #[derive(Clone)]
-pub struct SecretKey(SecretBox<BackendSecretKey<CurveType>>);
+pub struct SecretKey(BackendSecretKey<CurveType>);
 
 impl SecretKey {
     fn new(sk: BackendSecretKey<CurveType>) -> Self {
-        Self(SecretBox::new(sk))
+        Self(sk)
     }
 
     /// Creates a secret key using the given RNG.
@@ -124,25 +120,20 @@ impl SecretKey {
 
     /// Returns a public key corresponding to this secret key.
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(self.0.as_secret().public_key())
+        PublicKey(self.0.public_key())
     }
 
-    pub(crate) fn from_scalar(scalar: &CurveScalar) -> Option<Self> {
-        let nz_scalar = SecretBox::new(BackendNonZeroScalar::new(scalar.to_backend_scalar())?);
-        Some(Self::new(nz_scalar.as_secret().into()))
+    fn from_nonzero_scalar(scalar: SecretBox<NonZeroCurveScalar>) -> Self {
+        let backend_scalar_ref = scalar.as_secret().as_backend_scalar();
+        Self::new(BackendSecretKey::<CurveType>::from(backend_scalar_ref))
     }
 
     /// Returns a reference to the underlying scalar of the secret key.
-    pub(crate) fn to_secret_scalar(&self) -> SecretBox<CurveScalar> {
-        let backend_scalar = SecretBox::new(self.0.as_secret().to_secret_scalar());
-        SecretBox::new(CurveScalar::from_backend_scalar(backend_scalar.as_secret()))
-    }
-}
-
-#[cfg(test)]
-impl PartialEq for SecretKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_secret_scalar().as_secret() == other.to_secret_scalar().as_secret()
+    pub(crate) fn to_secret_scalar(&self) -> SecretBox<NonZeroCurveScalar> {
+        let backend_scalar = SecretBox::new(self.0.to_nonzero_scalar());
+        SecretBox::new(NonZeroCurveScalar::from_backend_scalar(
+            *backend_scalar.as_secret(),
+        ))
     }
 }
 
@@ -152,13 +143,13 @@ impl RepresentableAsArray for SecretKey {
 
 impl SerializableToSecretArray for SecretKey {
     fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
-        SecretBox::new(self.0.as_secret().to_bytes())
+        SecretBox::new(self.0.to_be_bytes())
     }
 }
 
 impl DeserializableFromArray for SecretKey {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        BackendSecretKey::<CurveType>::from_bytes(arr.as_slice())
+        BackendSecretKey::<CurveType>::from_be_bytes(arr.as_slice())
             .map(Self::new)
             .map_err(|_| ConstructionError::new("SecretKey", "Internal backend error"))
     }
@@ -195,10 +186,9 @@ impl Signer {
     pub fn sign_with_rng(&self, rng: &mut (impl CryptoRng + RngCore), message: &[u8]) -> Signature {
         let digest = digest_for_signing(message);
         let secret_key = self.0.clone();
-        // We could use SecretBox here, but SigningKey does not implement Clone.
-        // Box is good enough, seeing as how `signing_key` does not leave this method.
-        let signing_key = Box::new(SigningKey::<CurveType>::from(secret_key.0.as_secret()));
-        Signature(signing_key.as_ref().sign_digest_with_rng(rng, digest))
+        // `k256::SigningKey` is zeroized on `Drop` as of `k256=0.10`.
+        let signing_key = SigningKey::<CurveType>::from(secret_key.0);
+        Signature(signing_key.sign_digest_with_rng(rng, digest))
     }
 
     /// Signs the given message using the default RNG.
@@ -302,22 +292,6 @@ impl fmt::Display for PublicKey {
     }
 }
 
-/// Errors that can happen when using a [`SecretKeyFactory`].
-#[derive(Debug, PartialEq)]
-pub enum SecretKeyFactoryError {
-    /// An internally hashed value is zero.
-    /// See [rust-umbral#39](https://github.com/nucypher/rust-umbral/issues/39).
-    ZeroHash,
-}
-
-impl fmt::Display for SecretKeyFactoryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ZeroHash => write!(f, "Resulting secret key is zero"),
-        }
-    }
-}
-
 type SecretKeyFactorySeedSize = U32; // the size of the seed material for key derivation
 type SecretKeyFactoryDerivedSize = U64; // the size of the derived key (before hashing to scalar)
 type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
@@ -366,7 +340,7 @@ impl SecretKeyFactory {
     }
 
     /// Creates a `SecretKey` deterministically from the given label.
-    pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, SecretKeyFactoryError> {
+    pub fn make_key(&self, label: &[u8]) -> SecretKey {
         let prefix = b"KEY_DERIVATION/";
         let info: Vec<u8> = prefix
             .iter()
@@ -375,11 +349,12 @@ impl SecretKeyFactory {
             .collect();
         let key =
             kdf::<SecretKeyFactorySeed, SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
-        let scalar = ScalarDigest::new_with_dst(&info)
-            .chain_secret_bytes(&key)
-            .finalize();
-        // TODO (#39) when we can hash to nonzero scalars, we can get rid of returning Result
-        SecretKey::from_scalar(&scalar).ok_or(SecretKeyFactoryError::ZeroHash)
+        let nz_scalar = SecretBox::new(
+            ScalarDigest::new_with_dst(&info)
+                .chain_secret_bytes(&key)
+                .finalize(),
+        );
+        SecretKey::from_nonzero_scalar(nz_scalar)
     }
 
     /// Creates a `SecretKeyFactory` deterministically from the given label.
@@ -393,13 +368,6 @@ impl SecretKeyFactory {
         let derived_seed =
             kdf::<SecretKeyFactorySeed, SecretKeyFactorySeedSize>(&self.0, None, Some(&info));
         Self(derived_seed)
-    }
-}
-
-#[cfg(test)]
-impl PartialEq for SecretKeyFactory {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.as_secret() == other.0.as_secret()
     }
 }
 
@@ -447,7 +415,7 @@ mod tests {
         let sk = SecretKey::random();
         let sk_arr = sk.to_secret_array();
         let sk_back = SecretKey::from_array(sk_arr.as_secret()).unwrap();
-        assert!(sk == sk_back);
+        assert!(sk.to_secret_array().as_secret() == sk_back.to_secret_array().as_secret());
     }
 
     #[test]
@@ -455,7 +423,7 @@ mod tests {
         let skf = SecretKeyFactory::random();
         let skf_arr = skf.to_secret_array();
         let skf_back = SecretKeyFactory::from_array(skf_arr.as_secret()).unwrap();
-        assert!(skf == skf_back);
+        assert!(skf.to_secret_array().as_secret() == skf_back.to_secret_array().as_secret());
     }
 
     #[test]
@@ -465,8 +433,8 @@ mod tests {
         let sk2 = skf.make_key(b"foo");
         let sk3 = skf.make_key(b"bar");
 
-        assert!(sk1 == sk2);
-        assert!(sk1 != sk3);
+        assert!(sk1.to_secret_array().as_secret() == sk2.to_secret_array().as_secret());
+        assert!(sk1.to_secret_array().as_secret() != sk3.to_secret_array().as_secret());
     }
 
     #[test]
