@@ -45,8 +45,7 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
     let delegating_sk = SecretKey::random();
     let delegating_pk = delegating_sk.public_key();
 
-    let signing_sk = SecretKey::random();
-    let signer = Signer::new(&signing_sk);
+    let signer = Signer::new(SecretKey::random());
 
     let receiving_sk = SecretKey::random();
     let receiving_pk = receiving_sk.public_key();
@@ -104,8 +103,7 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let threshold: usize = 2;
     let num_frags: usize = threshold + 1;
 
-    let signing_sk = SecretKey::random();
-    let signer = Signer::new(&signing_sk);
+    let signer = Signer::new(SecretKey::random());
 
     let receiving_sk = SecretKey::random();
     let receiving_pk = receiving_sk.public_key();

@@ -291,8 +291,7 @@ mod tests {
         let delegating_sk = SecretKey::random();
         let delegating_pk = delegating_sk.public_key();
 
-        let signing_sk = SecretKey::random();
-        let signer = Signer::new(&signing_sk);
+        let signer = Signer::new(SecretKey::random());
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = receiving_sk.public_key();

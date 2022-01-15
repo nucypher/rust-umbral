@@ -27,9 +27,8 @@
 //! // Key Generation (on Alice's side)
 //! let alice_sk = SecretKey::random();
 //! let alice_pk = alice_sk.public_key();
-//! let signing_sk = SecretKey::random();
-//! let signer = Signer::new(&signing_sk);
-//! let verifying_pk = signing_sk.public_key();
+//! let signer = Signer::new(SecretKey::random());
+//! let verifying_pk = signer.verifying_key();
 //!
 //! // Key Generation (on Bob's side)
 //! let bob_sk = SecretKey::random();

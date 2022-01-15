@@ -178,8 +178,8 @@ pub struct Signer(SecretKey);
 
 impl Signer {
     /// Creates a new signer out of a secret key.
-    pub fn new(sk: &SecretKey) -> Self {
-        Self(sk.clone())
+    pub fn new(sk: SecretKey) -> Self {
+        Self(sk)
     }
 
     /// Signs the given message using the given RNG.
@@ -450,7 +450,7 @@ mod tests {
     fn test_sign_and_verify() {
         let sk = SecretKey::random();
         let message = b"asdafdahsfdasdfasd";
-        let signer = Signer::new(&sk);
+        let signer = Signer::new(sk.clone());
         let signature = signer.sign(message);
 
         let pk = sk.public_key();
@@ -463,10 +463,9 @@ mod tests {
     #[cfg(feature = "serde-support")]
     #[test]
     fn test_serde_serialization() {
-        let sk = SecretKey::random();
-        let pk = sk.public_key();
         let message = b"asdafdahsfdasdfasd";
-        let signer = Signer::new(&sk);
+        let signer = Signer::new(SecretKey::random());
+        let pk = signer.verifying_key();
         let signature = signer.sign(message);
 
         check_serialization(&pk, Representation::Hex);

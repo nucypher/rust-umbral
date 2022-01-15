@@ -151,7 +151,7 @@ pub struct Signer(umbral_pre::Signer);
 impl Signer {
     #[wasm_bindgen(constructor)]
     pub fn new(secret_key: &SecretKey) -> Self {
-        Self(umbral_pre::Signer::new(&secret_key.0))
+        Self(umbral_pre::Signer::new(secret_key.0.clone()))
     }
 
     pub fn sign(&self, message: &[u8]) -> Signature {

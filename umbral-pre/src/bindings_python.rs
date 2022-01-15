@@ -294,7 +294,7 @@ impl Signer {
     #[new]
     pub fn new(sk: &SecretKey) -> Self {
         Self {
-            backend: umbral_pre::Signer::new(&sk.backend),
+            backend: umbral_pre::Signer::new(sk.backend.clone()),
         }
     }
 
