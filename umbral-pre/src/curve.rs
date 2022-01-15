@@ -285,17 +285,7 @@ impl Mul<&NonZeroCurveScalar> for &NonZeroCurveScalar {
     type Output = NonZeroCurveScalar;
 
     fn mul(self, other: &NonZeroCurveScalar) -> NonZeroCurveScalar {
-        let scalar: BackendScalar = self.0.mul(&(*other.0));
-
-        // Converting from CtOption
-        let maybe_nz_scalar: Option<BackendNonZeroScalar> =
-            BackendNonZeroScalar::new(scalar).into();
-
-        // RustCrypto does not support multiplying non-zero scalars preserving the invariant.
-        // But we know it always results in a non-zero scalar, so we can safely unwrap.
-        NonZeroCurveScalar::from_backend_scalar(
-            maybe_nz_scalar.expect("The product of two non-zero scalars must be non-zero"),
-        )
+        NonZeroCurveScalar(self.0.mul(other.0))
     }
 }
 
