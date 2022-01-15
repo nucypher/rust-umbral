@@ -21,7 +21,7 @@ pyo3 = { version = "0.15", optional = true }
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
-elliptic-curve = { version = "0.11" }
+elliptic-curve = { version = "0.11.7" }
 digest = "0.9"
 generic-array = "0.14"
 aead = { version = "0.4", default-features = false }
