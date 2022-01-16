@@ -256,7 +256,7 @@ mod tests {
 
         // If Ursula received kfrags from the network, she must check that they are valid
         let verified_kfrags: Vec<_> = kfrags
-            .iter()
+            .into_iter()
             .map(|kfrag| {
                 kfrag
                     .verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk))

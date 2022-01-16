@@ -479,6 +479,7 @@ impl KeyFrag {
         receiving_pk: Option<&PublicKey>,
     ) -> PyResult<VerifiedKeyFrag> {
         self.backend
+            .clone()
             .verify(
                 &verifying_pk.backend,
                 delegating_pk.map(|pk| &pk.backend),

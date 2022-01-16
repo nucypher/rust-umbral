@@ -313,7 +313,7 @@ impl KeyFrag {
     /// for `sign_delegating_key` or `sign_receiving_key`, and the respective key
     /// is not provided, the verification fails.
     pub fn verify(
-        &self,
+        self,
         verifying_pk: &PublicKey,
         maybe_delegating_pk: Option<&PublicKey>,
         maybe_receiving_pk: Option<&PublicKey>,
@@ -356,9 +356,7 @@ impl KeyFrag {
             return Err(KeyFragVerificationError::IncorrectSignature);
         }
 
-        Ok(VerifiedKeyFrag {
-            kfrag: self.clone(),
-        })
+        Ok(VerifiedKeyFrag { kfrag: self })
     }
 
     /// Explicitly skips verification.
@@ -561,7 +559,7 @@ mod tests {
                             None
                         };
                         let maybe_rk = if supply_rk { Some(&receiving_pk) } else { None };
-                        let res = kfrag.verify(&verifying_pk, maybe_dk, maybe_rk);
+                        let res = kfrag.clone().verify(&verifying_pk, maybe_dk, maybe_rk);
 
                         let sufficient_dk = !sign_dk || (supply_dk == sign_dk);
                         let sufficient_rk = !sign_rk || (supply_rk == sign_rk);

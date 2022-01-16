@@ -420,6 +420,7 @@ impl KeyFrag {
     #[wasm_bindgen]
     pub fn verify(&self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
         self.0
+            .clone()
             .verify(&verifying_pk.0, None, None)
             .map(VerifiedKeyFrag)
             .map_err(map_js_err)
@@ -434,6 +435,7 @@ impl KeyFrag {
         let backend_delegating_pk = delegating_pk.0;
 
         self.0
+            .clone()
             .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
             .map(VerifiedKeyFrag)
             .map_err(map_js_err)
@@ -448,6 +450,7 @@ impl KeyFrag {
         let backend_receiving_pk = receiving_pk.0;
 
         self.0
+            .clone()
             .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
             .map(VerifiedKeyFrag)
             .map_err(map_js_err)
@@ -464,6 +467,7 @@ impl KeyFrag {
         let backend_receiving_pk = receiving_pk.0;
 
         self.0
+            .clone()
             .verify(
                 &verifying_pk.0,
                 Some(&backend_delegating_pk),
