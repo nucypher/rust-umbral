@@ -150,8 +150,7 @@ pub fn reencrypt_with_rng(
     capsule: &Capsule,
     verified_kfrag: VerifiedKeyFrag,
 ) -> VerifiedCapsuleFrag {
-    let kfrag = verified_kfrag.to_unverified();
-    VerifiedCapsuleFrag::reencrypted(rng, capsule, kfrag)
+    VerifiedCapsuleFrag::reencrypted(rng, capsule, verified_kfrag.unverify())
 }
 
 /// A synonym for [`reencrypt_with_rng`] with the default RNG.
@@ -175,12 +174,12 @@ pub fn decrypt_reencrypted(
     receiving_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
-    verified_cfrags: &[VerifiedCapsuleFrag],
+    verified_cfrags: impl IntoIterator<Item = VerifiedCapsuleFrag>,
     ciphertext: impl AsRef<[u8]>,
 ) -> Result<Box<[u8]>, ReencryptionError> {
     let cfrags: Vec<_> = verified_cfrags
-        .iter()
-        .map(|vcfrag| vcfrag.to_unverified())
+        .into_iter()
+        .map(|vcfrag| vcfrag.unverify())
         .collect();
     let key_seed = capsule
         .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
@@ -291,7 +290,7 @@ mod tests {
             &receiving_sk,
             &delegating_pk,
             &capsule,
-            &verified_cfrags,
+            verified_cfrags,
             &ciphertext,
         )
         .unwrap();

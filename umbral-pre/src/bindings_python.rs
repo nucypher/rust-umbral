@@ -552,9 +552,9 @@ impl VerifiedKeyFrag {
         umbral_pre::VerifiedKeyFrag::serialized_size()
     }
 
-    pub fn to_unverified(&self) -> KeyFrag {
+    pub fn unverify(&self) -> KeyFrag {
         KeyFrag {
-            backend: self.backend.to_unverified(),
+            backend: self.backend.clone().unverify(),
         }
     }
 
@@ -724,9 +724,9 @@ impl VerifiedCapsuleFrag {
         umbral_pre::VerifiedCapsuleFrag::serialized_size()
     }
 
-    pub fn to_unverified(&self) -> CapsuleFrag {
+    pub fn unverify(&self) -> CapsuleFrag {
         CapsuleFrag {
-            backend: self.backend.to_unverified(),
+            backend: self.backend.clone().unverify(),
         }
     }
 
@@ -761,7 +761,7 @@ pub fn decrypt_reencrypted(
         &receiving_sk.backend,
         &delegating_pk.backend,
         &capsule.backend,
-        &backend_cfrags,
+        backend_cfrags,
         ciphertext,
     )
     .map(|plaintext| PyBytes::new(py, &plaintext).into())

@@ -309,9 +309,9 @@ impl VerifiedCapsuleFrag {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen(js_name = toUnverified)]
-    pub fn to_unverified(&self) -> CapsuleFrag {
-        CapsuleFrag(self.0.to_unverified())
+    #[wasm_bindgen(js_name = unverify)]
+    pub fn unverify(&self) -> CapsuleFrag {
+        CapsuleFrag(self.0.clone().unverify())
     }
 
     #[wasm_bindgen(js_name = toBytes)]
@@ -361,7 +361,7 @@ impl CapsuleWithFrags {
             &receiving_sk.0,
             &delegating_pk.0,
             &self.capsule.0,
-            backend_cfrags.as_slice(),
+            backend_cfrags,
             ciphertext,
         )
         .map_err(map_js_err)
@@ -513,9 +513,9 @@ impl VerifiedKeyFrag {
             .map_err(map_js_err)
     }
 
-    #[wasm_bindgen(js_name = toUnverified)]
-    pub fn to_unverified(&self) -> KeyFrag {
-        KeyFrag(self.0.to_unverified())
+    #[wasm_bindgen(js_name = unverify)]
+    pub fn unverify(&self) -> KeyFrag {
+        KeyFrag(self.0.clone().unverify())
     }
 
     #[wasm_bindgen(js_name = toBytes)]

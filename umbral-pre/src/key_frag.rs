@@ -425,8 +425,8 @@ impl VerifiedKeyFrag {
     /// Useful for the cases where it needs to be put in the protocol structure
     /// containing [`KeyFrag`] types (since those are the ones
     /// that can be serialized/deserialized freely).
-    pub fn to_unverified(&self) -> KeyFrag {
-        self.kfrag.clone()
+    pub fn unverify(self) -> KeyFrag {
+        self.kfrag
     }
 }
 

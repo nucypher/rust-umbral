@@ -362,8 +362,8 @@ impl VerifiedCapsuleFrag {
     /// Useful for the cases where it needs to be put in the protocol structure
     /// containing [`CapsuleFrag`] types (since those are the ones
     /// that can be serialized/deserialized freely).
-    pub fn to_unverified(&self) -> CapsuleFrag {
-        self.cfrag.clone()
+    pub fn unverify(self) -> CapsuleFrag {
+        self.cfrag
     }
 }
 

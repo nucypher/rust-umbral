@@ -227,7 +227,7 @@ API reference
         Intended for internal storage;
         make sure that the bytes come from a trusted source.
 
-    .. py:method:: to_unverified() -> KeyFrag:
+    .. py:method:: unverify() -> KeyFrag:
 
         Clears the verification status from the keyfrag.
         Useful for the cases where it needs to be put in the protocol structure containing :py:class:`KeyFrag` types (since those are the ones that can be serialized/deserialized freely).
@@ -285,7 +285,7 @@ API reference
         Intended for internal storage;
         make sure that the bytes come from a trusted source.
 
-    .. py:method:: to_unverified() -> KeyFrag:
+    .. py:method:: unverify() -> KeyFrag:
 
         Clears the verification status from the capsule frag.
         Useful for the cases where it needs to be put in the protocol structure containing :py:class:`CapsuleFrag` types (since those are the ones that can be serialized/deserialized freely).

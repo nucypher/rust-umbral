@@ -95,7 +95,7 @@
 //!     .unwrap();
 //!
 //! let plaintext_bob = decrypt_reencrypted(
-//!     &bob_sk, &alice_pk, &capsule, &[verified_cfrag0, verified_cfrag1], &ciphertext).unwrap();
+//!     &bob_sk, &alice_pk, &capsule, [verified_cfrag0, verified_cfrag1], &ciphertext).unwrap();
 //! assert_eq!(&plaintext_bob as &[u8], plaintext);
 //! ```
 //!

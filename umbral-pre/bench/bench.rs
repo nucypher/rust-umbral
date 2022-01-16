@@ -72,7 +72,8 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
 
     let cfrags: Vec<_> = vcfrags[0..threshold]
         .iter()
-        .map(|vcfrag| vcfrag.to_unverified())
+        .cloned()
+        .map(|vcfrag| vcfrag.unverify())
         .collect();
 
     group.bench_function("Capsule::open_reencrypted", |b| {
@@ -154,7 +155,7 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
                 &receiving_sk,
                 &delegating_pk,
                 &capsule,
-                &verified_cfrags,
+                verified_cfrags.clone(),
                 &ciphertext,
             )
         })
