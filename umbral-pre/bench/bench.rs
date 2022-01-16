@@ -2,23 +2,12 @@ use criterion::measurement::Measurement;
 use criterion::{criterion_group, criterion_main, BenchmarkGroup, Criterion};
 
 #[cfg(feature = "bench-internals")]
-use umbral_pre::bench::{
-    capsule_from_public_key, capsule_open_original, capsule_open_reencrypted, unsafe_hash_to_point,
-};
+use umbral_pre::bench::{capsule_from_public_key, capsule_open_original, capsule_open_reencrypted};
 
 use umbral_pre::{
     decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt, SecretKey, Signer,
     VerifiedCapsuleFrag,
 };
-
-#[cfg(feature = "bench-internals")]
-fn bench_unsafe_hash_to_point<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
-    let data = b"abcdefg";
-    let label = b"sdasdasd";
-    group.bench_function("unsafe_hash_to_point", |b| {
-        b.iter(|| unsafe_hash_to_point(&data[..], &label[..]))
-    });
-}
 
 #[cfg(feature = "bench-internals")]
 fn bench_capsule_from_public_key<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
@@ -165,7 +154,6 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
 #[cfg(feature = "bench-internals")]
 fn group_internals(c: &mut Criterion) {
     let mut group = c.benchmark_group("internals");
-    bench_unsafe_hash_to_point(&mut group);
     bench_capsule_from_public_key(&mut group);
     bench_capsule_open_original(&mut group);
     bench_capsule_open_reencrypted(&mut group);

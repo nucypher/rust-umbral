@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 `KeyFrag::verify()` and `CapsuleFrag::verify()` consume the given kfrag/cfrag, `reencrypt()` consumes the cfrag (but not the capsule). ([#91])
 - As a consequence, `KeyFrag::verify()` and `CapsuleFrag::verify()` return the original frag on error (as a tuple with the error itself), for logging purposes (since the original object is not available anymore). ([#91])
 - `VerifiedKeyFrag::to_unverified()` and `VerifiedCapsuleFrag::to_unverified()` were renamed to `unverify()` and consume the corresponding frag. ([#91])
+- Using the [IETF standard](https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/) to hash to point instead of a custom implementation (and bumps `k256` to 0.10.2). Changes the format of all the library's objects! ([#92])
 
 
 ### Fixed
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#87]: https://github.com/nucypher/rust-umbral/pull/87
 [#91]: https://github.com/nucypher/rust-umbral/pull/91
+[#92]: https://github.com/nucypher/rust-umbral/pull/92
 
 
 ## [0.4.0] - 2021-12-24

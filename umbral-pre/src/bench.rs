@@ -9,8 +9,6 @@ use crate::capsule_frag::CapsuleFrag;
 use crate::keys::{PublicKey, SecretKey};
 use crate::secret_box::SecretBox;
 
-pub use crate::hashing::unsafe_hash_to_point;
-
 /// Exported `Capsule::from_public_key()` for benchmark purposes.
 pub fn capsule_from_public_key(delegating_pk: &PublicKey) -> (Capsule, SecretBox<KeySeed>) {
     Capsule::from_public_key(&mut OsRng, delegating_pk)
