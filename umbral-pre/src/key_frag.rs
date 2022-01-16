@@ -118,7 +118,7 @@ fn none_unless<T>(x: Option<T>, predicate: bool) -> Option<T> {
 impl KeyFragProof {
     fn from_base(
         rng: &mut (impl CryptoRng + RngCore),
-        base: &KeyFragBase,
+        base: &KeyFragBase<'_>,
         kfrag_id: &KeyFragID,
         kfrag_key: &CurveScalar,
         sign_delegating_key: bool,
@@ -267,7 +267,7 @@ impl fmt::Display for KeyFragVerificationError {
 impl KeyFrag {
     fn from_base(
         rng: &mut (impl CryptoRng + RngCore),
-        base: &KeyFragBase,
+        base: &KeyFragBase<'_>,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -401,7 +401,7 @@ impl fmt::Display for VerifiedKeyFrag {
 impl VerifiedKeyFrag {
     pub(crate) fn from_base(
         rng: &mut (impl CryptoRng + RngCore),
-        base: &KeyFragBase,
+        base: &KeyFragBase<'_>,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -428,8 +428,8 @@ impl VerifiedKeyFrag {
     }
 }
 
-pub(crate) struct KeyFragBase {
-    signer: Signer,
+pub(crate) struct KeyFragBase<'a> {
+    signer: &'a Signer,
     precursor: CurvePoint,
     dh_point: CurvePoint,
     params: Parameters,
@@ -438,12 +438,12 @@ pub(crate) struct KeyFragBase {
     coefficients: Box<[SecretBox<NonZeroCurveScalar>]>,
 }
 
-impl KeyFragBase {
+impl<'a> KeyFragBase<'a> {
     pub fn new(
         rng: &mut (impl CryptoRng + RngCore),
         delegating_sk: &SecretKey,
         receiving_pk: &PublicKey,
-        signer: &Signer,
+        signer: &'a Signer,
         threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
@@ -474,7 +474,7 @@ impl KeyFragBase {
         }
 
         Self {
-            signer: signer.clone(),
+            signer,
             precursor,
             dh_point,
             params,
