@@ -278,7 +278,7 @@ mod tests {
 
         // If Bob received cfrags from the network, he must check that they are valid
         let verified_cfrags: Vec<_> = cfrags
-            .iter()
+            .into_iter()
             .map(|cfrag| {
                 cfrag
                     .verify(&capsule, &verifying_pk, &delegating_pk, &receiving_pk)

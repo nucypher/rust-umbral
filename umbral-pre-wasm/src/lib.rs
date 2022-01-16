@@ -257,6 +257,7 @@ impl CapsuleFrag {
         receiving_pk: &PublicKey,
     ) -> Result<VerifiedCapsuleFrag, JsValue> {
         self.0
+            .clone()
             .verify(
                 &capsule.0,
                 &verifying_pk.0,

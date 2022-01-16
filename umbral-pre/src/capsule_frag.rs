@@ -237,7 +237,7 @@ impl CapsuleFrag {
     /// the encrypting party's key, the decrypting party's key, and the signing key.
     #[allow(clippy::many_single_char_names)]
     pub fn verify(
-        &self,
+        self,
         capsule: &Capsule,
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
@@ -294,9 +294,7 @@ impl CapsuleFrag {
             return Err(CapsuleFragVerificationError::IncorrectReencryption);
         }
 
-        Ok(VerifiedCapsuleFrag {
-            cfrag: self.clone(),
-        })
+        Ok(VerifiedCapsuleFrag { cfrag: self })
     }
 
     /// Explicitly skips verification.

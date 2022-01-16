@@ -634,6 +634,7 @@ impl CapsuleFrag {
         receiving_pk: &PublicKey,
     ) -> PyResult<VerifiedCapsuleFrag> {
         self.backend
+            .clone()
             .verify(
                 &capsule.backend,
                 &verifying_pk.backend,
