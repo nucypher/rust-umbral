@@ -148,16 +148,16 @@ pub fn generate_kfrags(
 pub fn reencrypt_with_rng(
     rng: &mut (impl CryptoRng + RngCore),
     capsule: &Capsule,
-    verified_kfrag: &VerifiedKeyFrag,
+    verified_kfrag: VerifiedKeyFrag,
 ) -> VerifiedCapsuleFrag {
     let kfrag = verified_kfrag.to_unverified();
-    VerifiedCapsuleFrag::reencrypted(rng, capsule, &kfrag)
+    VerifiedCapsuleFrag::reencrypted(rng, capsule, kfrag)
 }
 
 /// A synonym for [`reencrypt_with_rng`] with the default RNG.
 #[cfg(feature = "default-rng")]
 #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
-pub fn reencrypt(capsule: &Capsule, verified_kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+pub fn reencrypt(capsule: &Capsule, verified_kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag {
     reencrypt_with_rng(&mut OsRng, capsule, verified_kfrag)
 }
 
@@ -267,7 +267,7 @@ mod tests {
 
         let verified_cfrags: Vec<VerifiedCapsuleFrag> = verified_kfrags[0..threshold]
             .iter()
-            .map(|vkfrag| reencrypt(&capsule, &vkfrag))
+            .map(|vkfrag| reencrypt(&capsule, vkfrag.clone()))
             .collect();
 
         // Simulate network transfer

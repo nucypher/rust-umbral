@@ -78,7 +78,7 @@ impl CapsuleFragProof {
     fn from_kfrag_and_cfrag(
         rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
-        kfrag: &KeyFrag,
+        kfrag: KeyFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
     ) -> Self {
@@ -114,7 +114,7 @@ impl CapsuleFragProof {
             kfrag_commitment: u1,
             kfrag_pok: u2,
             signature: z3,
-            kfrag_signature: kfrag.proof.signature_for_receiver(),
+            kfrag_signature: kfrag.proof.signature_for_receiver,
         }
     }
 }
@@ -217,18 +217,20 @@ impl CapsuleFrag {
     fn reencrypted(
         rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
-        kfrag: &KeyFrag,
+        kfrag: KeyFrag,
     ) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
+        let id = kfrag.id;
+        let precursor = kfrag.precursor;
         let proof = CapsuleFragProof::from_kfrag_and_cfrag(rng, capsule, kfrag, &e1, &v1);
 
         Self {
             point_e1: e1,
             point_v1: v1,
-            kfrag_id: kfrag.id,
-            precursor: kfrag.precursor,
+            kfrag_id: id,
+            precursor,
             proof,
         }
     }
@@ -340,7 +342,7 @@ impl VerifiedCapsuleFrag {
     pub(crate) fn reencrypted(
         rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
-        kfrag: &KeyFrag,
+        kfrag: KeyFrag,
     ) -> Self {
         VerifiedCapsuleFrag {
             cfrag: CapsuleFrag::reencrypted(rng, capsule, kfrag),
@@ -407,7 +409,7 @@ mod tests {
 
         let verified_cfrags: Vec<_> = kfrags
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag))
+            .map(|kfrag| reencrypt(&capsule, kfrag.clone()))
             .collect();
 
         (

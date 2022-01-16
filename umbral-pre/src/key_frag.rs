@@ -64,7 +64,7 @@ impl DeserializableFromArray for KeyFragID {
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
     signature_for_proxy: Signature,
-    signature_for_receiver: Signature,
+    pub(crate) signature_for_receiver: Signature,
     delegating_key_signed: bool,
     receiving_key_signed: bool,
 }
@@ -160,10 +160,6 @@ impl KeyFragProof {
             delegating_key_signed: sign_delegating_key,
             receiving_key_signed: sign_receiving_key,
         }
-    }
-
-    pub(crate) fn signature_for_receiver(&self) -> Signature {
-        self.signature_for_receiver.clone()
     }
 }
 

@@ -71,11 +71,11 @@
 //!
 //! // Ursula 0
 //! let verified_kfrag0 = kfrag0.verify(&verifying_pk, Some(&alice_pk), Some(&bob_pk)).unwrap();
-//! let verified_cfrag0 = reencrypt(&capsule, &verified_kfrag0);
+//! let verified_cfrag0 = reencrypt(&capsule, verified_kfrag0);
 //!
 //! // Ursula 1
 //! let verified_kfrag1 = kfrag1.verify(&verifying_pk, Some(&alice_pk), Some(&bob_pk)).unwrap();
-//! let verified_cfrag1 = reencrypt(&capsule, &verified_kfrag1);
+//! let verified_cfrag1 = reencrypt(&capsule, verified_kfrag1);
 //!
 //! // ...
 //!

@@ -568,6 +568,6 @@ pub fn generate_kfrags(
 
 #[wasm_bindgen]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0);
+    let backend_cfrag = umbral_pre::reencrypt(&capsule.0, kfrag.0.clone());
     VerifiedCapsuleFrag(backend_cfrag)
 }

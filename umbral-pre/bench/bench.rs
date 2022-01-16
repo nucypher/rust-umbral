@@ -67,7 +67,7 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
 
     let vcfrags: Vec<_> = kfrags
         .iter()
-        .map(|kfrag| reencrypt(&capsule, &kfrag))
+        .map(|kfrag| reencrypt(&capsule, kfrag.clone()))
         .collect();
 
     let cfrags: Vec<_> = vcfrags[0..threshold]
@@ -134,15 +134,18 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
         true,
     );
 
-    let vkfrag = verified_kfrags[0].clone();
+    let vkfrag = &verified_kfrags[0];
 
-    group.bench_function("reencrypt", |b| b.iter(|| reencrypt(&capsule, &vkfrag)));
+    group.bench_function("reencrypt", |b| {
+        b.iter(|| reencrypt(&capsule, vkfrag.clone()))
+    });
 
     // Decryption of the reencrypted data
 
     let verified_cfrags: Vec<VerifiedCapsuleFrag> = verified_kfrags[0..threshold]
         .iter()
-        .map(|vkfrag| reencrypt(&capsule, &vkfrag))
+        .cloned()
+        .map(|vkfrag| reencrypt(&capsule, vkfrag))
         .collect();
 
     group.bench_function("decrypt_reencrypted", |b| {

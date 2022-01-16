@@ -737,7 +737,7 @@ impl VerifiedCapsuleFrag {
 
 #[pyfunction]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend);
+    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, kfrag.backend.clone());
     VerifiedCapsuleFrag {
         backend: backend_vcfrag,
     }
