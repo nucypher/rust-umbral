@@ -317,7 +317,7 @@ impl KeyFrag {
         verifying_pk: &PublicKey,
         maybe_delegating_pk: Option<&PublicKey>,
         maybe_receiving_pk: Option<&PublicKey>,
-    ) -> Result<VerifiedKeyFrag, KeyFragVerificationError> {
+    ) -> Result<VerifiedKeyFrag, (KeyFragVerificationError, Self)> {
         let u = self.params.u;
 
         let kfrag_id = self.id;
@@ -327,17 +327,17 @@ impl KeyFrag {
 
         // We check that the commitment is well-formed
         if commitment != &u * &key {
-            return Err(KeyFragVerificationError::IncorrectCommitment);
+            return Err((KeyFragVerificationError::IncorrectCommitment, self));
         }
 
         // A shortcut, perhaps not necessary
 
         if maybe_delegating_pk.is_none() && self.proof.delegating_key_signed {
-            return Err(KeyFragVerificationError::DelegatingKeyNotProvided);
+            return Err((KeyFragVerificationError::DelegatingKeyNotProvided, self));
         }
 
         if maybe_receiving_pk.is_none() && self.proof.receiving_key_signed {
-            return Err(KeyFragVerificationError::ReceivingKeyNotProvided);
+            return Err((KeyFragVerificationError::ReceivingKeyNotProvided, self));
         }
 
         // Check the signature
@@ -353,7 +353,7 @@ impl KeyFrag {
             )
             .as_ref(),
         ) {
-            return Err(KeyFragVerificationError::IncorrectSignature);
+            return Err((KeyFragVerificationError::IncorrectSignature, self));
         }
 
         Ok(VerifiedKeyFrag { kfrag: self })
@@ -570,10 +570,19 @@ mod tests {
                         } else if !sufficient_dk {
                             assert_eq!(
                                 res,
-                                Err(KeyFragVerificationError::DelegatingKeyNotProvided)
+                                Err((
+                                    KeyFragVerificationError::DelegatingKeyNotProvided,
+                                    kfrag.clone()
+                                ))
                             );
                         } else if !sufficient_rk {
-                            assert_eq!(res, Err(KeyFragVerificationError::ReceivingKeyNotProvided));
+                            assert_eq!(
+                                res,
+                                Err((
+                                    KeyFragVerificationError::ReceivingKeyNotProvided,
+                                    kfrag.clone()
+                                ))
+                            );
                         }
                     }
                 }

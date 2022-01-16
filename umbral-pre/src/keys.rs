@@ -175,7 +175,7 @@ fn digest_for_signing(message: &[u8]) -> BackendDigest {
 /// For security reasons cannot be serialized.
 // `k256::SigningKey` is zeroized on `Drop` as of `k256=0.10`.
 #[derive(Clone)]
-pub struct Signer(SigningKey::<CurveType>);
+pub struct Signer(SigningKey<CurveType>);
 
 impl Signer {
     /// Creates a new signer out of a secret key.

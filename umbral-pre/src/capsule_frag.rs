@@ -244,7 +244,7 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Result<VerifiedCapsuleFrag, CapsuleFragVerificationError> {
+    ) -> Result<VerifiedCapsuleFrag, (CapsuleFragVerificationError, Self)> {
         let params = capsule.params;
 
         // Here are the formulaic constituents shared with
@@ -281,7 +281,10 @@ impl CapsuleFrag {
             )
             .as_ref(),
         ) {
-            return Err(CapsuleFragVerificationError::IncorrectKeyFragSignature);
+            return Err((
+                CapsuleFragVerificationError::IncorrectKeyFragSignature,
+                self,
+            ));
         }
 
         // TODO (#46): if one or more of the values here are incorrect,
@@ -293,7 +296,7 @@ impl CapsuleFrag {
         let correct_rk_commitment = &u * &z == &u2 + &(&u1 * &h);
 
         if !(correct_reencryption_of_e & correct_reencryption_of_v & correct_rk_commitment) {
-            return Err(CapsuleFragVerificationError::IncorrectReencryption);
+            return Err((CapsuleFragVerificationError::IncorrectReencryption, self));
         }
 
         Ok(VerifiedCapsuleFrag { cfrag: self })

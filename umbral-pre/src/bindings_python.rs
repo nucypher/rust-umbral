@@ -485,7 +485,7 @@ impl KeyFrag {
                 delegating_pk.map(|pk| &pk.backend),
                 receiving_pk.map(|pk| &pk.backend),
             )
-            .map_err(|err| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{}", err)))
             .map(|backend_vkfrag| VerifiedKeyFrag {
                 backend: backend_vkfrag,
             })
@@ -642,7 +642,7 @@ impl CapsuleFrag {
                 &delegating_pk.backend,
                 &receiving_pk.backend,
             )
-            .map_err(|err| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{}", err)))
             .map(|backend_vcfrag| VerifiedCapsuleFrag {
                 backend: backend_vcfrag,
             })

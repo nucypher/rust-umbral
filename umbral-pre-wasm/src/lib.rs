@@ -265,7 +265,7 @@ impl CapsuleFrag {
                 &receiving_pk.0,
             )
             .map(VerifiedCapsuleFrag)
-            .map_err(map_js_err)
+            .map_err(|(err, _cfrag)| map_js_err(err))
     }
 
     #[wasm_bindgen(js_name = skipVerification)]
@@ -423,7 +423,7 @@ impl KeyFrag {
             .clone()
             .verify(&verifying_pk.0, None, None)
             .map(VerifiedKeyFrag)
-            .map_err(map_js_err)
+            .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
     #[wasm_bindgen(js_name = verifyWithDelegatingKey)]
@@ -438,7 +438,7 @@ impl KeyFrag {
             .clone()
             .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
             .map(VerifiedKeyFrag)
-            .map_err(map_js_err)
+            .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
     #[wasm_bindgen(js_name = verifyWithReceivingKey)]
@@ -453,7 +453,7 @@ impl KeyFrag {
             .clone()
             .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
             .map(VerifiedKeyFrag)
-            .map_err(map_js_err)
+            .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
     #[wasm_bindgen(js_name = verifyWithDelegatingAndReceivingKeys)]
@@ -474,7 +474,7 @@ impl KeyFrag {
                 Some(&backend_receiving_pk),
             )
             .map(VerifiedKeyFrag)
-            .map_err(map_js_err)
+            .map_err(|(err, _kfrag)| map_js_err(err))
     }
 
     #[wasm_bindgen(js_name = skipVerification)]
