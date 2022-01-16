@@ -148,16 +148,15 @@ pub fn generate_kfrags(
 pub fn reencrypt_with_rng(
     rng: &mut (impl CryptoRng + RngCore),
     capsule: &Capsule,
-    verified_kfrag: &VerifiedKeyFrag,
+    verified_kfrag: VerifiedKeyFrag,
 ) -> VerifiedCapsuleFrag {
-    let kfrag = verified_kfrag.to_unverified();
-    VerifiedCapsuleFrag::reencrypted(rng, capsule, &kfrag)
+    VerifiedCapsuleFrag::reencrypted(rng, capsule, verified_kfrag.unverify())
 }
 
 /// A synonym for [`reencrypt_with_rng`] with the default RNG.
 #[cfg(feature = "default-rng")]
 #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
-pub fn reencrypt(capsule: &Capsule, verified_kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
+pub fn reencrypt(capsule: &Capsule, verified_kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag {
     reencrypt_with_rng(&mut OsRng, capsule, verified_kfrag)
 }
 
@@ -175,12 +174,12 @@ pub fn decrypt_reencrypted(
     receiving_sk: &SecretKey,
     delegating_pk: &PublicKey,
     capsule: &Capsule,
-    verified_cfrags: &[VerifiedCapsuleFrag],
+    verified_cfrags: impl IntoIterator<Item = VerifiedCapsuleFrag>,
     ciphertext: impl AsRef<[u8]>,
 ) -> Result<Box<[u8]>, ReencryptionError> {
     let cfrags: Vec<_> = verified_cfrags
-        .iter()
-        .map(|vcfrag| vcfrag.to_unverified())
+        .into_iter()
+        .map(|vcfrag| vcfrag.unverify())
         .collect();
     let key_seed = capsule
         .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
@@ -221,9 +220,8 @@ mod tests {
         let delegating_sk = SecretKey::random();
         let delegating_pk = delegating_sk.public_key();
 
-        let signing_sk = SecretKey::random();
-        let signer = Signer::new(&signing_sk);
-        let verifying_pk = signing_sk.public_key();
+        let signer = Signer::new(SecretKey::random());
+        let verifying_pk = signer.verifying_key();
 
         // Key Generation (Bob)
         let receiving_sk = SecretKey::random();
@@ -258,7 +256,7 @@ mod tests {
 
         // If Ursula received kfrags from the network, she must check that they are valid
         let verified_kfrags: Vec<_> = kfrags
-            .iter()
+            .into_iter()
             .map(|kfrag| {
                 kfrag
                     .verify(&verifying_pk, Some(&delegating_pk), Some(&receiving_pk))
@@ -268,7 +266,7 @@ mod tests {
 
         let verified_cfrags: Vec<VerifiedCapsuleFrag> = verified_kfrags[0..threshold]
             .iter()
-            .map(|vkfrag| reencrypt(&capsule, &vkfrag))
+            .map(|vkfrag| reencrypt(&capsule, vkfrag.clone()))
             .collect();
 
         // Simulate network transfer
@@ -279,7 +277,7 @@ mod tests {
 
         // If Bob received cfrags from the network, he must check that they are valid
         let verified_cfrags: Vec<_> = cfrags
-            .iter()
+            .into_iter()
             .map(|cfrag| {
                 cfrag
                     .verify(&capsule, &verifying_pk, &delegating_pk, &receiving_pk)
@@ -292,7 +290,7 @@ mod tests {
             &receiving_sk,
             &delegating_pk,
             &capsule,
-            &verified_cfrags,
+            verified_cfrags,
             &ciphertext,
         )
         .unwrap();

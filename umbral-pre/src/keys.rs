@@ -173,22 +173,20 @@ fn digest_for_signing(message: &[u8]) -> BackendDigest {
 
 /// An object used to sign messages.
 /// For security reasons cannot be serialized.
+// `k256::SigningKey` is zeroized on `Drop` as of `k256=0.10`.
 #[derive(Clone)]
-pub struct Signer(SecretKey);
+pub struct Signer(SigningKey<CurveType>);
 
 impl Signer {
     /// Creates a new signer out of a secret key.
-    pub fn new(sk: &SecretKey) -> Self {
-        Self(sk.clone())
+    pub fn new(sk: SecretKey) -> Self {
+        Self(SigningKey::<CurveType>::from(sk.0))
     }
 
     /// Signs the given message using the given RNG.
     pub fn sign_with_rng(&self, rng: &mut (impl CryptoRng + RngCore), message: &[u8]) -> Signature {
         let digest = digest_for_signing(message);
-        let secret_key = self.0.clone();
-        // `k256::SigningKey` is zeroized on `Drop` as of `k256=0.10`.
-        let signing_key = SigningKey::<CurveType>::from(secret_key.0);
-        Signature(signing_key.sign_digest_with_rng(rng, digest))
+        Signature(self.0.sign_digest_with_rng(rng, digest))
     }
 
     /// Signs the given message using the default RNG.
@@ -200,7 +198,7 @@ impl Signer {
 
     /// Returns the public key that can be used to verify the signatures produced by this signer.
     pub fn verifying_key(&self) -> PublicKey {
-        self.0.public_key()
+        PublicKey(self.0.verifying_key().into())
     }
 }
 
@@ -450,7 +448,7 @@ mod tests {
     fn test_sign_and_verify() {
         let sk = SecretKey::random();
         let message = b"asdafdahsfdasdfasd";
-        let signer = Signer::new(&sk);
+        let signer = Signer::new(sk.clone());
         let signature = signer.sign(message);
 
         let pk = sk.public_key();
@@ -463,10 +461,9 @@ mod tests {
     #[cfg(feature = "serde-support")]
     #[test]
     fn test_serde_serialization() {
-        let sk = SecretKey::random();
-        let pk = sk.public_key();
         let message = b"asdafdahsfdasdfasd";
-        let signer = Signer::new(&sk);
+        let signer = Signer::new(SecretKey::random());
+        let pk = signer.verifying_key();
         let signature = signer.sign(message);
 
         check_serialization(&pk, Representation::Hex);

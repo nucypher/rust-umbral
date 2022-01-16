@@ -45,8 +45,7 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
     let delegating_sk = SecretKey::random();
     let delegating_pk = delegating_sk.public_key();
 
-    let signing_sk = SecretKey::random();
-    let signer = Signer::new(&signing_sk);
+    let signer = Signer::new(SecretKey::random());
 
     let receiving_sk = SecretKey::random();
     let receiving_pk = receiving_sk.public_key();
@@ -68,12 +67,13 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
 
     let vcfrags: Vec<_> = kfrags
         .iter()
-        .map(|kfrag| reencrypt(&capsule, &kfrag))
+        .map(|kfrag| reencrypt(&capsule, kfrag.clone()))
         .collect();
 
     let cfrags: Vec<_> = vcfrags[0..threshold]
         .iter()
-        .map(|vcfrag| vcfrag.to_unverified())
+        .cloned()
+        .map(|vcfrag| vcfrag.unverify())
         .collect();
 
     group.bench_function("Capsule::open_reencrypted", |b| {
@@ -104,8 +104,7 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
     let threshold: usize = 2;
     let num_frags: usize = threshold + 1;
 
-    let signing_sk = SecretKey::random();
-    let signer = Signer::new(&signing_sk);
+    let signer = Signer::new(SecretKey::random());
 
     let receiving_sk = SecretKey::random();
     let receiving_pk = receiving_sk.public_key();
@@ -136,15 +135,18 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
         true,
     );
 
-    let vkfrag = verified_kfrags[0].clone();
+    let vkfrag = &verified_kfrags[0];
 
-    group.bench_function("reencrypt", |b| b.iter(|| reencrypt(&capsule, &vkfrag)));
+    group.bench_function("reencrypt", |b| {
+        b.iter(|| reencrypt(&capsule, vkfrag.clone()))
+    });
 
     // Decryption of the reencrypted data
 
     let verified_cfrags: Vec<VerifiedCapsuleFrag> = verified_kfrags[0..threshold]
         .iter()
-        .map(|vkfrag| reencrypt(&capsule, &vkfrag))
+        .cloned()
+        .map(|vkfrag| reencrypt(&capsule, vkfrag))
         .collect();
 
     group.bench_function("decrypt_reencrypted", |b| {
@@ -153,7 +155,7 @@ fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
                 &receiving_sk,
                 &delegating_pk,
                 &capsule,
-                &verified_cfrags,
+                verified_cfrags.clone(),
                 &ciphertext,
             )
         })

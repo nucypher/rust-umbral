@@ -64,7 +64,7 @@ impl DeserializableFromArray for KeyFragID {
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
     signature_for_proxy: Signature,
-    signature_for_receiver: Signature,
+    pub(crate) signature_for_receiver: Signature,
     delegating_key_signed: bool,
     receiving_key_signed: bool,
 }
@@ -118,7 +118,7 @@ fn none_unless<T>(x: Option<T>, predicate: bool) -> Option<T> {
 impl KeyFragProof {
     fn from_base(
         rng: &mut (impl CryptoRng + RngCore),
-        base: &KeyFragBase,
+        base: &KeyFragBase<'_>,
         kfrag_id: &KeyFragID,
         kfrag_key: &CurveScalar,
         sign_delegating_key: bool,
@@ -160,10 +160,6 @@ impl KeyFragProof {
             delegating_key_signed: sign_delegating_key,
             receiving_key_signed: sign_receiving_key,
         }
-    }
-
-    pub(crate) fn signature_for_receiver(&self) -> Signature {
-        self.signature_for_receiver.clone()
     }
 }
 
@@ -271,7 +267,7 @@ impl fmt::Display for KeyFragVerificationError {
 impl KeyFrag {
     fn from_base(
         rng: &mut (impl CryptoRng + RngCore),
-        base: &KeyFragBase,
+        base: &KeyFragBase<'_>,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -317,11 +313,11 @@ impl KeyFrag {
     /// for `sign_delegating_key` or `sign_receiving_key`, and the respective key
     /// is not provided, the verification fails.
     pub fn verify(
-        &self,
+        self,
         verifying_pk: &PublicKey,
         maybe_delegating_pk: Option<&PublicKey>,
         maybe_receiving_pk: Option<&PublicKey>,
-    ) -> Result<VerifiedKeyFrag, KeyFragVerificationError> {
+    ) -> Result<VerifiedKeyFrag, (KeyFragVerificationError, Self)> {
         let u = self.params.u;
 
         let kfrag_id = self.id;
@@ -331,17 +327,17 @@ impl KeyFrag {
 
         // We check that the commitment is well-formed
         if commitment != &u * &key {
-            return Err(KeyFragVerificationError::IncorrectCommitment);
+            return Err((KeyFragVerificationError::IncorrectCommitment, self));
         }
 
         // A shortcut, perhaps not necessary
 
         if maybe_delegating_pk.is_none() && self.proof.delegating_key_signed {
-            return Err(KeyFragVerificationError::DelegatingKeyNotProvided);
+            return Err((KeyFragVerificationError::DelegatingKeyNotProvided, self));
         }
 
         if maybe_receiving_pk.is_none() && self.proof.receiving_key_signed {
-            return Err(KeyFragVerificationError::ReceivingKeyNotProvided);
+            return Err((KeyFragVerificationError::ReceivingKeyNotProvided, self));
         }
 
         // Check the signature
@@ -357,12 +353,10 @@ impl KeyFrag {
             )
             .as_ref(),
         ) {
-            return Err(KeyFragVerificationError::IncorrectSignature);
+            return Err((KeyFragVerificationError::IncorrectSignature, self));
         }
 
-        Ok(VerifiedKeyFrag {
-            kfrag: self.clone(),
-        })
+        Ok(VerifiedKeyFrag { kfrag: self })
     }
 
     /// Explicitly skips verification.
@@ -407,7 +401,7 @@ impl fmt::Display for VerifiedKeyFrag {
 impl VerifiedKeyFrag {
     pub(crate) fn from_base(
         rng: &mut (impl CryptoRng + RngCore),
-        base: &KeyFragBase,
+        base: &KeyFragBase<'_>,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
     ) -> Self {
@@ -429,13 +423,13 @@ impl VerifiedKeyFrag {
     /// Useful for the cases where it needs to be put in the protocol structure
     /// containing [`KeyFrag`] types (since those are the ones
     /// that can be serialized/deserialized freely).
-    pub fn to_unverified(&self) -> KeyFrag {
-        self.kfrag.clone()
+    pub fn unverify(self) -> KeyFrag {
+        self.kfrag
     }
 }
 
-pub(crate) struct KeyFragBase {
-    signer: Signer,
+pub(crate) struct KeyFragBase<'a> {
+    signer: &'a Signer,
     precursor: CurvePoint,
     dh_point: CurvePoint,
     params: Parameters,
@@ -444,12 +438,12 @@ pub(crate) struct KeyFragBase {
     coefficients: Box<[SecretBox<NonZeroCurveScalar>]>,
 }
 
-impl KeyFragBase {
+impl<'a> KeyFragBase<'a> {
     pub fn new(
         rng: &mut (impl CryptoRng + RngCore),
         delegating_sk: &SecretKey,
         receiving_pk: &PublicKey,
-        signer: &Signer,
+        signer: &'a Signer,
         threshold: usize,
     ) -> Self {
         let g = CurvePoint::generator();
@@ -480,7 +474,7 @@ impl KeyFragBase {
         }
 
         Self {
-            signer: signer.clone(),
+            signer,
             precursor,
             dh_point,
             params,
@@ -528,9 +522,8 @@ mod tests {
         let delegating_sk = SecretKey::random();
         let delegating_pk = delegating_sk.public_key();
 
-        let signing_sk = SecretKey::random();
-        let signer = Signer::new(&signing_sk);
-        let verifying_pk = signing_sk.public_key();
+        let signer = Signer::new(SecretKey::random());
+        let verifying_pk = signer.verifying_key();
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = receiving_sk.public_key();
@@ -566,7 +559,7 @@ mod tests {
                             None
                         };
                         let maybe_rk = if supply_rk { Some(&receiving_pk) } else { None };
-                        let res = kfrag.verify(&verifying_pk, maybe_dk, maybe_rk);
+                        let res = kfrag.clone().verify(&verifying_pk, maybe_dk, maybe_rk);
 
                         let sufficient_dk = !sign_dk || (supply_dk == sign_dk);
                         let sufficient_rk = !sign_rk || (supply_rk == sign_rk);
@@ -577,10 +570,19 @@ mod tests {
                         } else if !sufficient_dk {
                             assert_eq!(
                                 res,
-                                Err(KeyFragVerificationError::DelegatingKeyNotProvided)
+                                Err((
+                                    KeyFragVerificationError::DelegatingKeyNotProvided,
+                                    kfrag.clone()
+                                ))
                             );
                         } else if !sufficient_rk {
-                            assert_eq!(res, Err(KeyFragVerificationError::ReceivingKeyNotProvided));
+                            assert_eq!(
+                                res,
+                                Err((
+                                    KeyFragVerificationError::ReceivingKeyNotProvided,
+                                    kfrag.clone()
+                                ))
+                            );
                         }
                     }
                 }

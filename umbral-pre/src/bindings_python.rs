@@ -294,7 +294,7 @@ impl Signer {
     #[new]
     pub fn new(sk: &SecretKey) -> Self {
         Self {
-            backend: umbral_pre::Signer::new(&sk.backend),
+            backend: umbral_pre::Signer::new(sk.backend.clone()),
         }
     }
 
@@ -479,12 +479,13 @@ impl KeyFrag {
         receiving_pk: Option<&PublicKey>,
     ) -> PyResult<VerifiedKeyFrag> {
         self.backend
+            .clone()
             .verify(
                 &verifying_pk.backend,
                 delegating_pk.map(|pk| &pk.backend),
                 receiving_pk.map(|pk| &pk.backend),
             )
-            .map_err(|err| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{}", err)))
             .map(|backend_vkfrag| VerifiedKeyFrag {
                 backend: backend_vkfrag,
             })
@@ -552,9 +553,9 @@ impl VerifiedKeyFrag {
         umbral_pre::VerifiedKeyFrag::serialized_size()
     }
 
-    pub fn to_unverified(&self) -> KeyFrag {
+    pub fn unverify(&self) -> KeyFrag {
         KeyFrag {
-            backend: self.backend.to_unverified(),
+            backend: self.backend.clone().unverify(),
         }
     }
 
@@ -634,13 +635,14 @@ impl CapsuleFrag {
         receiving_pk: &PublicKey,
     ) -> PyResult<VerifiedCapsuleFrag> {
         self.backend
+            .clone()
             .verify(
                 &capsule.backend,
                 &verifying_pk.backend,
                 &delegating_pk.backend,
                 &receiving_pk.backend,
             )
-            .map_err(|err| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{}", err)))
             .map(|backend_vcfrag| VerifiedCapsuleFrag {
                 backend: backend_vcfrag,
             })
@@ -723,9 +725,9 @@ impl VerifiedCapsuleFrag {
         umbral_pre::VerifiedCapsuleFrag::serialized_size()
     }
 
-    pub fn to_unverified(&self) -> CapsuleFrag {
+    pub fn unverify(&self) -> CapsuleFrag {
         CapsuleFrag {
-            backend: self.backend.to_unverified(),
+            backend: self.backend.clone().unverify(),
         }
     }
 
@@ -736,7 +738,7 @@ impl VerifiedCapsuleFrag {
 
 #[pyfunction]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, &kfrag.backend);
+    let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, kfrag.backend.clone());
     VerifiedCapsuleFrag {
         backend: backend_vcfrag,
     }
@@ -760,7 +762,7 @@ pub fn decrypt_reencrypted(
         &receiving_sk.backend,
         &delegating_pk.backend,
         &capsule.backend,
-        &backend_cfrags,
+        backend_cfrags,
         ciphertext,
     )
     .map(|plaintext| PyBytes::new(py, &plaintext).into())

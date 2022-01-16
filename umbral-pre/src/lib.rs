@@ -27,9 +27,8 @@
 //! // Key Generation (on Alice's side)
 //! let alice_sk = SecretKey::random();
 //! let alice_pk = alice_sk.public_key();
-//! let signing_sk = SecretKey::random();
-//! let signer = Signer::new(&signing_sk);
-//! let verifying_pk = signing_sk.public_key();
+//! let signer = Signer::new(SecretKey::random());
+//! let verifying_pk = signer.verifying_key();
 //!
 //! // Key Generation (on Bob's side)
 //! let bob_sk = SecretKey::random();
@@ -72,11 +71,11 @@
 //!
 //! // Ursula 0
 //! let verified_kfrag0 = kfrag0.verify(&verifying_pk, Some(&alice_pk), Some(&bob_pk)).unwrap();
-//! let verified_cfrag0 = reencrypt(&capsule, &verified_kfrag0);
+//! let verified_cfrag0 = reencrypt(&capsule, verified_kfrag0);
 //!
 //! // Ursula 1
 //! let verified_kfrag1 = kfrag1.verify(&verifying_pk, Some(&alice_pk), Some(&bob_pk)).unwrap();
-//! let verified_cfrag1 = reencrypt(&capsule, &verified_kfrag1);
+//! let verified_cfrag1 = reencrypt(&capsule, verified_kfrag1);
 //!
 //! // ...
 //!
@@ -96,7 +95,7 @@
 //!     .unwrap();
 //!
 //! let plaintext_bob = decrypt_reencrypted(
-//!     &bob_sk, &alice_pk, &capsule, &[verified_cfrag0, verified_cfrag1], &ciphertext).unwrap();
+//!     &bob_sk, &alice_pk, &capsule, [verified_cfrag0, verified_cfrag1], &ciphertext).unwrap();
 //! assert_eq!(&plaintext_bob as &[u8], plaintext);
 //! ```
 //!

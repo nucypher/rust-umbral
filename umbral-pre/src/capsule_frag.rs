@@ -78,7 +78,7 @@ impl CapsuleFragProof {
     fn from_kfrag_and_cfrag(
         rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
-        kfrag: &KeyFrag,
+        kfrag: KeyFrag,
         cfrag_e1: &CurvePoint,
         cfrag_v1: &CurvePoint,
     ) -> Self {
@@ -114,7 +114,7 @@ impl CapsuleFragProof {
             kfrag_commitment: u1,
             kfrag_pok: u2,
             signature: z3,
-            kfrag_signature: kfrag.proof.signature_for_receiver(),
+            kfrag_signature: kfrag.proof.signature_for_receiver,
         }
     }
 }
@@ -217,18 +217,20 @@ impl CapsuleFrag {
     fn reencrypted(
         rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
-        kfrag: &KeyFrag,
+        kfrag: KeyFrag,
     ) -> Self {
         let rk = kfrag.key;
         let e1 = &capsule.point_e * &rk;
         let v1 = &capsule.point_v * &rk;
+        let id = kfrag.id;
+        let precursor = kfrag.precursor;
         let proof = CapsuleFragProof::from_kfrag_and_cfrag(rng, capsule, kfrag, &e1, &v1);
 
         Self {
             point_e1: e1,
             point_v1: v1,
-            kfrag_id: kfrag.id,
-            precursor: kfrag.precursor,
+            kfrag_id: id,
+            precursor,
             proof,
         }
     }
@@ -237,12 +239,12 @@ impl CapsuleFrag {
     /// the encrypting party's key, the decrypting party's key, and the signing key.
     #[allow(clippy::many_single_char_names)]
     pub fn verify(
-        &self,
+        self,
         capsule: &Capsule,
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Result<VerifiedCapsuleFrag, CapsuleFragVerificationError> {
+    ) -> Result<VerifiedCapsuleFrag, (CapsuleFragVerificationError, Self)> {
         let params = capsule.params;
 
         // Here are the formulaic constituents shared with
@@ -279,7 +281,10 @@ impl CapsuleFrag {
             )
             .as_ref(),
         ) {
-            return Err(CapsuleFragVerificationError::IncorrectKeyFragSignature);
+            return Err((
+                CapsuleFragVerificationError::IncorrectKeyFragSignature,
+                self,
+            ));
         }
 
         // TODO (#46): if one or more of the values here are incorrect,
@@ -291,12 +296,10 @@ impl CapsuleFrag {
         let correct_rk_commitment = &u * &z == &u2 + &(&u1 * &h);
 
         if !(correct_reencryption_of_e & correct_reencryption_of_v & correct_rk_commitment) {
-            return Err(CapsuleFragVerificationError::IncorrectReencryption);
+            return Err((CapsuleFragVerificationError::IncorrectReencryption, self));
         }
 
-        Ok(VerifiedCapsuleFrag {
-            cfrag: self.clone(),
-        })
+        Ok(VerifiedCapsuleFrag { cfrag: self })
     }
 
     /// Explicitly skips verification.
@@ -342,7 +345,7 @@ impl VerifiedCapsuleFrag {
     pub(crate) fn reencrypted(
         rng: &mut (impl CryptoRng + RngCore),
         capsule: &Capsule,
-        kfrag: &KeyFrag,
+        kfrag: KeyFrag,
     ) -> Self {
         VerifiedCapsuleFrag {
             cfrag: CapsuleFrag::reencrypted(rng, capsule, kfrag),
@@ -362,8 +365,8 @@ impl VerifiedCapsuleFrag {
     /// Useful for the cases where it needs to be put in the protocol structure
     /// containing [`CapsuleFrag`] types (since those are the ones
     /// that can be serialized/deserialized freely).
-    pub fn to_unverified(&self) -> CapsuleFrag {
-        self.cfrag.clone()
+    pub fn unverify(self) -> CapsuleFrag {
+        self.cfrag
     }
 }
 
@@ -396,9 +399,8 @@ mod tests {
         let delegating_sk = SecretKey::random();
         let delegating_pk = delegating_sk.public_key();
 
-        let signing_sk = SecretKey::random();
-        let signer = Signer::new(&signing_sk);
-        let verifying_pk = signing_sk.public_key();
+        let signer = Signer::new(SecretKey::random());
+        let verifying_pk = signer.verifying_key();
 
         let receiving_sk = SecretKey::random();
         let receiving_pk = receiving_sk.public_key();
@@ -410,7 +412,7 @@ mod tests {
 
         let verified_cfrags: Vec<_> = kfrags
             .iter()
-            .map(|kfrag| reencrypt(&capsule, &kfrag))
+            .map(|kfrag| reencrypt(&capsule, kfrag.clone()))
             .collect();
 
         (

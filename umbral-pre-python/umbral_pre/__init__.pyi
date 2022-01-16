@@ -133,7 +133,7 @@ class VerifiedKeyFrag:
     def from_verified_bytes(data: bytes) -> VerifiedKeyFrag:
         ...
 
-    def to_unverified(self) -> KeyFrag:
+    def unverify(self) -> KeyFrag:
         ...
 
     @staticmethod
@@ -181,7 +181,7 @@ class VerifiedCapsuleFrag:
     def from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag:
         ...
 
-    def to_unverified(self) -> CapsuleFrag:
+    def unverify(self) -> CapsuleFrag:
         ...
 
     @staticmethod
