@@ -91,8 +91,8 @@ impl SecretKeyFactory {
     }
 
     #[wasm_bindgen(js_name = makeKey)]
-    pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
-        self.0.make_key(label).map(SecretKey).map_err(map_js_err)
+    pub fn make_key(&self, label: &[u8]) -> SecretKey {
+        SecretKey(self.0.make_key(label))
     }
 
     #[wasm_bindgen(js_name = makeFactory)]
@@ -165,7 +165,7 @@ pub struct Signer(umbral_pre::Signer);
 impl Signer {
     #[wasm_bindgen(constructor)]
     pub fn new(secret_key: &SecretKey) -> Self {
-        Self(umbral_pre::Signer::new(&secret_key.0))
+        Self(umbral_pre::Signer::new(secret_key.0.clone()))
     }
 
     pub fn sign(&self, message: &[u8]) -> Signature {
@@ -276,7 +276,7 @@ pub struct CapsuleFrag(umbral_pre::CapsuleFrag);
 impl CapsuleFrag {
     #[wasm_bindgen]
     pub fn verify(
-        &self,
+        self,
         capsule: &Capsule,
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
@@ -290,6 +290,7 @@ impl CapsuleFrag {
                 &receiving_pk.0,
             )
             .map(VerifiedCapsuleFrag)
+            .map_err(|(err, _)| err)
             .map_err(map_js_err)
     }
 
@@ -377,12 +378,12 @@ impl CapsuleWithFrags {
         ciphertext: &[u8],
     ) -> Result<Box<[u8]>, JsValue> {
         let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
-            self.cfrags.iter().cloned().map(|x| x.0).collect();
+            self.cfrags.iter().map(|x| x.0.clone()).collect();
         umbral_pre::decrypt_reencrypted(
             &receiving_sk.0,
             &delegating_pk.0,
             &self.capsule.0,
-            backend_cfrags.as_slice(),
+            backend_cfrags,
             ciphertext,
         )
         .map_err(map_js_err)
@@ -439,16 +440,17 @@ impl KeyFrag {
     // So we have to use 4 functions instead of 1. Yikes.
 
     #[wasm_bindgen]
-    pub fn verify(&self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
+    pub fn verify(self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
         self.0
             .verify(&verifying_pk.0, None, None)
             .map(VerifiedKeyFrag)
+            .map_err(|(err, _)| err)
             .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = verifyWithDelegatingKey)]
     pub fn verify_with_delegating_key(
-        &self,
+        self,
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
     ) -> Result<VerifiedKeyFrag, JsValue> {
@@ -457,12 +459,13 @@ impl KeyFrag {
         self.0
             .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
             .map(VerifiedKeyFrag)
+            .map_err(|(err, _)| err)
             .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = verifyWithReceivingKey)]
     pub fn verify_with_receiving_key(
-        &self,
+        self,
         verifying_pk: &PublicKey,
         receiving_pk: &PublicKey,
     ) -> Result<VerifiedKeyFrag, JsValue> {
@@ -471,12 +474,13 @@ impl KeyFrag {
         self.0
             .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
             .map(VerifiedKeyFrag)
+            .map_err(|(err, _)| err)
             .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = verifyWithDelegatingAndReceivingKeys)]
     pub fn verify_with_delegating_and_receiving_keys(
-        &self,
+        self,
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
@@ -491,6 +495,7 @@ impl KeyFrag {
                 Some(&backend_receiving_pk),
             )
             .map(VerifiedKeyFrag)
+            .map_err(|(err, _)| err)
             .map_err(map_js_err)
     }
 
@@ -586,6 +591,6 @@ pub fn generate_kfrags(
 
 #[wasm_bindgen]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
-    let vcfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0);
+    let vcfrag = umbral_pre::reencrypt(&capsule.0, kfrag.0.clone());
     VerifiedCapsuleFrag(vcfrag)
 }
