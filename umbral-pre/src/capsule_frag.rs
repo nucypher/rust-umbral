@@ -195,7 +195,7 @@ impl fmt::Display for CapsuleFrag {
     }
 }
 
-/// Possible errors that can be returned by [`CapsuleFrag::verify`]. 
+/// Possible errors that can be returned by [`CapsuleFrag::verify`].
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CapsuleFragVerificationError {
     /// Inconsistent internal state leading to signature verification failure.

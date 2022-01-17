@@ -1,3 +1,8 @@
+//! Type wrappers for WASM bindings.
+
+// TODO: Write the docs
+#![allow(missing_docs)]
+
 extern crate alloc;
 
 use alloc::boxed::Box;
@@ -46,7 +51,7 @@ impl SecretKey {
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<SecretKey, JsValue> {
         umbral_pre::SecretKey::from_bytes(data)
-            .map(|sk| Self(sk))
+            .map(Self)
             .map_err(map_js_err)
     }
 
@@ -87,10 +92,7 @@ impl SecretKeyFactory {
 
     #[wasm_bindgen(js_name = makeKey)]
     pub fn make_key(&self, label: &[u8]) -> Result<SecretKey, JsValue> {
-        self.0
-            .make_key(label)
-            .map(|sk| SecretKey(sk))
-            .map_err(map_js_err)
+        self.0.make_key(label).map(SecretKey).map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = makeFactory)]
@@ -135,7 +137,7 @@ impl PublicKey {
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<PublicKey, JsValue> {
         umbral_pre::PublicKey::from_bytes(data)
-            .map(PublicKey::new)
+            .map(PublicKey)
             .map_err(map_js_err)
     }
 
@@ -151,10 +153,6 @@ impl PublicKey {
 }
 
 impl PublicKey {
-    pub fn new(public_key: umbral_pre::PublicKey) -> Self {
-        PublicKey(public_key)
-    }
-
     pub fn inner(&self) -> &umbral_pre::PublicKey {
         &self.0
     }
@@ -249,7 +247,7 @@ impl Capsule {
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<Capsule, JsValue> {
         umbral_pre::Capsule::from_bytes(data)
-            .map(Capsule::new)
+            .map(Capsule)
             .map_err(map_js_err)
     }
 
@@ -265,10 +263,6 @@ impl Capsule {
 }
 
 impl Capsule {
-    pub fn new(capsule: umbral_pre::Capsule) -> Capsule {
-        Capsule(capsule)
-    }
-
     pub fn inner(&self) -> &umbral_pre::Capsule {
         &self.0
     }
@@ -295,7 +289,7 @@ impl CapsuleFrag {
                 &delegating_pk.0,
                 &receiving_pk.0,
             )
-            .map(VerifiedCapsuleFrag::new)
+            .map(VerifiedCapsuleFrag)
             .map_err(map_js_err)
     }
 
@@ -331,7 +325,7 @@ impl VerifiedCapsuleFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
     pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, JsValue> {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(bytes)
-            .map(|vcfrag| VerifiedCapsuleFrag(vcfrag))
+            .map(VerifiedCapsuleFrag)
             .map_err(map_js_err)
     }
 
@@ -352,10 +346,6 @@ impl VerifiedCapsuleFrag {
 }
 
 impl VerifiedCapsuleFrag {
-    pub fn new(vcfrag: umbral_pre::VerifiedCapsuleFrag) -> Self {
-        VerifiedCapsuleFrag(vcfrag)
-    }
-
     pub fn inner(&self) -> umbral_pre::VerifiedCapsuleFrag {
         self.0.clone()
     }
@@ -426,7 +416,7 @@ impl EncryptionResult {
 pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, JsValue> {
     let backend_pk = delegating_pk.0;
     umbral_pre::encrypt(&backend_pk, plaintext)
-        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule::new(capsule)))
+        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
         .map_err(map_js_err)
 }
 
@@ -452,7 +442,7 @@ impl KeyFrag {
     pub fn verify(&self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
         self.0
             .verify(&verifying_pk.0, None, None)
-            .map(VerifiedKeyFrag::new)
+            .map(VerifiedKeyFrag)
             .map_err(map_js_err)
     }
 
@@ -466,7 +456,7 @@ impl KeyFrag {
 
         self.0
             .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
-            .map(VerifiedKeyFrag::new)
+            .map(VerifiedKeyFrag)
             .map_err(map_js_err)
     }
 
@@ -480,7 +470,7 @@ impl KeyFrag {
 
         self.0
             .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
-            .map(VerifiedKeyFrag::new)
+            .map(VerifiedKeyFrag)
             .map_err(map_js_err)
     }
 
@@ -500,7 +490,7 @@ impl KeyFrag {
                 Some(&backend_delegating_pk),
                 Some(&backend_receiving_pk),
             )
-            .map(VerifiedKeyFrag::new)
+            .map(VerifiedKeyFrag)
             .map_err(map_js_err)
     }
 
@@ -536,7 +526,7 @@ impl VerifiedKeyFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
     pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, JsValue> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
-            .map(VerifiedKeyFrag::new)
+            .map(VerifiedKeyFrag)
             .map_err(map_js_err)
     }
 
@@ -557,10 +547,6 @@ impl VerifiedKeyFrag {
 }
 
 impl VerifiedKeyFrag {
-    pub fn new(vkfrag: umbral_pre::VerifiedKeyFrag) -> VerifiedKeyFrag {
-        VerifiedKeyFrag(vkfrag)
-    }
-
     pub fn inner(&self) -> &umbral_pre::VerifiedKeyFrag {
         &self.0
     }
@@ -593,7 +579,7 @@ pub fn generate_kfrags(
     backend_kfrags
         .iter()
         .cloned()
-        .map(VerifiedKeyFrag::new)
+        .map(VerifiedKeyFrag)
         .map(JsValue::from)
         .collect()
 }
@@ -601,5 +587,5 @@ pub fn generate_kfrags(
 #[wasm_bindgen]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
     let vcfrag = umbral_pre::reencrypt(&capsule.0, &kfrag.0);
-    VerifiedCapsuleFrag::new(vcfrag)
+    VerifiedCapsuleFrag(vcfrag)
 }
