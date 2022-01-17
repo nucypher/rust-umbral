@@ -20,7 +20,6 @@ base64 = { version = "0.13", default-features = false, features = ["alloc"] }
 pyo3 = { version = "0.15", optional = true }
 js-sys = { version = "0.3", optional = true }
 wasm-bindgen = {version = "0.2.74", optional = true }
-wee_alloc = { version = "0.4", optional = true }
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
@@ -45,7 +44,7 @@ rmp-serde = "0.15"
 default = ["default-rng"]
 bench-internals = ["default-rng"]
 bindings-python = ["pyo3", "std"]
-bindings-wasm = [ "serde-support", "js-sys", "wee_alloc", "wasm-bindgen"]
+bindings-wasm = [ "serde-support", "js-sys", "wasm-bindgen"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 serde-support = ["serde"]
 std = []
