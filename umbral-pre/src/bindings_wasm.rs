@@ -153,6 +153,10 @@ impl PublicKey {
 }
 
 impl PublicKey {
+    pub fn new(pk: umbral_pre::PublicKey) -> Self {
+        PublicKey(pk)
+    }
+
     pub fn inner(&self) -> &umbral_pre::PublicKey {
         &self.0
     }
@@ -263,6 +267,10 @@ impl Capsule {
 }
 
 impl Capsule {
+    pub fn new(capsule: umbral_pre::Capsule) -> Self {
+        Capsule(capsule)
+    }
+
     pub fn inner(&self) -> &umbral_pre::Capsule {
         &self.0
     }
@@ -347,6 +355,10 @@ impl VerifiedCapsuleFrag {
 }
 
 impl VerifiedCapsuleFrag {
+    pub fn new(verified_cfrag: umbral_pre::VerifiedCapsuleFrag) -> Self {
+        VerifiedCapsuleFrag(verified_cfrag)
+    }
+
     pub fn inner(&self) -> umbral_pre::VerifiedCapsuleFrag {
         self.0.clone()
     }
@@ -378,7 +390,7 @@ impl CapsuleWithFrags {
         ciphertext: &[u8],
     ) -> Result<Box<[u8]>, JsValue> {
         let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
-            self.cfrags.iter().map(|x| x.0.clone()).collect();
+            self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
             &receiving_sk.0,
             &delegating_pk.0,
@@ -552,6 +564,10 @@ impl VerifiedKeyFrag {
 }
 
 impl VerifiedKeyFrag {
+    pub fn new(vkfrag: umbral_pre::VerifiedKeyFrag) -> Self {
+        Self(vkfrag)
+    }
+
     pub fn inner(&self) -> &umbral_pre::VerifiedKeyFrag {
         &self.0
     }
