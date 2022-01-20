@@ -1,5 +1,4 @@
 use crate::curve::CurvePoint;
-use crate::hashing::unsafe_hash_to_point;
 
 /// An object containing shared scheme parameters.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -14,15 +13,9 @@ impl Parameters {
         // `g` is fixed to be the generator because it has to be the same
         // as the one used for secret/public keys, and it is standardized (for a given curve).
 
-        // Only fails with a minuscule probability,
-        // and since `g` is fixed here, we can just ignore the panic branch,
-        // because we know it succeeds.
-
-        // Technically, we don't need the DST here now since it's a custom hashing function
-        // used for exactly one purpose (and, really, on only one value).
-        // But in view of possible replacement with the standard hash-to-curve (see #35),
-        // which will need a DST, we're using a DST here as well.
-        let u = unsafe_hash_to_point(b"PARAMETERS", b"POINT_U").unwrap();
+        // Only fails when the given binary string is too large, which is not the case here,
+        // so we can safely unwrap.
+        let u = CurvePoint::from_data(b"PARAMETERS", b"POINT_U").unwrap();
 
         Self { u }
     }

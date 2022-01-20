@@ -1,3 +1,4 @@
+#![allow(clippy::unused_unit)] // Temporarily silence the warnings introduced in wasm-bindgen 0.2.79
 #![no_std]
 
 // Use `wee_alloc` as the global allocator.
