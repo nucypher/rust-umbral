@@ -14,7 +14,7 @@ use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{AffinePoint, Field, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
-use k256::{ProjectivePoint, Secp256k1};
+use k256::Secp256k1;
 use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
 use subtle::CtOption;
