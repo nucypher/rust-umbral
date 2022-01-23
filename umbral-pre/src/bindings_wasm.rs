@@ -1,3 +1,6 @@
+// Disable false-positive warnings caused by `#[wasm-bindgen]` on struct impls
+#![allow(clippy::unused_unit)]
+
 //! Type wrappers for WASM bindings.
 
 // TODO: Write the docs
