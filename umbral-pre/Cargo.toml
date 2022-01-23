@@ -15,9 +15,11 @@ sha2 = { version = "0.9", default-features = false }
 chacha20poly1305 = { version = "0.9" }
 hkdf = { version = "0.11", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
-serde = { version = "1", default-features = false, optional = true }
+serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 base64 = { version = "0.13", default-features = false, features = ["alloc"] }
 pyo3 = { version = "0.15", optional = true }
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = {version = "0.2.74", optional = true }
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
@@ -42,6 +44,7 @@ rmp-serde = "0.15"
 default = ["default-rng"]
 bench-internals = ["default-rng"]
 bindings-python = ["pyo3", "std"]
+bindings-wasm = [ "serde-support", "js-sys", "wasm-bindgen"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 serde-support = ["serde"]
 std = []

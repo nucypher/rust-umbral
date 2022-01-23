@@ -132,7 +132,6 @@ pub(crate) mod tests {
 
     use serde::de::DeserializeOwned;
     use serde::Serialize;
-    use serde_json;
 
     use super::Representation;
     use crate::SerializableToArray;

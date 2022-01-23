@@ -118,6 +118,8 @@ pub mod bench; // Re-export some internals for benchmarks.
 
 #[cfg(feature = "bindings-python")]
 pub mod bindings_python;
+#[cfg(feature = "bindings-wasm")]
+pub mod bindings_wasm;
 
 mod capsule;
 mod capsule_frag;
@@ -132,7 +134,7 @@ mod pre;
 mod secret_box;
 mod traits;
 
-#[cfg(feature = "serde-support")]
+#[cfg(any(feature = "serde-support", feature = "bindings-wasm"))]
 mod serde;
 
 pub use capsule::{Capsule, OpenReencryptedError};

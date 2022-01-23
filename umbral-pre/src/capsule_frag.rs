@@ -315,6 +315,7 @@ impl CapsuleFrag {
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bindings-wasm", derive(Serialize, Deserialize))]
 pub struct VerifiedCapsuleFrag {
     cfrag: CapsuleFrag,
 }
