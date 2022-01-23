@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing here yet.
+
+
+## [0.5.1] - 2022-01-22
+
 ### Added
 
 - WASM bindings are exposed as a feature `bindings-wasm` in the main crate, to allow dependent crates to create their own WASM bindings and re-export some WASM-wrapped Umbral types. ([#78])
@@ -124,8 +129,9 @@ the corresponding methods in Python and WASM bindings. ([#84])
 
 - Initial release.
 
-[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.5.1...HEAD
 [0.2.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.2.0
 [0.3.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.3.0
 [0.4.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.4.0
 [0.5.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.5.0
+[0.5.1]: https://github.com/nucypher/rust-umbral/releases/tag/v0.5.1
