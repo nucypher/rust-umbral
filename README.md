@@ -15,9 +15,9 @@ This repo contains Rust implementation of the [Umbral][umbral] threshold proxy r
 [rust-build-link]: https://github.com/nucypher/rust-umbral/actions?query=workflow%3Aumbral-pre
 [rust-coverage-image]: https://codecov.io/gh/nucypher/rust-umbral/branch/master/graph/badge.svg
 [rust-coverage-link]: https://codecov.io/gh/nucypher/rust-umbral
-[js-npm-image]: https://img.shields.io/npm/v/umbral-pre
-[js-npm-link]: https://www.npmjs.com/package/umbral-pre
-[js-license-image]: https://img.shields.io/npm/l/umbral-pre
+[js-npm-image]: https://img.shields.io/npm/v/@nucypher/umbral-pre
+[js-npm-link]: https://www.npmjs.com/package/@nucypher/umbral-pre
+[js-license-image]: https://img.shields.io/npm/l/@nucypher/umbral-pre
 [pypi-image]: https://img.shields.io/pypi/v/umbral-pre
 [pypi-link]: https://pypi.org/project/umbral-pre/
 [pypi-license-image]: https://img.shields.io/pypi/l/umbral-pre
