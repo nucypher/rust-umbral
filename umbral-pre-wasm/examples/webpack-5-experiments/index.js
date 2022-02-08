@@ -1,4 +1,4 @@
-import * as umbral from "umbral-pre";
+import * as umbral from "@nucypher/umbral-pre";
 
 let enc = new TextEncoder();
 let dec = new TextDecoder("utf-8");

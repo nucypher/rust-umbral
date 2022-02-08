@@ -9,7 +9,7 @@ This repo contains the WASM-based JS bindings for the [main Rust project][umbral
 (This code can be found in the `examples` folder)
 
 ```javascript
-import * as umbral from "umbral-pre";
+import * as umbral from "@nucypher/umbral-pre";
 
 let enc = new TextEncoder();
 let dec = new TextDecoder("utf-8");

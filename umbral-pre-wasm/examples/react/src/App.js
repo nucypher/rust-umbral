@@ -13,7 +13,7 @@ function App() {
   const [cfrags, setCfrags] = useState([]);
 
   const loadUmbral = async () => {
-    const wumbral = await import("umbral-pre");
+    const wumbral = await import("@nucypher/umbral-pre");
     setUmbral(wumbral);
   };
 
