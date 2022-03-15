@@ -6,10 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing here yet.
+### Fixed
+
+- `k256` bumped to 0.10.4 to make use of an important bugfix (see https://github.com/RustCrypto/elliptic-curves/issues/529). Previous 0.5.* versions (using `k256` 0.10.2 with the bug) are yanked.
 
 
-## [0.5.1] - 2022-01-22
+## [0.5.1] - 2022-01-22 (**YANKED**)
 
 ### Added
 
@@ -19,7 +21,7 @@ Nothing here yet.
 [#78]: https://github.com/nucypher/rust-umbral/pull/78
 
 
-## [0.5.0] - 2022-01-19
+## [0.5.0] - 2022-01-19 (**YANKED**)
 
 ### Changed
 
