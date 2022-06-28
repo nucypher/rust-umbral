@@ -1,5 +1,6 @@
 //! Utilities to interact with `serde`.
 
+use alloc::format;
 use core::fmt;
 use core::marker::PhantomData;
 
@@ -32,7 +33,7 @@ where
     if serializer.is_human_readable() {
         let repr = match representation {
             Representation::Base64 => base64::encode(obj.to_array().as_ref()),
-            Representation::Hex => hex::encode(obj.to_array().as_ref()),
+            Representation::Hex => format!("0x{}", hex::encode(obj.to_array().as_ref())),
         };
         serializer.serialize_str(&repr)
     } else {
@@ -70,14 +71,26 @@ where
     type Value = T;
 
     fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "hex-encoded {} bytes", T::type_name())
+        write!(f, "0x-prefixed hex-encoded {} bytes", T::type_name())
     }
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
-        let bytes = hex::decode(v).map_err(de::Error::custom)?;
+        if v.len() < 2 {
+            return Err(de::Error::invalid_length(
+                v.len(),
+                &"0x-prefixed hex-encoded bytes",
+            ));
+        }
+        if &v[..2] != "0x" {
+            return Err(de::Error::invalid_value(
+                de::Unexpected::Str(v),
+                &"0x-prefixed hex-encoded bytes",
+            ));
+        }
+        let bytes = hex::decode(&v[2..]).map_err(de::Error::custom)?;
         T::from_bytes(&bytes).map_err(de::Error::custom)
     }
 }
