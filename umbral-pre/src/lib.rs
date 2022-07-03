@@ -116,11 +116,14 @@ extern crate std;
 extern crate alloc;
 
 #[cfg(feature = "bench-internals")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bench-internals")))]
 pub mod bench; // Re-export some internals for benchmarks.
 
 #[cfg(feature = "bindings-python")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bindings-python")))]
 pub mod bindings_python;
 #[cfg(feature = "bindings-wasm")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bindings-wasm")))]
 pub mod bindings_wasm;
 
 mod capsule;
@@ -137,6 +140,7 @@ mod secret_box;
 mod traits;
 
 #[cfg(any(feature = "serde-support", feature = "bindings-wasm"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 pub mod serde_bytes;
 
 pub use capsule::{Capsule, OpenReencryptedError};

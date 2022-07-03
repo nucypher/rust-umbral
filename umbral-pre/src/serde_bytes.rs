@@ -1,3 +1,6 @@
+//! Utility functions for efficient bytestring serialization with `serde`
+//! (by default they are serialized as vectors of integers).
+
 use alloc::boxed::Box;
 use alloc::format;
 use core::any::type_name;
@@ -133,8 +136,15 @@ where
 }
 
 pub mod as_hex {
+    //! A module containing serialization and deserialization function
+    //! that use hex (`0x`-prefixed) representation for bytestrings in human-readable formats.
+    //!
+    //! To be used in `[serde(with)]` field attribute.
+
     use super::*;
 
+    /// Serialize an object representable as bytes using `0x`-prefixed hex encoding
+    /// if the target format is human-readable, and plain bytes otherwise.
     pub fn serialize<T, S>(obj: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         T: AsRef<[u8]>,
@@ -143,6 +153,8 @@ pub mod as_hex {
         serialize_with_encoding(obj, serializer, Encoding::Hex)
     }
 
+    /// Deserialize an object representable as bytes assuming `0x`-prefixed hex encoding
+    /// if the source format is human-readable, and plain bytes otherwise.
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
     where
         D: Deserializer<'de>,
@@ -153,8 +165,15 @@ pub mod as_hex {
 }
 
 pub mod as_base64 {
+    //! A module containing serialization and deserialization function
+    //! that use hex (`0x`-prefixed) representation for bytestrings.
+    //!
+    //! To be used in `[serde(with)]` field attribute.
+
     use super::*;
 
+    /// Serialize an object representable as bytes using `base64` encoding
+    /// if the target format is human-readable, and plain bytes otherwise.
     pub fn serialize<T, S>(obj: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
         T: AsRef<[u8]>,
@@ -163,6 +182,8 @@ pub mod as_base64 {
         serialize_with_encoding(obj, serializer, Encoding::Base64)
     }
 
+    /// Deserialize an object representable as bytes assuming `base64` encoding
+    /// if the source format is human-readable, and plain bytes otherwise.
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
     where
         D: Deserializer<'de>,
@@ -205,10 +226,16 @@ does not realize that `<<[u8; N]> as TryFrom<&'a [u8]>>::Error`
 So we have to introduce our own trait with an `Error` that is definitely `Display`,
 and generalize on that.
 See https://github.com/serde-rs/serde/issues/2241
+
+Also `GenericArray` (which we need) doesn't even implement `TryFrom`.
 */
+
+/// A trait providing a way to construct an object from a byte slice.
 pub trait TryFromBytes: Sized {
+    /// The error returned on construction failure.
     type Error: fmt::Display;
 
+    /// Attempts to construct an object from a byte slice.
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error>;
 }
 
