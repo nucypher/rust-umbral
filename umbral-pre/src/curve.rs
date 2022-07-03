@@ -8,8 +8,7 @@ use core::ops::{Add, Mul, Sub};
 use digest::Digest;
 use elliptic_curve::bigint::U256; // Note that this type is different from typenum::U256
 use elliptic_curve::group::ff::PrimeField;
-use elliptic_curve::hash2curve::GroupDigest;
-use elliptic_curve::hash2field::ExpandMsgXmd;
+use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{AffinePoint, Field, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};

@@ -1,4 +1,4 @@
-use digest::Digest;
+use digest::{Digest, Update};
 use sha2::Sha256;
 
 use crate::curve::{CurvePoint, NonZeroCurveScalar};

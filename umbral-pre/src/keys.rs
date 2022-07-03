@@ -229,7 +229,7 @@ impl PublicKey {
     /// Verifies the signature.
     pub(crate) fn verify_digest(
         &self,
-        digest: impl Digest<OutputSize = U32>,
+        digest: impl Digest<OutputSize = U32> + digest::FixedOutput,
         signature: &Signature,
     ) -> bool {
         let verifier = VerifyingKey::from(&self.0);
