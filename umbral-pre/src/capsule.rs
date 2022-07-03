@@ -7,7 +7,7 @@ use rand_core::{CryptoRng, RngCore};
 use typenum::op;
 
 #[cfg(feature = "serde-support")]
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::capsule_frag::CapsuleFrag;
 use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
@@ -21,7 +21,7 @@ use crate::traits::{
 };
 
 #[cfg(feature = "serde-support")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use crate::serde_bytes::{deserialize_as_array, serialize_as_array, Encoding};
 
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
 #[derive(Debug, PartialEq)]
@@ -92,7 +92,7 @@ impl Serialize for Capsule {
     where
         S: Serializer,
     {
-        serde_serialize(self, serializer, Representation::Base64)
+        serialize_as_array(self, serializer, Encoding::Base64)
     }
 }
 
@@ -103,7 +103,7 @@ impl<'de> Deserialize<'de> for Capsule {
     where
         D: Deserializer<'de>,
     {
-        serde_deserialize(deserializer, Representation::Base64)
+        deserialize_as_array(deserializer, Encoding::Base64)
     }
 }
 
@@ -268,10 +268,10 @@ mod tests {
     };
 
     #[cfg(feature = "serde-support")]
-    use crate::serde::tests::{check_deserialization, check_serialization};
-
-    #[cfg(feature = "serde-support")]
-    use crate::serde::Representation;
+    use crate::serde_bytes::{
+        tests::{check_deserialization, check_serialization},
+        Encoding,
+    };
 
     #[test]
     fn test_serialize() {
@@ -354,7 +354,7 @@ mod tests {
         let delegating_pk = delegating_sk.public_key();
         let (capsule, _key_seed) = Capsule::from_public_key(&mut OsRng, &delegating_pk);
 
-        check_serialization(&capsule, Representation::Base64);
+        check_serialization(&capsule, Encoding::Base64);
         check_deserialization(&capsule);
     }
 }

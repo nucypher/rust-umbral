@@ -137,7 +137,7 @@ mod secret_box;
 mod traits;
 
 #[cfg(any(feature = "serde-support", feature = "bindings-wasm"))]
-mod serde;
+pub mod serde_bytes;
 
 pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::{CapsuleFrag, CapsuleFragVerificationError, VerifiedCapsuleFrag};

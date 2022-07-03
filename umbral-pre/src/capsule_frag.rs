@@ -20,7 +20,7 @@ use crate::traits::{
 };
 
 #[cfg(feature = "serde-support")]
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
+use crate::serde_bytes::{deserialize_as_array, serialize_as_array, Encoding};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CapsuleFragProof {
@@ -168,7 +168,7 @@ impl Serialize for CapsuleFrag {
     where
         S: Serializer,
     {
-        serde_serialize(self, serializer, Representation::Base64)
+        serialize_as_array(self, serializer, Encoding::Base64)
     }
 }
 
@@ -179,7 +179,7 @@ impl<'de> Deserialize<'de> for CapsuleFrag {
     where
         D: Deserializer<'de>,
     {
-        serde_deserialize(deserializer, Representation::Base64)
+        deserialize_as_array(deserializer, Encoding::Base64)
     }
 }
 
@@ -385,10 +385,10 @@ mod tests {
     };
 
     #[cfg(feature = "serde-support")]
-    use crate::serde::tests::{check_deserialization, check_serialization};
-
-    #[cfg(feature = "serde-support")]
-    use crate::serde::Representation;
+    use crate::serde_bytes::{
+        tests::{check_deserialization, check_serialization},
+        Encoding,
+    };
 
     fn prepare_cfrags() -> (
         PublicKey,
@@ -453,7 +453,7 @@ mod tests {
         let vcfrag = verified_cfrags[0].clone();
         let cfrag = CapsuleFrag::from_array(&vcfrag.to_array()).unwrap();
 
-        check_serialization(&cfrag, Representation::Base64);
+        check_serialization(&cfrag, Encoding::Base64);
         check_deserialization(&cfrag);
     }
 }
