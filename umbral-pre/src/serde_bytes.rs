@@ -7,10 +7,9 @@ use core::any::type_name;
 use core::fmt;
 use core::marker::PhantomData;
 
-use generic_array::{ArrayLength, GenericArray};
 use serde::{de, Deserializer, Serializer};
 
-use crate::traits::{DeserializableFromArray, SerializableToArray, SizeMismatchError};
+use crate::traits::{DeserializableFromArray, DeserializationError, SerializableToArray};
 
 pub(crate) enum Encoding {
     /// Use base64 representation for byte arrays.
@@ -193,31 +192,6 @@ pub mod as_base64 {
     }
 }
 
-pub(crate) fn serialize_as_array<T, S>(
-    obj: &T,
-    serializer: S,
-    encoding: Encoding,
-) -> Result<S::Ok, S::Error>
-where
-    T: SerializableToArray,
-    S: Serializer,
-{
-    let array = obj.to_array();
-    serialize_with_encoding(&array, serializer, encoding)
-}
-
-pub(crate) fn deserialize_as_array<'de, T, D>(
-    deserializer: D,
-    encoding: Encoding,
-) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: DeserializableFromArray,
-{
-    let array = deserialize_with_encoding(deserializer, encoding)?;
-    T::from_array(&array).map_err(de::Error::custom)
-}
-
 /*
 Ideally, we would generalize `deserialize()` for anything supporting `TryFrom<&[u8]>`.
 But we want the associated `Error` to be `Display`, and for some reason `serde`
@@ -226,8 +200,6 @@ does not realize that `<<[u8; N]> as TryFrom<&'a [u8]>>::Error`
 So we have to introduce our own trait with an `Error` that is definitely `Display`,
 and generalize on that.
 See https://github.com/serde-rs/serde/issues/2241
-
-Also `GenericArray` (which we need) doesn't even implement `TryFrom`.
 */
 
 /// A trait providing a way to construct an object from a byte slice.
@@ -255,21 +227,29 @@ impl TryFromBytes for Box<[u8]> {
     }
 }
 
-impl<N: ArrayLength<u8>> TryFromBytes for GenericArray<u8, N> {
-    type Error = SizeMismatchError;
+/// An adapter `SerializableToArray` -> `AsRef<[u8]>` for serialization.
+/// (we can't just define a trait since we need to instantiate the array first
+/// and cannot return a dangling reference to it).
+pub(crate) fn serialize_as_array<T, S>(
+    obj: &T,
+    serializer: S,
+    encoding: Encoding,
+) -> Result<S::Ok, S::Error>
+where
+    T: SerializableToArray,
+    S: Serializer,
+{
+    let array = obj.to_array();
+    serialize_with_encoding(&array, serializer, encoding)
+}
+
+/// For deserialization, unlike serialization, we can piggyback on `TryFromBytes` support directly,
+/// since anything implementing `DeserializableFromArray` trivially implements `TryFromBytes`.
+impl<T: DeserializableFromArray> TryFromBytes for T {
+    type Error = DeserializationError;
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        match GenericArray::<u8, N>::from_exact_iter(bytes.iter().cloned()) {
-            Some(array) => Ok(array),
-            None => {
-                let received_size = bytes.len();
-                let expected_size = N::to_usize();
-                Err(SizeMismatchError {
-                    received_size,
-                    expected_size,
-                })
-            }
-        }
+        Self::from_bytes(bytes)
     }
 }
 

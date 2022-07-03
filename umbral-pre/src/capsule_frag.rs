@@ -20,7 +20,7 @@ use crate::traits::{
 };
 
 #[cfg(feature = "serde-support")]
-use crate::serde_bytes::{deserialize_as_array, serialize_as_array, Encoding};
+use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct CapsuleFragProof {
@@ -179,7 +179,7 @@ impl<'de> Deserialize<'de> for CapsuleFrag {
     where
         D: Deserializer<'de>,
     {
-        deserialize_as_array(deserializer, Encoding::Base64)
+        deserialize_with_encoding(deserializer, Encoding::Base64)
     }
 }
 

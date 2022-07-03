@@ -26,7 +26,7 @@ use crate::traits::{
 };
 
 #[cfg(feature = "serde-support")]
-use crate::serde_bytes::{deserialize_as_array, serialize_as_array, Encoding};
+use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
 
 /// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq)]
@@ -70,7 +70,7 @@ impl<'de> Deserialize<'de> for Signature {
     where
         D: Deserializer<'de>,
     {
-        deserialize_as_array(deserializer, Encoding::Base64)
+        deserialize_with_encoding(deserializer, Encoding::Base64)
     }
 }
 
@@ -274,7 +274,7 @@ impl<'de> Deserialize<'de> for PublicKey {
     where
         D: Deserializer<'de>,
     {
-        deserialize_as_array(deserializer, Encoding::Hex)
+        deserialize_with_encoding(deserializer, Encoding::Hex)
     }
 }
 
