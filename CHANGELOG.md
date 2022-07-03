@@ -6,7 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Under construction.
+### Changed
+
+- When serialized to a human-readable format using `serde`, hex-encoded objects now have a `0x` prefix. ([#94])
+
+
+### Added
+
+- `serde` utility functions to serialize bytestrings as bytes or hex/base64 encoded strings, depending on the target format. Exposed as `serde_bytes` module. ([#94])
+
+
+[#94]: https://github.com/nucypher/rust-umbral/pull/94
 
 
 ## [0.5.2] - 2022-03-15
