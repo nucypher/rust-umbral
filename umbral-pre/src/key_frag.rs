@@ -21,7 +21,7 @@ use crate::traits::{
 };
 
 #[cfg(feature = "serde-support")]
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
+use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
 
 #[allow(clippy::upper_case_acronyms)]
 type KeyFragIDSize = U32;
@@ -211,7 +211,7 @@ impl Serialize for KeyFrag {
     where
         S: Serializer,
     {
-        serde_serialize(self, serializer, Representation::Base64)
+        serialize_as_array(self, serializer, Encoding::Base64)
     }
 }
 
@@ -222,7 +222,7 @@ impl<'de> Deserialize<'de> for KeyFrag {
     where
         D: Deserializer<'de>,
     {
-        serde_deserialize(deserializer, Representation::Base64)
+        deserialize_with_encoding(deserializer, Encoding::Base64)
     }
 }
 
@@ -511,10 +511,10 @@ mod tests {
     use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
 
     #[cfg(feature = "serde-support")]
-    use crate::serde::tests::{check_deserialization, check_serialization};
-
-    #[cfg(feature = "serde-support")]
-    use crate::serde::Representation;
+    use crate::serde_bytes::{
+        tests::{check_deserialization, check_serialization},
+        Encoding,
+    };
 
     fn prepare_kfrags(
         sign_delegating_key: bool,
@@ -600,7 +600,7 @@ mod tests {
         let vkfrag = verified_kfrags[0].clone();
         let kfrag = KeyFrag::from_array(&vkfrag.to_array()).unwrap();
 
-        check_serialization(&kfrag, Representation::Base64);
+        check_serialization(&kfrag, Encoding::Base64);
         check_deserialization(&kfrag);
     }
 }

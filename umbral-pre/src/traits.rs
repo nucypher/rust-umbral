@@ -43,8 +43,8 @@ impl fmt::Display for ConstructionError {
 /// The provided bytestring is of an incorrect size.
 #[derive(Debug, PartialEq)]
 pub struct SizeMismatchError {
-    received_size: usize,
-    expected_size: usize,
+    pub(crate) received_size: usize,
+    pub(crate) expected_size: usize,
 }
 
 impl SizeMismatchError {

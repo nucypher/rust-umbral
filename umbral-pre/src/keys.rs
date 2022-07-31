@@ -26,7 +26,7 @@ use crate::traits::{
 };
 
 #[cfg(feature = "serde-support")]
-use crate::serde::{serde_deserialize, serde_serialize, Representation};
+use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
 
 /// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq)]
@@ -59,7 +59,7 @@ impl Serialize for Signature {
     where
         S: Serializer,
     {
-        serde_serialize(self, serializer, Representation::Base64)
+        serialize_as_array(self, serializer, Encoding::Base64)
     }
 }
 
@@ -70,7 +70,7 @@ impl<'de> Deserialize<'de> for Signature {
     where
         D: Deserializer<'de>,
     {
-        serde_deserialize(deserializer, Representation::Base64)
+        deserialize_with_encoding(deserializer, Encoding::Base64)
     }
 }
 
@@ -263,7 +263,7 @@ impl Serialize for PublicKey {
     where
         S: Serializer,
     {
-        serde_serialize(self, serializer, Representation::Hex)
+        serialize_as_array(self, serializer, Encoding::Hex)
     }
 }
 
@@ -274,7 +274,7 @@ impl<'de> Deserialize<'de> for PublicKey {
     where
         D: Deserializer<'de>,
     {
-        serde_deserialize(deserializer, Representation::Hex)
+        deserialize_with_encoding(deserializer, Encoding::Hex)
     }
 }
 
@@ -404,9 +404,10 @@ mod tests {
     use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
     #[cfg(feature = "serde-support")]
-    use crate::serde::tests::{check_deserialization, check_serialization};
-    #[cfg(feature = "serde-support")]
-    use crate::serde::Representation;
+    use crate::serde_bytes::{
+        tests::{check_deserialization, check_serialization},
+        Encoding,
+    };
 
     #[test]
     fn test_serialize_secret_key() {
@@ -466,10 +467,10 @@ mod tests {
         let pk = signer.verifying_key();
         let signature = signer.sign(message);
 
-        check_serialization(&pk, Representation::Hex);
+        check_serialization(&pk, Encoding::Hex);
         check_deserialization(&pk);
 
-        check_serialization(&signature, Representation::Base64);
+        check_serialization(&signature, Encoding::Base64);
         check_deserialization(&signature);
     }
 }
