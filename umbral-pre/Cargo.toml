@@ -17,7 +17,7 @@ hkdf = { version = "0.12", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 base64 = { version = "0.13", default-features = false, features = ["alloc"] }
-pyo3 = { version = "0.15", optional = true }
+pyo3 = { version = "0.16", optional = true }
 js-sys = { version = "0.3", optional = true }
 wasm-bindgen = {version = "0.2.74", optional = true }
 
