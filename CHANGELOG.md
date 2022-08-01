@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - When serialized to a human-readable format using `serde`, hex-encoded objects now have a `0x` prefix. ([#94])
+- Bumped `k256` to 0.11, `sha2` to 0.10, `hkdf` to 0.12, `chacha20poly1305` to 0.10, and `zeroize` to 1.5 (and MSRV to 1.57), so that we could use the new `ZeroizeOnDrop` functionality. In particular, `SecretBox`, `SecretKey`, `Signer`, and `DEM` now implement `ZeroizeOnDrop`. ([#97])
+- Removed `CanBeZeroizedOnDrop` trait, since `GenericArray` now supports `Zeroize` natively. ([#97])
+- Bumped `pyo3` to 0.16. ([#97])
 
 
 ### Added
@@ -17,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 [#94]: https://github.com/nucypher/rust-umbral/pull/94
+[#97]: https://github.com/nucypher/rust-umbral/pull/97
 
 
 ## [0.5.2] - 2022-03-15
