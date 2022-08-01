@@ -2,8 +2,7 @@ use alloc::boxed::Box;
 use core::fmt;
 
 use aead::{Aead, AeadCore, Payload};
-use chacha20poly1305::aead::NewAead;
-use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::{Key, KeyInit, KeySizeUser, XChaCha20Poly1305, XNonce};
 use generic_array::{ArrayLength, GenericArray};
 use hkdf::Hkdf;
 use rand_core::{CryptoRng, RngCore};
@@ -75,17 +74,14 @@ pub(crate) fn kdf<S: ArrayLength<u8>>(
 type NonceSize = <XChaCha20Poly1305 as AeadCore>::NonceSize;
 
 #[allow(clippy::upper_case_acronyms)]
+#[derive(ZeroizeOnDrop)]
 pub(crate) struct DEM {
     cipher: XChaCha20Poly1305,
 }
 
-// TODO: XChaCha20Poly1305 is zeroized on drop, but we need to put up an explicit asserion
-// for that when it is announced in the public API via `ZeroizeOnDrop` impl.
-impl ZeroizeOnDrop for DEM {}
-
 impl DEM {
     pub fn new(key_seed: &[u8]) -> Self {
-        type KeySize = <XChaCha20Poly1305 as NewAead>::KeySize;
+        type KeySize = <XChaCha20Poly1305 as KeySizeUser>::KeySize;
         let key_bytes = kdf::<KeySize>(key_seed, None, None);
         // Note that unlike `XChaCha20Poly1305`, `Key` is *not* zeroized automatically,
         // so we are wrapping it into a secret box.

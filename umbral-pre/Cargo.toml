@@ -12,7 +12,7 @@ categories = ["cryptography", "no-std"]
 [dependencies]
 k256 = { version = "0.11", default-features = false, features = ["ecdsa", "arithmetic", "hash2curve"] }
 sha2 = { version = "0.10", default-features = false }
-chacha20poly1305 = { version = "0.9" }
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 hkdf = { version = "0.12", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
@@ -26,7 +26,7 @@ wasm-bindgen = {version = "0.2.74", optional = true }
 elliptic-curve = { version = "0.12" }
 digest = "0.10"
 generic-array = { version = "0.14.6", features = ["zeroize"] }
-aead = { version = "0.4", default-features = false }
+aead = { version = "0.5", default-features = false }
 ecdsa = { version = "0.14.4" } # Pin patch version to enable ZeroizeOnDrop for SigningKey
 signature = { version = "1.5", default-features = false }
 rand_core = { version = "0.6", default-features = false }
