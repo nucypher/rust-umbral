@@ -44,7 +44,7 @@ pub fn encrypt_with_rng(
     plaintext: &[u8],
 ) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
     let (capsule, key_seed) = Capsule::from_public_key(rng, delegating_pk);
-    let dem = DEM::new(&key_seed);
+    let dem = DEM::new(key_seed.as_secret());
     dem.encrypt(rng, plaintext, &capsule.to_array())
         .map(|ciphertext| (capsule, ciphertext))
 }
@@ -66,7 +66,7 @@ pub fn decrypt_original(
     ciphertext: impl AsRef<[u8]>,
 ) -> Result<Box<[u8]>, DecryptionError> {
     let key_seed = capsule.open_original(delegating_sk);
-    let dem = DEM::new(&key_seed);
+    let dem = DEM::new(key_seed.as_secret());
     dem.decrypt(ciphertext, &capsule.to_array())
 }
 
@@ -184,7 +184,7 @@ pub fn decrypt_reencrypted(
     let key_seed = capsule
         .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
         .map_err(ReencryptionError::OnOpen)?;
-    let dem = DEM::new(&key_seed);
+    let dem = DEM::new(key_seed.as_secret());
     dem.decrypt(&ciphertext, &capsule.to_array())
         .map_err(ReencryptionError::OnDecryption)
 }

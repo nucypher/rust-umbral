@@ -20,46 +20,11 @@ we will need to deal with opening the `Box` as well.
 It's an inconvenience, albeit a minor one.
 
 The situation may improve in the future, and `secrecy` will actually become usable.
-See https://github.com/iqlusioninc/crates/issues/757
 */
 
 use alloc::boxed::Box;
 
-use generic_array::{ArrayLength, GenericArray};
-use zeroize::Zeroize;
-
-/// This is a helper trait for [`SecretBox`], asserting that the type implementing it
-/// can either be zeroized
-/// (in which case [`ensure_zeroized_on_drop`](`CanBeZeroizedOnDrop::ensure_zeroized_on_drop`)
-/// is implemented accordingly),
-/// or is zeroized on drop
-/// (in which case [`ensure_zeroized_on_drop`](`CanBeZeroizedOnDrop::ensure_zeroized_on_drop`)
-/// does nothing).
-/// In other words, with this trait we are sure that one way or the other,
-/// on drop of [`SecretBox`] the contents are zeroized.
-///
-/// Ideally these should be two traits, but without trait specialization feature
-/// we cannot have two `Drop` implementations depending on which trait the type has.
-///
-/// Additionally, it allows us to implement [`zeroize::Zeroize`]-like behavior
-/// for foreign types for which the original `Zeroize`
-/// isn't implemented (for example, [`generic_array::GenericArray`]).
-pub trait CanBeZeroizedOnDrop {
-    /// This method will be called on drop.
-    /// The implementor should zeroize the secret parts of the value if it does not do it itself,
-    /// or do nothing otherwise.
-    fn ensure_zeroized_on_drop(&mut self);
-}
-
-impl<T, N> CanBeZeroizedOnDrop for GenericArray<T, N>
-where
-    N: ArrayLength<T>,
-    T: Zeroize,
-{
-    fn ensure_zeroized_on_drop(&mut self) {
-        self.as_mut_slice().iter_mut().zeroize()
-    }
-}
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// A container for secret data.
 /// Makes the usage of secret data explicit and easy to track,
@@ -68,11 +33,11 @@ where
 #[derive(Clone)] // No Debug derivation, to avoid exposing the secret data accidentally.
 pub struct SecretBox<T>(Box<T>)
 where
-    T: CanBeZeroizedOnDrop + Clone;
+    T: Zeroize + Clone;
 
 impl<T> SecretBox<T>
 where
-    T: CanBeZeroizedOnDrop + Clone,
+    T: Zeroize + Clone,
 {
     pub(crate) fn new(val: T) -> Self {
         Self(Box::new(val))
@@ -91,9 +56,15 @@ where
 
 impl<T> Drop for SecretBox<T>
 where
-    T: CanBeZeroizedOnDrop + Clone,
+    T: Zeroize + Clone,
 {
     fn drop(&mut self) {
-        self.0.ensure_zeroized_on_drop()
+        self.0.zeroize()
     }
 }
+
+// Alternatively, it could be derived automatically,
+// but there's some compilation problem in the macro.
+// See https://github.com/RustCrypto/utils/issues/786
+// So we're asserting that this object is zeroized on drop, since there is a Drop impl just above.
+impl<T> ZeroizeOnDrop for SecretBox<T> where T: Zeroize + Clone {}
