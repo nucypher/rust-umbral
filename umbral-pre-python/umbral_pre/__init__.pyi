@@ -67,19 +67,19 @@ class PublicKey:
 
 class Signer:
 
-    def __init__(secret_key: SecretKey):
+    def __init__(self, secret_key: SecretKey):
         ...
 
-    def sign(message: bytes) -> Signature:
+    def sign(self, message: bytes) -> Signature:
         ...
 
-    def verifying_key() -> PublicKey:
+    def verifying_key(self) -> PublicKey:
         ...
 
 
 class Signature:
 
-    def verify(verifying_pk: PublicKey, message: bytes) -> bool:
+    def verify(self, verifying_pk: PublicKey, message: bytes) -> bool:
         ...
 
     @staticmethod
@@ -130,7 +130,7 @@ class KeyFrag:
 
 class VerifiedKeyFrag:
 
-    def from_verified_bytes(data: bytes) -> VerifiedKeyFrag:
+    def from_verified_bytes(self, data: bytes) -> VerifiedKeyFrag:
         ...
 
     def unverify(self) -> KeyFrag:
@@ -178,6 +178,7 @@ class CapsuleFrag:
 
 class VerifiedCapsuleFrag:
 
+    @staticmethod
     def from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag:
         ...
 
