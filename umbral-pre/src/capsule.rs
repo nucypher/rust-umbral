@@ -24,7 +24,7 @@ use crate::traits::{
 use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
 
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum OpenReencryptedError {
     /// An empty capsule fragment list is given.
     NoCapsuleFrags,

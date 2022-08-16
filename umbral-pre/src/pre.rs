@@ -18,7 +18,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 /// Errors that can happen when decrypting a reencrypted ciphertext.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ReencryptionError {
     /// An error when opening a capsule. See [`OpenReencryptedError`] for the options.
     OnOpen(OpenReencryptedError),
