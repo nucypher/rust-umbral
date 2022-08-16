@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "umbral-pre/**"
+      - "umbral-pre-python/**"
+      - "umbral-pre-wasm/**"
       - "Cargo.*"
   push:
     branches:
