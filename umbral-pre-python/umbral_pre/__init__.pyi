@@ -14,7 +14,7 @@ class SecretKey:
         ...
 
     @staticmethod
-    def from_bytes() -> SecretKey:
+    def from_bytes(data: bytes) -> SecretKey:
         ...
 
     @staticmethod
@@ -46,7 +46,7 @@ class SecretKeyFactory:
         ...
 
     @staticmethod
-    def from_bytes() -> SecretKeyFactory:
+    def from_bytes(data: bytes) -> SecretKeyFactory:
         ...
 
     @staticmethod
@@ -57,7 +57,7 @@ class SecretKeyFactory:
 class PublicKey:
 
     @staticmethod
-    def from_bytes() -> PublicKey:
+    def from_bytes(data: bytes) -> PublicKey:
         ...
 
     def __bytes__(self) -> bytes:
@@ -86,7 +86,7 @@ class Signature:
         ...
 
     @staticmethod
-    def from_bytes() -> Signature:
+    def from_bytes(data: bytes) -> Signature:
         ...
 
     def __bytes__(self) -> bytes:
@@ -104,7 +104,7 @@ class Capsule:
         ...
 
     @staticmethod
-    def from_bytes() -> Capsule:
+    def from_bytes(data: bytes) -> Capsule:
         ...
 
     def __bytes__(self) -> bytes:
@@ -133,7 +133,7 @@ class KeyFrag:
         ...
 
     @staticmethod
-    def from_bytes() -> KeyFrag:
+    def from_bytes(data: bytes) -> KeyFrag:
         ...
 
     def __bytes__(self) -> bytes:
@@ -187,7 +187,7 @@ class CapsuleFrag:
         ...
 
     @staticmethod
-    def from_bytes() -> CapsuleFrag:
+    def from_bytes(data: bytes) -> CapsuleFrag:
         ...
 
     def __bytes__(self) -> bytes:
