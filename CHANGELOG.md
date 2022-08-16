@@ -11,7 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Eq` markers for the types that only had `PartialEq` before. ([#100])
 
 
+### Fixed
+
+- Added missing parameters to `from_bytes()` methods in Python type stubs. ([#101])
+
+
 [#100]: https://github.com/nucypher/rust-umbral/pull/100
+[#101]: https://github.com/nucypher/rust-umbral/pull/101
 
 
 ## [0.6.0] - 2022-08-15
