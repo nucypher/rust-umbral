@@ -152,7 +152,7 @@ pub use pre::{
     decrypt_original, decrypt_reencrypted, encrypt_with_rng, generate_kfrags_with_rng,
     reencrypt_with_rng, ReencryptionError,
 };
-pub use secret_box::{CanBeZeroizedOnDrop, SecretBox};
+pub use secret_box::SecretBox;
 pub use traits::{
     ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
     RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,

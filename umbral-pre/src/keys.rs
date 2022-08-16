@@ -9,6 +9,7 @@ use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
 use typenum::{Unsigned, U32, U64};
+use zeroize::ZeroizeOnDrop;
 
 #[cfg(feature = "default-rng")]
 use rand_core::OsRng;
@@ -94,11 +95,8 @@ impl fmt::Display for Signature {
     }
 }
 
-// TODO (#89): derive `ZeroizeOnDrop` for `SecretKey` when it's available.
-// For now we know that `BackendSecretKey` is zeroized on drop (as of elliptic-curve=0.11),
-// but cannot check that at compile-time.
 /// A secret key.
-#[derive(Clone)]
+#[derive(Clone, ZeroizeOnDrop)]
 pub struct SecretKey(BackendSecretKey<CurveType>);
 
 impl SecretKey {
@@ -173,14 +171,13 @@ fn digest_for_signing(message: &[u8]) -> BackendDigest {
 
 /// An object used to sign messages.
 /// For security reasons cannot be serialized.
-// `k256::SigningKey` is zeroized on `Drop` as of `k256=0.10`.
-#[derive(Clone)]
+#[derive(Clone, ZeroizeOnDrop)]
 pub struct Signer(SigningKey<CurveType>);
 
 impl Signer {
     /// Creates a new signer out of a secret key.
     pub fn new(sk: SecretKey) -> Self {
-        Self(SigningKey::<CurveType>::from(sk.0))
+        Self(SigningKey::<CurveType>::from(sk.0.clone()))
     }
 
     /// Signs the given message using the given RNG.
@@ -229,7 +226,7 @@ impl PublicKey {
     /// Verifies the signature.
     pub(crate) fn verify_digest(
         &self,
-        digest: impl Digest<OutputSize = U32>,
+        digest: impl Digest<OutputSize = U32> + digest::FixedOutput,
         signature: &Signature,
     ) -> bool {
         let verifier = VerifyingKey::from(&self.0);
@@ -302,7 +299,7 @@ pub struct SecretKeyFactory(SecretBox<SecretKeyFactorySeed>);
 impl SecretKeyFactory {
     /// Creates a secret key factory using the given RNG.
     pub fn random_with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Self {
-        let mut bytes = SecretBox::new(GenericArray::<u8, SecretKeyFactorySeedSize>::default());
+        let mut bytes = SecretBox::new(SecretKeyFactorySeed::default());
         rng.fill_bytes(bytes.as_mut_secret());
         Self(bytes)
     }
@@ -345,8 +342,7 @@ impl SecretKeyFactory {
             .cloned()
             .chain(label.iter().cloned())
             .collect();
-        let key =
-            kdf::<SecretKeyFactorySeed, SecretKeyFactoryDerivedSize>(&self.0, None, Some(&info));
+        let key = kdf::<SecretKeyFactoryDerivedSize>(self.0.as_secret(), None, Some(&info));
         let nz_scalar = SecretBox::new(
             ScalarDigest::new_with_dst(&info)
                 .chain_secret_bytes(&key)
@@ -363,8 +359,7 @@ impl SecretKeyFactory {
             .cloned()
             .chain(label.iter().cloned())
             .collect();
-        let derived_seed =
-            kdf::<SecretKeyFactorySeed, SecretKeyFactorySeedSize>(&self.0, None, Some(&info));
+        let derived_seed = kdf::<SecretKeyFactorySeedSize>(self.0.as_secret(), None, Some(&info));
         Self(derived_seed)
     }
 }

@@ -1,8 +1,9 @@
-use digest::Digest;
+use digest::{Digest, Update};
 use sha2::Sha256;
+use zeroize::Zeroize;
 
 use crate::curve::{CurvePoint, NonZeroCurveScalar};
-use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
+use crate::secret_box::SecretBox;
 use crate::traits::SerializableToArray;
 
 // Our hash of choice.
@@ -25,7 +26,7 @@ impl Hash {
         Self(self.0.chain(bytes.as_ref()))
     }
 
-    pub fn chain_secret_bytes<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop>(
+    pub fn chain_secret_bytes<T: AsRef<[u8]> + Clone + Zeroize>(
         self,
         bytes: &SecretBox<T>,
     ) -> Self {
@@ -49,7 +50,7 @@ impl ScalarDigest {
         Self(self.0.chain_bytes(bytes))
     }
 
-    pub fn chain_secret_bytes<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop>(
+    pub fn chain_secret_bytes<T: AsRef<[u8]> + Clone + Zeroize>(
         self,
         bytes: &SecretBox<T>,
     ) -> Self {

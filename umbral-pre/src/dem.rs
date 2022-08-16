@@ -2,15 +2,15 @@ use alloc::boxed::Box;
 use core::fmt;
 
 use aead::{Aead, AeadCore, Payload};
-use chacha20poly1305::aead::NewAead;
-use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::{Key, KeyInit, KeySizeUser, XChaCha20Poly1305, XNonce};
 use generic_array::{ArrayLength, GenericArray};
 use hkdf::Hkdf;
 use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
 use typenum::Unsigned;
+use zeroize::ZeroizeOnDrop;
 
-use crate::secret_box::{CanBeZeroizedOnDrop, SecretBox};
+use crate::secret_box::SecretBox;
 
 /// Errors that can happen during symmetric encryption.
 #[derive(Debug, PartialEq)]
@@ -54,12 +54,12 @@ impl fmt::Display for DecryptionError {
     }
 }
 
-pub(crate) fn kdf<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop, S: ArrayLength<u8>>(
-    seed: &SecretBox<T>,
+pub(crate) fn kdf<S: ArrayLength<u8>>(
+    seed: &[u8],
     salt: Option<&[u8]>,
     info: Option<&[u8]>,
 ) -> SecretBox<GenericArray<u8, S>> {
-    let hk = Hkdf::<Sha256>::new(salt, seed.as_secret().as_ref());
+    let hk = Hkdf::<Sha256>::new(salt, seed);
 
     let mut okm = SecretBox::new(GenericArray::<u8, S>::default());
 
@@ -73,23 +73,20 @@ pub(crate) fn kdf<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop, S: ArrayLength<u
 
 type NonceSize = <XChaCha20Poly1305 as AeadCore>::NonceSize;
 
-impl CanBeZeroizedOnDrop for XChaCha20Poly1305 {
-    fn ensure_zeroized_on_drop(&mut self) {
-        // `XChaCha20Poly1305` is zeroized on drop in `chacha20poly1305-0.8.0`
-    }
-}
-
 #[allow(clippy::upper_case_acronyms)]
+#[derive(ZeroizeOnDrop)]
 pub(crate) struct DEM {
-    cipher: SecretBox<XChaCha20Poly1305>,
+    cipher: XChaCha20Poly1305,
 }
 
 impl DEM {
-    pub fn new<T: AsRef<[u8]> + Clone + CanBeZeroizedOnDrop>(key_seed: &SecretBox<T>) -> Self {
-        type KeySize = <XChaCha20Poly1305 as NewAead>::KeySize;
-        let key_bytes = kdf::<T, KeySize>(key_seed, None, None);
+    pub fn new(key_seed: &[u8]) -> Self {
+        type KeySize = <XChaCha20Poly1305 as KeySizeUser>::KeySize;
+        let key_bytes = kdf::<KeySize>(key_seed, None, None);
+        // Note that unlike `XChaCha20Poly1305`, `Key` is *not* zeroized automatically,
+        // so we are wrapping it into a secret box.
         let key = SecretBox::new(*Key::from_slice(key_bytes.as_secret()));
-        let cipher = SecretBox::new(XChaCha20Poly1305::new(key.as_secret()));
+        let cipher = XChaCha20Poly1305::new(key.as_secret());
         Self { cipher }
     }
 
@@ -110,7 +107,6 @@ impl DEM {
         let mut result = nonce.to_vec();
         let enc_data = self
             .cipher
-            .as_secret()
             .encrypt(nonce, payload)
             .or(Err(EncryptionError::PlaintextTooLarge))?;
 
@@ -138,7 +134,6 @@ impl DEM {
             aad: authenticated_data,
         };
         self.cipher
-            .as_secret()
             .decrypt(nonce, payload)
             .map(|pt| pt.into_boxed_slice())
             .or(Err(DecryptionError::AuthenticationFailed))
@@ -148,26 +143,24 @@ impl DEM {
 #[cfg(test)]
 mod tests {
 
-    use generic_array::GenericArray;
     use typenum::U32;
 
     use super::kdf;
     use crate::curve::CurvePoint;
     use crate::secret_box::SecretBox;
-    use crate::{RepresentableAsArray, SerializableToArray};
+    use crate::SerializableToArray;
 
     #[test]
     fn test_kdf() {
         let p1 = CurvePoint::generator();
         let salt = b"abcdefg";
         let info = b"sdasdasd";
-        let key_box = SecretBox::new(p1.to_array());
-        type PointArray = GenericArray<u8, <CurvePoint as RepresentableAsArray>::Size>;
-        let key = kdf::<PointArray, U32>(&key_box, Some(&salt[..]), Some(&info[..]));
-        let key_same = kdf::<PointArray, U32>(&key_box, Some(&salt[..]), Some(&info[..]));
+        let seed = SecretBox::new(p1.to_array());
+        let key = kdf::<U32>(seed.as_secret(), Some(&salt[..]), Some(&info[..]));
+        let key_same = kdf::<U32>(seed.as_secret(), Some(&salt[..]), Some(&info[..]));
         assert_eq!(key.as_secret(), key_same.as_secret());
 
-        let key_diff = kdf::<PointArray, U32>(&key_box, None, Some(&info[..]));
+        let key_diff = kdf::<U32>(seed.as_secret(), None, Some(&info[..]));
         assert_ne!(key.as_secret(), key_diff.as_secret());
     }
 }

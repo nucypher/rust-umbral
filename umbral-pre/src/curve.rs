@@ -8,8 +8,7 @@ use core::ops::{Add, Mul, Sub};
 use digest::Digest;
 use elliptic_curve::bigint::U256; // Note that this type is different from typenum::U256
 use elliptic_curve::group::ff::PrimeField;
-use elliptic_curve::hash2curve::GroupDigest;
-use elliptic_curve::hash2field::ExpandMsgXmd;
+use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
 use elliptic_curve::{AffinePoint, Field, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
@@ -20,7 +19,6 @@ use sha2::Sha256;
 use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
-use crate::secret_box::CanBeZeroizedOnDrop;
 use crate::traits::{
     ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
     SerializableToArray,
@@ -31,12 +29,6 @@ type CompressedPointSize = <FieldSize<CurveType> as ModulusSize>::CompressedPoin
 
 type BackendScalar = Scalar<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
-
-impl CanBeZeroizedOnDrop for BackendNonZeroScalar {
-    fn ensure_zeroized_on_drop(&mut self) {
-        self.zeroize()
-    }
-}
 
 // We have to define newtypes for scalar and point here because the compiler
 // is not currently smart enough to resolve `BackendScalar` and `BackendPoint`
@@ -60,12 +52,6 @@ impl CurveScalar {
 }
 
 impl DefaultIsZeroes for CurveScalar {}
-
-impl CanBeZeroizedOnDrop for CurveScalar {
-    fn ensure_zeroized_on_drop(&mut self) {
-        self.zeroize()
-    }
-}
 
 impl RepresentableAsArray for CurveScalar {
     // Currently it's the only size available.
@@ -95,14 +81,8 @@ impl HasTypeName for CurveScalar {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Zeroize)]
 pub(crate) struct NonZeroCurveScalar(BackendNonZeroScalar);
-
-impl CanBeZeroizedOnDrop for NonZeroCurveScalar {
-    fn ensure_zeroized_on_drop(&mut self) {
-        self.0.zeroize()
-    }
-}
 
 impl NonZeroCurveScalar {
     /// Generates a random non-zero scalar (in nearly constant-time).
@@ -205,12 +185,6 @@ impl Default for CurvePoint {
 }
 
 impl DefaultIsZeroes for CurvePoint {}
-
-impl CanBeZeroizedOnDrop for CurvePoint {
-    fn ensure_zeroized_on_drop(&mut self) {
-        self.zeroize()
-    }
-}
 
 impl Add<&CurveScalar> for &CurveScalar {
     type Output = CurveScalar;

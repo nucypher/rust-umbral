@@ -15,7 +15,6 @@ use pyo3::prelude::*;
 use pyo3::pyclass::PyClass;
 use pyo3::types::{PyBytes, PyUnicode};
 use pyo3::wrap_pyfunction;
-use pyo3::PyObjectProtocol;
 
 use crate as umbral_pre;
 use crate::{
@@ -145,10 +144,7 @@ impl SecretKey {
     pub fn serialized_size() -> usize {
         umbral_pre::SecretKey::serialized_size()
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for SecretKey {
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }
@@ -219,10 +215,7 @@ impl SecretKeyFactory {
     pub fn serialized_size() -> usize {
         umbral_pre::SecretKeyFactory::serialized_size()
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for SecretKeyFactory {
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }
@@ -261,11 +254,8 @@ impl PublicKey {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for PublicKey {
-    fn __richcmp__(&self, other: PyRef<PublicKey>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<'_, PublicKey>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -309,10 +299,7 @@ impl Signer {
             backend: self.backend.verifying_key(),
         }
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for Signer {
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }
@@ -355,11 +342,8 @@ impl Signature {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for Signature {
-    fn __richcmp__(&self, other: PyRef<Signature>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<'_, Signature>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -405,11 +389,8 @@ impl Capsule {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for Capsule {
-    fn __richcmp__(&self, other: PyRef<Capsule>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<'_, Capsule>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -510,11 +491,8 @@ impl KeyFrag {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for KeyFrag {
-    fn __richcmp__(&self, other: PyRef<KeyFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<'_, KeyFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -562,11 +540,8 @@ impl VerifiedKeyFrag {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for VerifiedKeyFrag {
-    fn __richcmp__(&self, other: PyRef<VerifiedKeyFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<'_, VerifiedKeyFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -667,11 +642,8 @@ impl CapsuleFrag {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
-}
 
-#[pyproto]
-impl PyObjectProtocol for CapsuleFrag {
-    fn __richcmp__(&self, other: PyRef<CapsuleFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: PyRef<'_, CapsuleFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -696,9 +668,9 @@ impl AsBackend<umbral_pre::VerifiedCapsuleFrag> for VerifiedCapsuleFrag {
     }
 }
 
-#[pyproto]
-impl PyObjectProtocol for VerifiedCapsuleFrag {
-    fn __richcmp__(&self, other: PyRef<VerifiedCapsuleFrag>, op: CompareOp) -> PyResult<bool> {
+#[pymethods]
+impl VerifiedCapsuleFrag {
+    fn __richcmp__(&self, other: PyRef<'_, VerifiedCapsuleFrag>, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -709,10 +681,7 @@ impl PyObjectProtocol for VerifiedCapsuleFrag {
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }
-}
 
-#[pymethods]
-impl VerifiedCapsuleFrag {
     #[staticmethod]
     pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(data)
