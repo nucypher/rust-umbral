@@ -30,7 +30,7 @@ use crate::traits::{
 use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
 
 /// ECDSA signature object.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signature(BackendSignature<CurveType>);
 
 impl RepresentableAsArray for Signature {
@@ -214,7 +214,7 @@ impl fmt::Display for Signer {
 /// A public key.
 ///
 /// Create using [`SecretKey::public_key`].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PublicKey(BackendPublicKey<CurveType>);
 
 impl PublicKey {

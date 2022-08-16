@@ -11,7 +11,7 @@ use typenum::{Diff, Unsigned, U1, U8};
 use crate::secret_box::SecretBox;
 
 /// Errors that can happen during deserializing an object from a bytestring of correct length.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ConstructionError {
     /// The name of the type that was being deserialized
     /// (can be one of the nested fields).
@@ -41,7 +41,7 @@ impl fmt::Display for ConstructionError {
 }
 
 /// The provided bytestring is of an incorrect size.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SizeMismatchError {
     pub(crate) received_size: usize,
     pub(crate) expected_size: usize,
@@ -68,7 +68,7 @@ impl fmt::Display for SizeMismatchError {
 }
 
 /// Errors that can happen during object deserialization.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
     /// Failed to construct the object from a given bytestring (with the correct length).
     ConstructionFailure(ConstructionError),

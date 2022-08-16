@@ -239,7 +239,7 @@ impl fmt::Display for KeyFrag {
 }
 
 /// Possible errors that can be returned by [`KeyFrag::verify`].
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum KeyFragVerificationError {
     /// Inconsistent internal state leading to commitment verification failure.
     IncorrectCommitment,

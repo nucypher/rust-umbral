@@ -13,7 +13,7 @@ use zeroize::ZeroizeOnDrop;
 use crate::secret_box::SecretBox;
 
 /// Errors that can happen during symmetric encryption.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum EncryptionError {
     /// Given plaintext is too large for the backend to handle.
     PlaintextTooLarge,
@@ -28,7 +28,7 @@ impl fmt::Display for EncryptionError {
 }
 
 /// Errors that can happend during symmetric decryption.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DecryptionError {
     /// Ciphertext (which should be prepended by the nonce) is shorter than the nonce length.
     CiphertextTooShort,
