@@ -19,8 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `serde` utility functions to serialize bytestrings as bytes or hex/base64 encoded strings, depending on the target format. Exposed as `serde_bytes` module. ([#94])
 
 
+### Fixed
+
+- Fixed some typos and added missing `__bytes__()` methods to Python typing stubs. ([#99])
+
+
 [#94]: https://github.com/nucypher/rust-umbral/pull/94
 [#97]: https://github.com/nucypher/rust-umbral/pull/97
+[#99]: https://github.com/nucypher/rust-umbral/pull/99
 
 
 ## [0.5.2] - 2022-03-15

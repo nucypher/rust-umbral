@@ -60,6 +60,9 @@ class PublicKey:
     def from_bytes() -> PublicKey:
         ...
 
+    def __bytes__(self) -> bytes:
+        ...
+
     @staticmethod
     def serialized_size() -> int:
         ...
@@ -67,23 +70,26 @@ class PublicKey:
 
 class Signer:
 
-    def __init__(secret_key: SecretKey):
+    def __init__(self, secret_key: SecretKey):
         ...
 
-    def sign(message: bytes) -> Signature:
+    def sign(self, message: bytes) -> Signature:
         ...
 
-    def verifying_key() -> PublicKey:
+    def verifying_key(self) -> PublicKey:
         ...
 
 
 class Signature:
 
-    def verify(verifying_pk: PublicKey, message: bytes) -> bool:
+    def verify(self, verifying_pk: PublicKey, message: bytes) -> bool:
         ...
 
     @staticmethod
     def from_bytes() -> Signature:
+        ...
+
+    def __bytes__(self) -> bytes:
         ...
 
     @staticmethod
@@ -95,6 +101,13 @@ class Capsule:
 
     @staticmethod
     def serialized_size() -> int:
+        ...
+
+    @staticmethod
+    def from_bytes() -> Capsule:
+        ...
+
+    def __bytes__(self) -> bytes:
         ...
 
 
@@ -123,6 +136,9 @@ class KeyFrag:
     def from_bytes() -> KeyFrag:
         ...
 
+    def __bytes__(self) -> bytes:
+        ...
+
     @staticmethod
     def serialized_size() -> int:
         ...
@@ -130,7 +146,10 @@ class KeyFrag:
 
 class VerifiedKeyFrag:
 
-    def from_verified_bytes(data: bytes) -> VerifiedKeyFrag:
+    def from_verified_bytes(self, data: bytes) -> VerifiedKeyFrag:
+        ...
+
+    def __bytes__(self) -> bytes:
         ...
 
     def unverify(self) -> KeyFrag:
@@ -171,6 +190,9 @@ class CapsuleFrag:
     def from_bytes() -> CapsuleFrag:
         ...
 
+    def __bytes__(self) -> bytes:
+        ...
+
     @staticmethod
     def serialized_size() -> int:
         ...
@@ -178,7 +200,11 @@ class CapsuleFrag:
 
 class VerifiedCapsuleFrag:
 
+    @staticmethod
     def from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag:
+        ...
+
+    def __bytes__(self) -> bytes:
         ...
 
     def unverify(self) -> CapsuleFrag:
