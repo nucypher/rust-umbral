@@ -1,9 +1,15 @@
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
 setup(
     name="umbral_pre",
     description="Implementation of Umbral proxy reencryption algorithm",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     version="0.6.0",
     author="Bogdan Opanchuk",
     author_email="bogdan@opanchuk.net",
@@ -23,10 +29,10 @@ setup(
         "Programming Language :: Rust",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Security :: Cryptography",
     ],
 )

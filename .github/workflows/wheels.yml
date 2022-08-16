@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, macos-11 ]
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-11]
 
     env:
        CIBW_BUILD_VERBOSITY: 1
@@ -17,7 +17,7 @@ jobs:
        CIBW_BEFORE_BUILD_LINUX: "pip3 install --upgrade keyrings.alt"
        CIBW_ARCHS_LINUX: "x86_64"
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
-       CIBW_SKIP: "cp27-* cp34-* cp35-* pp* *-win32"
+       CIBW_SKIP: "cp36-* pp* *-win32 *musllinux*" # only using manylinux to build
 
     steps:
       - uses: actions/checkout@v2
@@ -34,9 +34,6 @@ jobs:
             echo 'RUSTFLAGS=-Ctarget-feature=+crt-static' >> $GITHUB_ENV
             echo 'RUSTFLAGS=-Ctarget-feature=+crt-static' >> $GITHUB_ENV
             echo 'CIBW_BEFORE_BUILD=python -m pip install --upgrade pip' >> $GITHUB_ENV
-      - if: runner.os != 'Linux'
-        run: |
-            echo "CIBW_SKIP=$CIBW_SKIP cp36-*" >> $GITHUB_ENV # Also skip Python 3.6 as build is too slow
       - if: runner.os != 'Linux'
         name: Setup env when not using docker
         run: |
@@ -57,17 +54,12 @@ jobs:
       - name: Install cibuildwheel
         run: |
           # Install cibuildwheel from git for CIBW_ARCHS_LINUX support
-          python -m pip install git+https://github.com/joerick/cibuildwheel@6f28d7851fa3380e8188a12d710bcae4ff233314
+          python -m pip install cibuildwheel==2.9.0
 
-      - name: copy umbral to current dir
+      - if: runner.os == 'Linux'
         run: cp -r ./umbral-pre ./umbral-pre-python/umbral-pre
 
-      - if: runner.os == 'macOS'
-        working-directory: ./umbral-pre-python
-        name: relocate umbral-pre in cargo.toml
-        run: sed -i '' 's/..\/umbral-pre/.\/umbral-pre/g' Cargo.toml
-
-      - if: runner.os != 'macOS'
+      - if: runner.os == 'Linux'
         working-directory: ./umbral-pre-python
         name: relocate umbral-pre in cargo.toml
         run: sed -i 's/..\/umbral-pre/.\/umbral-pre/g' Cargo.toml
@@ -132,7 +124,7 @@ jobs:
           name: artifact
           path: wheelhouse
 
-      - uses: pypa/gh-action-pypi-publish@master
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.pypi_password }}

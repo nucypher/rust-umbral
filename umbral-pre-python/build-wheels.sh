@@ -6,7 +6,7 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 cd /io/umbral-pre-python
 
-for PYBIN in /opt/python/cp{36,37,38,39}*/bin; do
+for PYBIN in /opt/python/cp{37,38,39,310}*/bin; do
     rm -rf build
     "${PYBIN}/pip" install -U setuptools wheel setuptools-rust
     "${PYBIN}/python" setup.py bdist_wheel
