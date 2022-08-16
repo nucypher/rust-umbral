@@ -6,7 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Under construction.
+### Added
+
+- `Eq` markers for the types that only had `PartialEq` before. ([#100])
+
+
+[#100]: https://github.com/nucypher/rust-umbral/pull/100
 
 
 ## [0.6.0] - 2022-08-15
