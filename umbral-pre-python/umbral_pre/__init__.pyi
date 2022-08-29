@@ -163,7 +163,7 @@ class VerifiedKeyFrag:
 def generate_kfrags(
         delegating_sk: SecretKey,
         receiving_pk: PublicKey,
-        signer: SecretKey,
+        signer: Signer,
         threshold: int,
         shares: int,
         sign_delegating_key: bool,

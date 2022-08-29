@@ -14,10 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Added missing parameters to `from_bytes()` methods in Python type stubs. ([#101])
+- Fixed the type annotation for `signer` in `generate_kfrags()` in Python type stubs. ([#102])
 
 
 [#100]: https://github.com/nucypher/rust-umbral/pull/100
 [#101]: https://github.com/nucypher/rust-umbral/pull/101
+[#102]: https://github.com/nucypher/rust-umbral/pull/102
 
 
 ## [0.6.0] - 2022-08-15
