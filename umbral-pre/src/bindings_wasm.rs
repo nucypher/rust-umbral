@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 use crate as umbral_pre;
 use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
-fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
-    Error::new(&format!("{}", err)).into()
+fn map_js_err<T: fmt::Display>(err: T) -> Error {
+    Error::new(&format!("{}", err))
 }
 
 #[wasm_bindgen]
@@ -53,7 +53,7 @@ impl SecretKey {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<SecretKey, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<SecretKey, Error> {
         umbral_pre::SecretKey::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -82,7 +82,7 @@ impl SecretKeyFactory {
     }
 
     #[wasm_bindgen(js_name = fromSecureRandomness)]
-    pub fn from_secure_randomness(seed: &[u8]) -> Result<SecretKeyFactory, JsValue> {
+    pub fn from_secure_randomness(seed: &[u8]) -> Result<SecretKeyFactory, Error> {
         umbral_pre::SecretKeyFactory::from_secure_randomness(seed)
             .map(Self)
             .map_err(map_js_err)
@@ -108,7 +108,7 @@ impl SecretKeyFactory {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<SecretKeyFactory, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<SecretKeyFactory, Error> {
         umbral_pre::SecretKeyFactory::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -133,7 +133,7 @@ impl PublicKey {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<PublicKey, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<PublicKey, Error> {
         umbral_pre::PublicKey::from_bytes(data)
             .map(PublicKey)
             .map_err(map_js_err)
@@ -192,7 +192,7 @@ impl Signature {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<Signature, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<Signature, Error> {
         umbral_pre::Signature::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -232,7 +232,7 @@ impl Capsule {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<Capsule, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<Capsule, Error> {
         umbral_pre::Capsule::from_bytes(data)
             .map(Capsule)
             .map_err(map_js_err)
@@ -262,7 +262,7 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Result<VerifiedCapsuleFrag, JsValue> {
+    ) -> Result<VerifiedCapsuleFrag, Error> {
         self.0
             .verify(
                 &capsule.0,
@@ -281,7 +281,7 @@ impl CapsuleFrag {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, Error> {
         umbral_pre::CapsuleFrag::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -307,7 +307,7 @@ pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
-    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, JsValue> {
+    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, Error> {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(bytes)
             .map(VerifiedCapsuleFrag)
             .map_err(map_js_err)
@@ -353,7 +353,7 @@ impl CapsuleWithFrags {
         receiving_sk: &SecretKey,
         delegating_pk: &PublicKey,
         ciphertext: &[u8],
-    ) -> Result<Box<[u8]>, JsValue> {
+    ) -> Result<Box<[u8]>, Error> {
         let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
             self.cfrags.iter().cloned().map(|x| x.0).collect();
         umbral_pre::decrypt_reencrypted(
@@ -391,7 +391,7 @@ impl EncryptionResult {
 }
 
 #[wasm_bindgen]
-pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, JsValue> {
+pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, Error> {
     let backend_pk = delegating_pk.0;
     umbral_pre::encrypt(&backend_pk, plaintext)
         .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
@@ -403,7 +403,7 @@ pub fn decrypt_original(
     delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
-) -> Result<Box<[u8]>, JsValue> {
+) -> Result<Box<[u8]>, Error> {
     umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
 }
 
@@ -417,7 +417,7 @@ impl KeyFrag {
     // So we have to use 4 functions instead of 1. Yikes.
 
     #[wasm_bindgen]
-    pub fn verify(self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
+    pub fn verify(self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, Error> {
         self.0
             .verify(&verifying_pk.0, None, None)
             .map(VerifiedKeyFrag)
@@ -430,7 +430,7 @@ impl KeyFrag {
         self,
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, JsValue> {
+    ) -> Result<VerifiedKeyFrag, Error> {
         let backend_delegating_pk = delegating_pk.0;
 
         self.0
@@ -445,7 +445,7 @@ impl KeyFrag {
         self,
         verifying_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, JsValue> {
+    ) -> Result<VerifiedKeyFrag, Error> {
         let backend_receiving_pk = receiving_pk.0;
 
         self.0
@@ -461,7 +461,7 @@ impl KeyFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, JsValue> {
+    ) -> Result<VerifiedKeyFrag, Error> {
         let backend_delegating_pk = delegating_pk.0;
         let backend_receiving_pk = receiving_pk.0;
 
@@ -482,7 +482,7 @@ impl KeyFrag {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<KeyFrag, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<KeyFrag, Error> {
         umbral_pre::KeyFrag::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -506,7 +506,7 @@ pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 #[wasm_bindgen]
 impl VerifiedKeyFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
-    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, JsValue> {
+    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, Error> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
             .map(VerifiedKeyFrag)
             .map_err(map_js_err)
