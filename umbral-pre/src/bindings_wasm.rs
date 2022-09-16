@@ -11,7 +11,7 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt;
 
 use js_sys::Error;
@@ -236,17 +236,6 @@ pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
 impl Capsule {
-    // TODO (#23): have to add cfrags one by one since `wasm_bindgen` currently does not support
-    // Vec<CustomStruct> as a parameter.
-    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
-    #[wasm_bindgen(js_name = withCFrag)]
-    pub fn with_cfrag(&self, cfrag: &VerifiedCapsuleFrag) -> CapsuleWithFrags {
-        CapsuleWithFrags {
-            capsule: *self,
-            cfrags: vec![cfrag.clone()],
-        }
-    }
-
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()
@@ -319,6 +308,7 @@ impl CapsuleFrag {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
 #[derive(
     Clone, Serialize, Deserialize, PartialEq, Debug, derive_more::AsRef, derive_more::From,
@@ -347,44 +337,6 @@ impl VerifiedCapsuleFrag {
 
     pub fn equals(&self, other: &VerifiedCapsuleFrag) -> bool {
         self.0 == other.0
-    }
-}
-
-#[wasm_bindgen]
-pub struct CapsuleWithFrags {
-    capsule: Capsule,
-    cfrags: Vec<VerifiedCapsuleFrag>,
-}
-
-#[wasm_bindgen]
-impl CapsuleWithFrags {
-    #[wasm_bindgen(js_name = withCFrag)]
-    pub fn with_cfrag(&self, cfrag: &VerifiedCapsuleFrag) -> CapsuleWithFrags {
-        let mut new_cfrags = self.cfrags.clone();
-        new_cfrags.push(cfrag.clone());
-        Self {
-            capsule: self.capsule,
-            cfrags: new_cfrags,
-        }
-    }
-
-    #[wasm_bindgen(js_name = decryptReencrypted)]
-    pub fn decrypt_reencrypted(
-        &self,
-        receiving_sk: &SecretKey,
-        delegating_pk: &PublicKey,
-        ciphertext: &[u8],
-    ) -> Result<Box<[u8]>, Error> {
-        let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
-            self.cfrags.iter().cloned().map(|x| x.0).collect();
-        umbral_pre::decrypt_reencrypted(
-            &receiving_sk.0,
-            &delegating_pk.0,
-            &self.capsule.0,
-            backend_cfrags,
-            ciphertext,
-        )
-        .map_err(map_js_err)
     }
 }
 
@@ -426,6 +378,44 @@ pub fn decrypt_original(
     ciphertext: &[u8],
 ) -> Result<Box<[u8]>, Error> {
     umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
+}
+
+// TODO (#23): using a custom type since `wasm_bindgen` currently does not support
+// Vec<CustomStruct> as a parameter.
+// Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "VerifiedCapsuleFrag[]")]
+    pub type VerifiedCapsuleFragArray;
+}
+
+#[wasm_bindgen(js_name = decryptReencrypted)]
+pub fn decrypt_reencrypted(
+    receiving_sk: &SecretKey,
+    delegating_pk: &PublicKey,
+    capsule: &Capsule,
+    vcfrags: &VerifiedCapsuleFragArray,
+    ciphertext: &[u8],
+) -> Result<Box<[u8]>, Error> {
+    let js_val = vcfrags.as_ref();
+    if !js_sys::Array::is_array(js_val) {
+        return Err(Error::new("`vcfrags` must be an array"));
+    }
+    let array = js_sys::Array::from(js_val);
+    let length: usize = array.length().try_into().map_err(map_js_err)?;
+    let mut backend_vcfrags = Vec::<umbral_pre::VerifiedCapsuleFrag>::with_capacity(length);
+    for js in array.iter() {
+        let typed_vcfrag = VerifiedCapsuleFrag::try_from(&js).map_err(map_js_err)?;
+        backend_vcfrags.push(typed_vcfrag.0);
+    }
+    umbral_pre::decrypt_reencrypted(
+        &receiving_sk.0,
+        &delegating_pk.0,
+        &capsule.0,
+        backend_vcfrags,
+        ciphertext,
+    )
+    .map_err(map_js_err)
 }
 
 #[wasm_bindgen]
