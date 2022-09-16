@@ -26,22 +26,12 @@ use crate::{
     SerializableToSecretArray,
 };
 
-// Helper traits to generalize implementing various Python protocol functions for our types.
-
-trait AsBackend<T> {
-    fn as_backend(&self) -> &T;
-}
-
-trait FromBackend<T> {
-    fn from_backend(backend: T) -> Self;
-}
-
 fn to_bytes<T, U>(obj: &T) -> PyResult<PyObject>
 where
-    T: AsBackend<U>,
+    T: AsRef<U>,
     U: SerializableToArray,
 {
-    let serialized = obj.as_backend().to_array();
+    let serialized = obj.as_ref().to_array();
     Python::with_gil(|py| -> PyResult<PyObject> {
         Ok(PyBytes::new(py, serialized.as_slice()).into())
     })
@@ -50,11 +40,11 @@ where
 // Can't keep the secret in Python anymore, so this function does the same as `to_bytes()`
 fn to_secret_bytes<T, U>(obj: &T) -> PyResult<PyObject>
 where
-    T: AsBackend<U>,
+    T: AsRef<U>,
     U: SerializableToSecretArray,
 {
     // Dereferencing a secret.
-    let serialized = obj.as_backend().to_secret_array().as_secret().clone();
+    let serialized = obj.as_ref().to_secret_array().as_secret().clone();
     Python::with_gil(|py| -> PyResult<PyObject> {
         Ok(PyBytes::new(py, serialized.as_slice()).into())
     })
@@ -62,20 +52,20 @@ where
 
 fn from_bytes<T, U>(data: &[u8]) -> PyResult<T>
 where
-    T: FromBackend<U>,
+    T: From<U>,
     U: DeserializableFromArray + HasTypeName,
 {
     U::from_bytes(data)
-        .map(T::from_backend)
+        .map(T::from)
         .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
 fn hash<T, U>(obj: &T) -> PyResult<isize>
 where
-    T: AsBackend<U>,
+    T: AsRef<U>,
     U: SerializableToArray + HasTypeName,
 {
-    let serialized = obj.as_backend().to_array();
+    let serialized = obj.as_ref().to_array();
 
     // call `hash((class_name, bytes(obj)))`
     Python::with_gil(|py| {
@@ -88,7 +78,7 @@ where
 
 fn richcmp<T, U>(obj: &T, other: PyRef<'_, T>, op: CompareOp) -> PyResult<bool>
 where
-    T: PyClass + PartialEq + AsBackend<U>,
+    T: PyClass + PartialEq + AsRef<U>,
     U: HasTypeName,
 {
     match op {
@@ -104,20 +94,9 @@ where
 create_exception!(umbral, VerificationError, PyException);
 
 #[pyclass(module = "umbral")]
+#[derive(derive_more::AsRef, derive_more::From)]
 pub struct SecretKey {
     pub backend: umbral_pre::SecretKey,
-}
-
-impl AsBackend<umbral_pre::SecretKey> for SecretKey {
-    fn as_backend(&self) -> &umbral_pre::SecretKey {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::SecretKey> for SecretKey {
-    fn from_backend(backend: umbral_pre::SecretKey) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
@@ -141,7 +120,7 @@ impl SecretKey {
 
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::SecretKey>(data)
     }
 
     #[staticmethod]
@@ -155,20 +134,9 @@ impl SecretKey {
 }
 
 #[pyclass(module = "umbral")]
+#[derive(derive_more::AsRef, derive_more::From)]
 pub struct SecretKeyFactory {
     backend: umbral_pre::SecretKeyFactory,
-}
-
-impl AsBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
-    fn as_backend(&self) -> &umbral_pre::SecretKeyFactory {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::SecretKeyFactory> for SecretKeyFactory {
-    fn from_backend(backend: umbral_pre::SecretKeyFactory) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
@@ -212,7 +180,7 @@ impl SecretKeyFactory {
 
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::SecretKeyFactory>(data)
     }
 
     #[staticmethod]
@@ -226,28 +194,16 @@ impl SecretKeyFactory {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, derive_more::AsRef, derive_more::From)]
 pub struct PublicKey {
     pub backend: umbral_pre::PublicKey,
-}
-
-impl AsBackend<umbral_pre::PublicKey> for PublicKey {
-    fn as_backend(&self) -> &umbral_pre::PublicKey {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::PublicKey> for PublicKey {
-    fn from_backend(backend: umbral_pre::PublicKey) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
 impl PublicKey {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::PublicKey>(data)
     }
 
     #[staticmethod]
@@ -277,12 +233,6 @@ pub struct Signer {
     pub backend: umbral_pre::Signer,
 }
 
-impl AsBackend<umbral_pre::Signer> for Signer {
-    fn as_backend(&self) -> &umbral_pre::Signer {
-        &self.backend
-    }
-}
-
 #[pymethods]
 impl Signer {
     #[new]
@@ -310,28 +260,16 @@ impl Signer {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, derive_more::AsRef, derive_more::From)]
 pub struct Signature {
     backend: umbral_pre::Signature,
-}
-
-impl AsBackend<umbral_pre::Signature> for Signature {
-    fn as_backend(&self) -> &umbral_pre::Signature {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::Signature> for Signature {
-    fn from_backend(backend: umbral_pre::Signature) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
 impl Signature {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::Signature>(data)
     }
 
     pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
@@ -361,28 +299,16 @@ impl Signature {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, derive_more::AsRef, derive_more::From)]
 pub struct Capsule {
     pub backend: umbral_pre::Capsule,
-}
-
-impl AsBackend<umbral_pre::Capsule> for Capsule {
-    fn as_backend(&self) -> &umbral_pre::Capsule {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::Capsule> for Capsule {
-    fn from_backend(backend: umbral_pre::Capsule) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
 impl Capsule {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::Capsule>(data)
     }
 
     #[staticmethod]
@@ -438,21 +364,9 @@ pub fn decrypt_original(
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq)]
+#[derive(PartialEq, derive_more::AsRef, derive_more::From)]
 pub struct KeyFrag {
     backend: umbral_pre::KeyFrag,
-}
-
-impl AsBackend<umbral_pre::KeyFrag> for KeyFrag {
-    fn as_backend(&self) -> &umbral_pre::KeyFrag {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::KeyFrag> for KeyFrag {
-    fn from_backend(backend: umbral_pre::KeyFrag) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
@@ -484,7 +398,7 @@ impl KeyFrag {
 
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::KeyFrag>(data)
     }
 
     #[staticmethod]
@@ -510,15 +424,9 @@ impl KeyFrag {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, derive_more::AsRef)]
 pub struct VerifiedKeyFrag {
     pub backend: umbral_pre::VerifiedKeyFrag,
-}
-
-impl AsBackend<umbral_pre::VerifiedKeyFrag> for VerifiedKeyFrag {
-    fn as_backend(&self) -> &umbral_pre::VerifiedKeyFrag {
-        &self.backend
-    }
 }
 
 #[pymethods]
@@ -587,21 +495,9 @@ pub fn generate_kfrags(
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, derive_more::AsRef, derive_more::From)]
 pub struct CapsuleFrag {
     backend: umbral_pre::CapsuleFrag,
-}
-
-impl AsBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
-    fn as_backend(&self) -> &umbral_pre::CapsuleFrag {
-        &self.backend
-    }
-}
-
-impl FromBackend<umbral_pre::CapsuleFrag> for CapsuleFrag {
-    fn from_backend(backend: umbral_pre::CapsuleFrag) -> Self {
-        Self { backend }
-    }
 }
 
 #[pymethods]
@@ -635,7 +531,7 @@ impl CapsuleFrag {
 
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes(data)
+        from_bytes::<_, umbral_pre::CapsuleFrag>(data)
     }
 
     #[staticmethod]
@@ -661,15 +557,9 @@ impl CapsuleFrag {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, derive_more::AsRef)]
 pub struct VerifiedCapsuleFrag {
     pub backend: umbral_pre::VerifiedCapsuleFrag,
-}
-
-impl AsBackend<umbral_pre::VerifiedCapsuleFrag> for VerifiedCapsuleFrag {
-    fn as_backend(&self) -> &umbral_pre::VerifiedCapsuleFrag {
-        &self.backend
-    }
 }
 
 #[pymethods]

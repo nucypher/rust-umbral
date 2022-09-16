@@ -19,7 +19,8 @@ serde = { version = "1", default-features = false, features = ["derive"], option
 base64 = { version = "0.13", default-features = false, features = ["alloc"] }
 pyo3 = { version = "0.16", optional = true }
 js-sys = { version = "0.3", optional = true }
-wasm-bindgen = {version = "0.2.74", optional = true }
+wasm-bindgen = { version = "0.2.74", optional = true }
+derive_more = { version = "0.99", optional = true, default_features = false, features = ["as_ref", "from"] }
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
@@ -43,8 +44,8 @@ rmp-serde = "0.15"
 [features]
 default = ["default-rng"]
 bench-internals = ["default-rng"]
-bindings-python = ["pyo3", "std"]
-bindings-wasm = [ "serde-support", "js-sys", "wasm-bindgen"]
+bindings-python = ["pyo3", "std", "derive_more"]
+bindings-wasm = ["serde-support", "js-sys", "wasm-bindgen", "derive_more"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 serde-support = ["serde"]
 std = []
