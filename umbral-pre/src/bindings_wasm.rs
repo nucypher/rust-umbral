@@ -27,6 +27,7 @@ fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
 }
 
 #[wasm_bindgen]
+#[derive(derive_more::AsRef)]
 pub struct SecretKey(umbral_pre::SecretKey);
 
 #[wasm_bindgen]
@@ -62,12 +63,6 @@ impl SecretKey {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
-    }
-}
-
-impl SecretKey {
-    pub fn inner(&self) -> &umbral_pre::SecretKey {
-        &self.0
     }
 }
 
@@ -127,7 +122,7 @@ impl SecretKeyFactory {
 }
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
 pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
@@ -155,17 +150,8 @@ impl PublicKey {
     }
 }
 
-impl PublicKey {
-    pub fn new(pk: umbral_pre::PublicKey) -> Self {
-        PublicKey(pk)
-    }
-
-    pub fn inner(&self) -> &umbral_pre::PublicKey {
-        &self.0
-    }
-}
-
 #[wasm_bindgen]
+#[derive(derive_more::AsRef)]
 pub struct Signer(umbral_pre::Signer);
 
 #[wasm_bindgen]
@@ -188,12 +174,6 @@ impl Signer {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
-    }
-}
-
-impl Signer {
-    pub fn inner(&self) -> &umbral_pre::Signer {
-        &self.0
     }
 }
 
@@ -230,7 +210,7 @@ impl Signature {
 }
 
 #[wasm_bindgen]
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
 pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
@@ -266,16 +246,6 @@ impl Capsule {
 
     pub fn equals(&self, other: &Capsule) -> bool {
         self.0 == other.0
-    }
-}
-
-impl Capsule {
-    pub fn new(capsule: umbral_pre::Capsule) -> Self {
-        Capsule(capsule)
-    }
-
-    pub fn inner(&self) -> &umbral_pre::Capsule {
-        &self.0
     }
 }
 
@@ -329,7 +299,9 @@ impl CapsuleFrag {
 }
 
 #[wasm_bindgen]
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(
+    Clone, Serialize, Deserialize, PartialEq, Debug, derive_more::AsRef, derive_more::From,
+)]
 pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
 #[wasm_bindgen]
@@ -354,16 +326,6 @@ impl VerifiedCapsuleFrag {
 
     pub fn equals(&self, other: &VerifiedCapsuleFrag) -> bool {
         self.0 == other.0
-    }
-}
-
-impl VerifiedCapsuleFrag {
-    pub fn new(verified_cfrag: umbral_pre::VerifiedCapsuleFrag) -> Self {
-        VerifiedCapsuleFrag(verified_cfrag)
-    }
-
-    pub fn inner(&self) -> umbral_pre::VerifiedCapsuleFrag {
-        self.0.clone()
     }
 }
 
@@ -538,7 +500,7 @@ impl KeyFrag {
 }
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, derive_more::AsRef, derive_more::From)]
 pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
 #[wasm_bindgen]
@@ -563,16 +525,6 @@ impl VerifiedKeyFrag {
 
     pub fn equals(&self, other: &VerifiedKeyFrag) -> bool {
         self.0 == other.0
-    }
-}
-
-impl VerifiedKeyFrag {
-    pub fn new(vkfrag: umbral_pre::VerifiedKeyFrag) -> Self {
-        Self(vkfrag)
-    }
-
-    pub fn inner(&self) -> &umbral_pre::VerifiedKeyFrag {
-        &self.0
     }
 }
 
