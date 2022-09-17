@@ -52,9 +52,7 @@ function App() {
     // The API here slightly differs from that in Rust.
     // Since wasm-pack does not support returning tuples, we return an object containing
     // the ciphertext and the capsule.
-    let result = umbral.encrypt(alice_pk, plaintext_bytes);
-    let ciphertext = result.ciphertext;
-    let capsule = result.capsule;
+    let {capsule, ciphertext} = umbral.encrypt(alice_pk, plaintext_bytes);
 
     // Since data was encrypted with Alice's public key, Alice can open the capsule
     // and decrypt the ciphertext with her private key.
@@ -106,10 +104,8 @@ function App() {
     // Another deviation from the Rust API.
     // wasm-pack does not support taking arrays as arguments,
     // so we build a capsule+cfrags object before decryption.
-    let plaintext_bob = capsule
-      .withCFrag(cfrag0)
-      .withCFrag(cfrag1)
-      .decryptReencrypted(bob_sk, alice_pk, ciphertext);
+    let plaintext_bob = umbral.decryptReencrypted(
+      bob_sk, alice_pk, capsule, [cfrag0, cfrag1], ciphertext);
 
     console.assert(
       dec.decode(plaintext_bob) === plaintext,
