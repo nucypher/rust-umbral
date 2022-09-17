@@ -549,8 +549,8 @@ pub fn generate_kfrags(
     // to generate a correct signature for TypeScript.
     // See https://github.com/rustwasm/wasm-bindgen/issues/111
     backend_kfrags
-        .iter()
-        .cloned()
+        .into_vec()
+        .into_iter()
         .map(VerifiedKeyFrag)
         .map(JsValue::from)
         .collect::<js_sys::Array>()
