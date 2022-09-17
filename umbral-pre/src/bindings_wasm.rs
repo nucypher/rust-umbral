@@ -30,10 +30,10 @@ fn map_js_err<T: fmt::Display>(err: T) -> Error {
 
 /// Tries to convert an optional value (either `null` or a `#[wasm_bindgen]` marked structure)
 /// from `JsValue` to the Rust type.
-// This is necessary since wasm-bindgen does not support having a paramter of `Option<&T>`,
-// and using `Option<T>` consumes the argument
+// TODO (#25): This is necessary since wasm-bindgen does not support
+// having a parameter of `Option<&T>`, and using `Option<T>` consumes the argument
 // (see https://github.com/rustwasm/wasm-bindgen/issues/2370).
-fn try_from_js_option<'a, T>(value: &'a JsValue) -> Result<Option<T>, JsValue>
+fn try_from_js_option<'a, T>(value: &'a JsValue) -> Result<Option<T>, Error>
 where
     T: TryFrom<&'a JsValue>,
     <T as TryFrom<&'a JsValue>>::Error: core::fmt::Display,
@@ -44,6 +44,28 @@ where
         Some(T::try_from(value).map_err(map_js_err)?)
     };
     Ok(typed_value)
+}
+
+/// Tries to convert a JS array from `JsValue` to a vector of Rust type elements.
+// TODO (#23): This is necessary since wasm-bindgen does not support
+// having a parameter of `Vec<&T>`
+// (see https://github.com/rustwasm/wasm-bindgen/issues/111).
+fn try_from_js_array<T>(value: &JsValue) -> Result<Vec<T>, Error>
+where
+    for<'a> T: TryFrom<&'a JsValue>,
+    for<'a> <T as TryFrom<&'a JsValue>>::Error: core::fmt::Display,
+{
+    if !js_sys::Array::is_array(value) {
+        return Err(Error::new("Got a non-array argument where an array was expected"));
+    }
+    let array = js_sys::Array::from(value);
+    let length: usize = array.length().try_into().map_err(map_js_err)?;
+    let mut result = Vec::<T>::with_capacity(length);
+    for js in array.iter() {
+        let typed_elem = T::try_from(&js).map_err(map_js_err)?;
+        result.push(typed_elem);
+    }
+    Ok(result)
 }
 
 #[wasm_bindgen]
@@ -397,17 +419,8 @@ pub fn decrypt_reencrypted(
     vcfrags: &VerifiedCapsuleFragArray,
     ciphertext: &[u8],
 ) -> Result<Box<[u8]>, Error> {
-    let js_val = vcfrags.as_ref();
-    if !js_sys::Array::is_array(js_val) {
-        return Err(Error::new("`vcfrags` must be an array"));
-    }
-    let array = js_sys::Array::from(js_val);
-    let length: usize = array.length().try_into().map_err(map_js_err)?;
-    let mut backend_vcfrags = Vec::<umbral_pre::VerifiedCapsuleFrag>::with_capacity(length);
-    for js in array.iter() {
-        let typed_vcfrag = VerifiedCapsuleFrag::try_from(&js).map_err(map_js_err)?;
-        backend_vcfrags.push(typed_vcfrag.0);
-    }
+    let typed_vcfrags = try_from_js_array::<VerifiedCapsuleFrag>(vcfrags.as_ref())?;
+    let backend_vcfrags = typed_vcfrags.into_iter().map(|vcfrag| vcfrag.0);
     umbral_pre::decrypt_reencrypted(
         &receiving_sk.0,
         &delegating_pk.0,
