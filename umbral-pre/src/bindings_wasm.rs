@@ -252,6 +252,7 @@ impl Signature {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
 #[derive(Clone, Copy, Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
 pub struct Capsule(umbral_pre::Capsule);
