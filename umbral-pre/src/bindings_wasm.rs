@@ -16,6 +16,7 @@ use core::fmt;
 
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
+use wasm_bindgen_derive::TryFromJsValue;
 
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,24 @@ use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretAr
 
 fn map_js_err<T: fmt::Display>(err: T) -> Error {
     Error::new(&format!("{}", err))
+}
+
+/// Tries to convert an optional value (either `null` or a `#[wasm_bindgen]` marked structure)
+/// from `JsValue` to the Rust type.
+// This is necessary since wasm-bindgen does not support having a paramter of `Option<&T>`,
+// and using `Option<T>` consumes the argument
+// (see https://github.com/rustwasm/wasm-bindgen/issues/2370).
+fn try_from_js_option<'a, T>(value: &'a JsValue) -> Result<Option<T>, JsValue>
+where
+    T: TryFrom<&'a JsValue>,
+    <T as TryFrom<&'a JsValue>>::Error: core::fmt::Display,
+{
+    let typed_value = if value.is_null() {
+        None
+    } else {
+        Some(T::try_from(value).map_err(map_js_err)?)
+    };
+    Ok(typed_value)
 }
 
 #[wasm_bindgen]
@@ -121,8 +140,9 @@ impl SecretKeyFactory {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
 pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
@@ -408,68 +428,33 @@ pub fn decrypt_original(
 }
 
 #[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "PublicKey | null")]
+    pub type OptionPublicKey;
+}
+
+#[wasm_bindgen]
 pub struct KeyFrag(umbral_pre::KeyFrag);
 
 #[wasm_bindgen]
 impl KeyFrag {
-    // TODO (#25): `Option<&PublicKey> are currently not supported.
-    // See https://github.com/rustwasm/wasm-bindgen/issues/2370
-    // So we have to use 4 functions instead of 1. Yikes.
-
     #[wasm_bindgen]
-    pub fn verify(self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, Error> {
-        self.0
-            .verify(&verifying_pk.0, None, None)
-            .map(VerifiedKeyFrag)
-            .map_err(|(err, _)| err)
-            .map_err(map_js_err)
-    }
-
-    #[wasm_bindgen(js_name = verifyWithDelegatingKey)]
-    pub fn verify_with_delegating_key(
+    pub fn verify(
         self,
         verifying_pk: &PublicKey,
-        delegating_pk: &PublicKey,
+        // TODO: replace with `Option<&PublicKey>` when `wasm-bindgen` supports it.
+        // See https://github.com/rustwasm/wasm-bindgen/issues/2370
+        delegating_pk: &OptionPublicKey,
+        receiving_pk: &OptionPublicKey,
     ) -> Result<VerifiedKeyFrag, Error> {
-        let backend_delegating_pk = delegating_pk.0;
-
-        self.0
-            .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
-            .map(VerifiedKeyFrag)
-            .map_err(|(err, _)| err)
-            .map_err(map_js_err)
-    }
-
-    #[wasm_bindgen(js_name = verifyWithReceivingKey)]
-    pub fn verify_with_receiving_key(
-        self,
-        verifying_pk: &PublicKey,
-        receiving_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, Error> {
-        let backend_receiving_pk = receiving_pk.0;
-
-        self.0
-            .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
-            .map(VerifiedKeyFrag)
-            .map_err(|(err, _)| err)
-            .map_err(map_js_err)
-    }
-
-    #[wasm_bindgen(js_name = verifyWithDelegatingAndReceivingKeys)]
-    pub fn verify_with_delegating_and_receiving_keys(
-        self,
-        verifying_pk: &PublicKey,
-        delegating_pk: &PublicKey,
-        receiving_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, Error> {
-        let backend_delegating_pk = delegating_pk.0;
-        let backend_receiving_pk = receiving_pk.0;
+        let typed_delegating_pk = try_from_js_option::<PublicKey>(delegating_pk.as_ref())?;
+        let typed_receiving_pk = try_from_js_option::<PublicKey>(receiving_pk.as_ref())?;
 
         self.0
             .verify(
                 &verifying_pk.0,
-                Some(&backend_delegating_pk),
-                Some(&backend_receiving_pk),
+                typed_delegating_pk.as_ref().map(|pk| &pk.0),
+                typed_receiving_pk.as_ref().map(|pk| &pk.0),
             )
             .map(VerifiedKeyFrag)
             .map_err(|(err, _)| err)
