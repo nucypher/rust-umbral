@@ -53,10 +53,9 @@ where
     for<'a> T: TryFrom<&'a JsValue>,
     for<'a> <T as TryFrom<&'a JsValue>>::Error: core::fmt::Display,
 {
-    if !js_sys::Array::is_array(value) {
-        return Err(Error::new("Got a non-array argument where an array was expected"));
-    }
-    let array = js_sys::Array::from(value);
+    let array: &js_sys::Array = value
+        .dyn_ref()
+        .ok_or_else(|| Error::new("Got a non-array argument where an array was expected"))?;
     let length: usize = array.length().try_into().map_err(map_js_err)?;
     let mut result = Vec::<T>::with_capacity(length);
     for js in array.iter() {
