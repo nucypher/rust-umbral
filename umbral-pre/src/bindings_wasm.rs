@@ -162,7 +162,7 @@ impl SecretKeyFactory {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
@@ -251,7 +251,7 @@ impl Signature {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, Copy, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, Copy, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
@@ -330,9 +330,7 @@ impl CapsuleFrag {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(
-    Clone, PartialEq, Debug, derive_more::AsRef, derive_more::From,
-)]
+#[derive(Clone, PartialEq, Debug, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
 #[wasm_bindgen]
@@ -488,7 +486,7 @@ impl KeyFrag {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
 #[wasm_bindgen]
