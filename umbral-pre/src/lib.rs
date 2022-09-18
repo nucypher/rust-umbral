@@ -139,7 +139,7 @@ mod pre;
 mod secret_box;
 mod traits;
 
-#[cfg(any(feature = "serde-support", feature = "bindings-wasm"))]
+#[cfg(feature = "serde-support")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 pub mod serde_bytes;
 

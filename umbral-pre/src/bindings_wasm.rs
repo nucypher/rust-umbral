@@ -19,8 +19,6 @@ use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
 
-use serde::{Deserialize, Serialize};
-
 use crate as umbral_pre;
 use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
@@ -165,7 +163,7 @@ impl SecretKeyFactory {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, derive_more::AsRef, derive_more::From)]
 pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
@@ -254,7 +252,7 @@ impl Signature {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, Copy, Serialize, Deserialize, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, Copy, derive_more::AsRef, derive_more::From)]
 pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
@@ -334,7 +332,7 @@ impl CapsuleFrag {
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
 #[derive(
-    Clone, Serialize, Deserialize, PartialEq, Debug, derive_more::AsRef, derive_more::From,
+    Clone, PartialEq, Debug, derive_more::AsRef, derive_more::From,
 )]
 pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
@@ -489,8 +487,9 @@ impl KeyFrag {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize, Clone, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, derive_more::AsRef, derive_more::From)]
 pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
 #[wasm_bindgen]
