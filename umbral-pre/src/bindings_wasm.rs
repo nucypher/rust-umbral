@@ -16,6 +16,7 @@ use core::fmt;
 
 use js_sys::Error;
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
+use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
 
 use serde::{Deserialize, Serialize};
@@ -513,6 +514,12 @@ impl VerifiedKeyFrag {
     }
 }
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "VerifiedKeyFrag[]")]
+    pub type VerifiedKeyFragArray;
+}
+
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = generateKFrags)]
 pub fn generate_kfrags(
@@ -523,7 +530,7 @@ pub fn generate_kfrags(
     shares: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> Vec<JsValue> {
+) -> VerifiedKeyFragArray {
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.0,
         &receiving_pk.0,
@@ -535,14 +542,16 @@ pub fn generate_kfrags(
     );
 
     // TODO (#26): Apparently we cannot just return a vector of things,
-    // so we have to convert them to JsValues manually.
+    // so we have to convert them to JsValues manually and use a custom return type
+    // to generate a correct signature for TypeScript.
     // See https://github.com/rustwasm/wasm-bindgen/issues/111
     backend_kfrags
         .iter()
         .cloned()
         .map(VerifiedKeyFrag)
         .map(JsValue::from)
-        .collect()
+        .collect::<js_sys::Array>()
+        .unchecked_into::<VerifiedKeyFragArray>()
 }
 
 #[wasm_bindgen]
