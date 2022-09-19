@@ -11,22 +11,77 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::fmt;
 
-use js_sys::Error;
+use js_sys::{Error, Uint8Array};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
-
-use serde::{Deserialize, Serialize};
+use wasm_bindgen::JsCast;
+use wasm_bindgen_derive::TryFromJsValue;
 
 use crate as umbral_pre;
 use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
-fn map_js_err<T: fmt::Display>(err: T) -> JsValue {
-    Error::new(&format!("{}", err)).into()
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "VerifiedCapsuleFrag[]")]
+    pub type VerifiedCapsuleFragArray;
+
+    #[wasm_bindgen(typescript_type = "PublicKey | null")]
+    pub type OptionPublicKey;
+
+    #[wasm_bindgen(typescript_type = "VerifiedKeyFrag[]")]
+    pub type VerifiedKeyFragArray;
+
+    #[wasm_bindgen(typescript_type = "[Capsule, Uint8Array]")]
+    pub type EncryptionResult;
+}
+
+fn map_js_err<T: fmt::Display>(err: T) -> Error {
+    Error::new(&format!("{}", err))
+}
+
+/// Tries to convert an optional value (either `null` or a `#[wasm_bindgen]` marked structure)
+/// from `JsValue` to the Rust type.
+// TODO (#25): This is necessary since wasm-bindgen does not support
+// having a parameter of `Option<&T>`, and using `Option<T>` consumes the argument
+// (see https://github.com/rustwasm/wasm-bindgen/issues/2370).
+fn try_from_js_option<'a, T>(value: &'a JsValue) -> Result<Option<T>, Error>
+where
+    T: TryFrom<&'a JsValue>,
+    <T as TryFrom<&'a JsValue>>::Error: core::fmt::Display,
+{
+    let typed_value = if value.is_null() {
+        None
+    } else {
+        Some(T::try_from(value).map_err(map_js_err)?)
+    };
+    Ok(typed_value)
+}
+
+/// Tries to convert a JS array from `JsValue` to a vector of Rust type elements.
+// TODO (#23): This is necessary since wasm-bindgen does not support
+// having a parameter of `Vec<&T>`
+// (see https://github.com/rustwasm/wasm-bindgen/issues/111).
+fn try_from_js_array<T>(value: &JsValue) -> Result<Vec<T>, Error>
+where
+    for<'a> T: TryFrom<&'a JsValue>,
+    for<'a> <T as TryFrom<&'a JsValue>>::Error: core::fmt::Display,
+{
+    let array: &js_sys::Array = value
+        .dyn_ref()
+        .ok_or_else(|| Error::new("Got a non-array argument where an array was expected"))?;
+    let length: usize = array.length().try_into().map_err(map_js_err)?;
+    let mut result = Vec::<T>::with_capacity(length);
+    for js in array.iter() {
+        let typed_elem = T::try_from(&js).map_err(map_js_err)?;
+        result.push(typed_elem);
+    }
+    Ok(result)
 }
 
 #[wasm_bindgen]
+#[derive(derive_more::AsRef)]
 pub struct SecretKey(umbral_pre::SecretKey);
 
 #[wasm_bindgen]
@@ -52,7 +107,7 @@ impl SecretKey {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<SecretKey, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<SecretKey, Error> {
         umbral_pre::SecretKey::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -62,12 +117,6 @@ impl SecretKey {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
-    }
-}
-
-impl SecretKey {
-    pub fn inner(&self) -> &umbral_pre::SecretKey {
-        &self.0
     }
 }
 
@@ -87,7 +136,7 @@ impl SecretKeyFactory {
     }
 
     #[wasm_bindgen(js_name = fromSecureRandomness)]
-    pub fn from_secure_randomness(seed: &[u8]) -> Result<SecretKeyFactory, JsValue> {
+    pub fn from_secure_randomness(seed: &[u8]) -> Result<SecretKeyFactory, Error> {
         umbral_pre::SecretKeyFactory::from_secure_randomness(seed)
             .map(Self)
             .map_err(map_js_err)
@@ -113,7 +162,7 @@ impl SecretKeyFactory {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<SecretKeyFactory, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<SecretKeyFactory, Error> {
         umbral_pre::SecretKeyFactory::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -126,8 +175,9 @@ impl SecretKeyFactory {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
@@ -138,7 +188,7 @@ impl PublicKey {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<PublicKey, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<PublicKey, Error> {
         umbral_pre::PublicKey::from_bytes(data)
             .map(PublicKey)
             .map_err(map_js_err)
@@ -155,17 +205,8 @@ impl PublicKey {
     }
 }
 
-impl PublicKey {
-    pub fn new(pk: umbral_pre::PublicKey) -> Self {
-        PublicKey(pk)
-    }
-
-    pub fn inner(&self) -> &umbral_pre::PublicKey {
-        &self.0
-    }
-}
-
 #[wasm_bindgen]
+#[derive(derive_more::AsRef)]
 pub struct Signer(umbral_pre::Signer);
 
 #[wasm_bindgen]
@@ -191,12 +232,6 @@ impl Signer {
     }
 }
 
-impl Signer {
-    pub fn inner(&self) -> &umbral_pre::Signer {
-        &self.0
-    }
-}
-
 #[wasm_bindgen]
 pub struct Signature(umbral_pre::Signature);
 
@@ -212,7 +247,7 @@ impl Signature {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<Signature, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<Signature, Error> {
         umbral_pre::Signature::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -229,30 +264,20 @@ impl Signature {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
 impl Capsule {
-    // TODO (#23): have to add cfrags one by one since `wasm_bindgen` currently does not support
-    // Vec<CustomStruct> as a parameter.
-    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
-    #[wasm_bindgen(js_name = withCFrag)]
-    pub fn with_cfrag(&self, cfrag: &VerifiedCapsuleFrag) -> CapsuleWithFrags {
-        CapsuleWithFrags {
-            capsule: *self,
-            cfrags: vec![cfrag.clone()],
-        }
-    }
-
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Box<[u8]> {
         self.0.to_array().to_vec().into_boxed_slice()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<Capsule, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<Capsule, Error> {
         umbral_pre::Capsule::from_bytes(data)
             .map(Capsule)
             .map_err(map_js_err)
@@ -269,16 +294,6 @@ impl Capsule {
     }
 }
 
-impl Capsule {
-    pub fn new(capsule: umbral_pre::Capsule) -> Self {
-        Capsule(capsule)
-    }
-
-    pub fn inner(&self) -> &umbral_pre::Capsule {
-        &self.0
-    }
-}
-
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct CapsuleFrag(umbral_pre::CapsuleFrag);
@@ -292,7 +307,7 @@ impl CapsuleFrag {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Result<VerifiedCapsuleFrag, JsValue> {
+    ) -> Result<VerifiedCapsuleFrag, Error> {
         self.0
             .verify(
                 &capsule.0,
@@ -311,7 +326,7 @@ impl CapsuleFrag {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, Error> {
         umbral_pre::CapsuleFrag::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -328,14 +343,15 @@ impl CapsuleFrag {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
-    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, JsValue> {
+    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedCapsuleFrag, Error> {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(bytes)
             .map(VerifiedCapsuleFrag)
             .map_err(map_js_err)
@@ -357,83 +373,19 @@ impl VerifiedCapsuleFrag {
     }
 }
 
-impl VerifiedCapsuleFrag {
-    pub fn new(verified_cfrag: umbral_pre::VerifiedCapsuleFrag) -> Self {
-        VerifiedCapsuleFrag(verified_cfrag)
-    }
-
-    pub fn inner(&self) -> umbral_pre::VerifiedCapsuleFrag {
-        self.0.clone()
-    }
-}
-
 #[wasm_bindgen]
-pub struct CapsuleWithFrags {
-    capsule: Capsule,
-    cfrags: Vec<VerifiedCapsuleFrag>,
-}
-
-#[wasm_bindgen]
-impl CapsuleWithFrags {
-    #[wasm_bindgen(js_name = withCFrag)]
-    pub fn with_cfrag(&self, cfrag: &VerifiedCapsuleFrag) -> CapsuleWithFrags {
-        let mut new_cfrags = self.cfrags.clone();
-        new_cfrags.push(cfrag.clone());
-        Self {
-            capsule: self.capsule,
-            cfrags: new_cfrags,
-        }
-    }
-
-    #[wasm_bindgen(js_name = decryptReencrypted)]
-    pub fn decrypt_reencrypted(
-        &self,
-        receiving_sk: &SecretKey,
-        delegating_pk: &PublicKey,
-        ciphertext: &[u8],
-    ) -> Result<Box<[u8]>, JsValue> {
-        let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> =
-            self.cfrags.iter().cloned().map(|x| x.0).collect();
-        umbral_pre::decrypt_reencrypted(
-            &receiving_sk.0,
-            &delegating_pk.0,
-            &self.capsule.0,
-            backend_cfrags,
-            ciphertext,
-        )
-        .map_err(map_js_err)
-    }
-}
-
-#[wasm_bindgen]
-pub struct EncryptionResult {
-    ciphertext: Box<[u8]>,
-    pub capsule: Capsule,
-}
-
-#[wasm_bindgen]
-impl EncryptionResult {
-    fn new(ciphertext: Box<[u8]>, capsule: Capsule) -> Self {
-        Self {
-            ciphertext,
-            capsule,
-        }
-    }
-
-    // TODO (#24): currently can't just make the field public because `Box` doesn't implement `Copy`.
-    // See https://github.com/rustwasm/wasm-bindgen/issues/439
-    #[wasm_bindgen(getter)]
-    pub fn ciphertext(&self) -> Box<[u8]> {
-        self.ciphertext.clone()
-    }
-}
-
-#[wasm_bindgen]
-pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, JsValue> {
+pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, Error> {
     let backend_pk = delegating_pk.0;
-    umbral_pre::encrypt(&backend_pk, plaintext)
-        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
-        .map_err(map_js_err)
+    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pk, plaintext).map_err(map_js_err)?;
+
+    // TODO (#24): wasm-bindgen does not allow one to return a tuple directly.
+    // Have to cast it manually.
+    let capsule_js: JsValue = Capsule::from(capsule).into();
+    let ciphertext_js: JsValue = Uint8Array::from(ciphertext.as_ref()).into();
+    Ok([capsule_js, ciphertext_js]
+        .into_iter()
+        .collect::<js_sys::Array>()
+        .unchecked_into::<EncryptionResult>())
 }
 
 #[wasm_bindgen(js_name = decryptOriginal)]
@@ -441,8 +393,31 @@ pub fn decrypt_original(
     delegating_sk: &SecretKey,
     capsule: &Capsule,
     ciphertext: &[u8],
-) -> Result<Box<[u8]>, JsValue> {
+) -> Result<Box<[u8]>, Error> {
     umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
+}
+
+#[wasm_bindgen(js_name = decryptReencrypted)]
+pub fn decrypt_reencrypted(
+    receiving_sk: &SecretKey,
+    delegating_pk: &PublicKey,
+    capsule: &Capsule,
+    vcfrags: &VerifiedCapsuleFragArray,
+    ciphertext: &[u8],
+) -> Result<Box<[u8]>, Error> {
+    // TODO (#23): using a custom type since `wasm_bindgen` currently does not support
+    // Vec<CustomStruct> as a parameter.
+    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
+    let typed_vcfrags = try_from_js_array::<VerifiedCapsuleFrag>(vcfrags.as_ref())?;
+    let backend_vcfrags = typed_vcfrags.into_iter().map(|vcfrag| vcfrag.0);
+    umbral_pre::decrypt_reencrypted(
+        &receiving_sk.0,
+        &delegating_pk.0,
+        &capsule.0,
+        backend_vcfrags,
+        ciphertext,
+    )
+    .map_err(map_js_err)
 }
 
 #[wasm_bindgen]
@@ -450,64 +425,23 @@ pub struct KeyFrag(umbral_pre::KeyFrag);
 
 #[wasm_bindgen]
 impl KeyFrag {
-    // TODO (#25): `Option<&PublicKey> are currently not supported.
-    // See https://github.com/rustwasm/wasm-bindgen/issues/2370
-    // So we have to use 4 functions instead of 1. Yikes.
-
     #[wasm_bindgen]
-    pub fn verify(self, verifying_pk: &PublicKey) -> Result<VerifiedKeyFrag, JsValue> {
-        self.0
-            .verify(&verifying_pk.0, None, None)
-            .map(VerifiedKeyFrag)
-            .map_err(|(err, _)| err)
-            .map_err(map_js_err)
-    }
-
-    #[wasm_bindgen(js_name = verifyWithDelegatingKey)]
-    pub fn verify_with_delegating_key(
+    pub fn verify(
         self,
         verifying_pk: &PublicKey,
-        delegating_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, JsValue> {
-        let backend_delegating_pk = delegating_pk.0;
-
-        self.0
-            .verify(&verifying_pk.0, Some(&backend_delegating_pk), None)
-            .map(VerifiedKeyFrag)
-            .map_err(|(err, _)| err)
-            .map_err(map_js_err)
-    }
-
-    #[wasm_bindgen(js_name = verifyWithReceivingKey)]
-    pub fn verify_with_receiving_key(
-        self,
-        verifying_pk: &PublicKey,
-        receiving_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, JsValue> {
-        let backend_receiving_pk = receiving_pk.0;
-
-        self.0
-            .verify(&verifying_pk.0, None, Some(&backend_receiving_pk))
-            .map(VerifiedKeyFrag)
-            .map_err(|(err, _)| err)
-            .map_err(map_js_err)
-    }
-
-    #[wasm_bindgen(js_name = verifyWithDelegatingAndReceivingKeys)]
-    pub fn verify_with_delegating_and_receiving_keys(
-        self,
-        verifying_pk: &PublicKey,
-        delegating_pk: &PublicKey,
-        receiving_pk: &PublicKey,
-    ) -> Result<VerifiedKeyFrag, JsValue> {
-        let backend_delegating_pk = delegating_pk.0;
-        let backend_receiving_pk = receiving_pk.0;
+        // TODO: replace with `Option<&PublicKey>` when `wasm-bindgen` supports it.
+        // See https://github.com/rustwasm/wasm-bindgen/issues/2370
+        delegating_pk: &OptionPublicKey,
+        receiving_pk: &OptionPublicKey,
+    ) -> Result<VerifiedKeyFrag, Error> {
+        let typed_delegating_pk = try_from_js_option::<PublicKey>(delegating_pk.as_ref())?;
+        let typed_receiving_pk = try_from_js_option::<PublicKey>(receiving_pk.as_ref())?;
 
         self.0
             .verify(
                 &verifying_pk.0,
-                Some(&backend_delegating_pk),
-                Some(&backend_receiving_pk),
+                typed_delegating_pk.as_ref().map(|pk| &pk.0),
+                typed_receiving_pk.as_ref().map(|pk| &pk.0),
             )
             .map(VerifiedKeyFrag)
             .map_err(|(err, _)| err)
@@ -520,7 +454,7 @@ impl KeyFrag {
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<KeyFrag, JsValue> {
+    pub fn from_bytes(data: &[u8]) -> Result<KeyFrag, Error> {
         umbral_pre::KeyFrag::from_bytes(data)
             .map(Self)
             .map_err(map_js_err)
@@ -537,14 +471,15 @@ impl KeyFrag {
     }
 }
 
+#[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 
 #[wasm_bindgen]
 impl VerifiedKeyFrag {
     #[wasm_bindgen(js_name = fromVerifiedBytes)]
-    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, JsValue> {
+    pub fn from_verified_bytes(bytes: &[u8]) -> Result<VerifiedKeyFrag, Error> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(bytes)
             .map(VerifiedKeyFrag)
             .map_err(map_js_err)
@@ -566,16 +501,6 @@ impl VerifiedKeyFrag {
     }
 }
 
-impl VerifiedKeyFrag {
-    pub fn new(vkfrag: umbral_pre::VerifiedKeyFrag) -> Self {
-        Self(vkfrag)
-    }
-
-    pub fn inner(&self) -> &umbral_pre::VerifiedKeyFrag {
-        &self.0
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
 #[wasm_bindgen(js_name = generateKFrags)]
 pub fn generate_kfrags(
@@ -586,7 +511,7 @@ pub fn generate_kfrags(
     shares: usize,
     sign_delegating_key: bool,
     sign_receiving_key: bool,
-) -> Vec<JsValue> {
+) -> VerifiedKeyFragArray {
     let backend_kfrags = umbral_pre::generate_kfrags(
         &delegating_sk.0,
         &receiving_pk.0,
@@ -598,14 +523,16 @@ pub fn generate_kfrags(
     );
 
     // TODO (#26): Apparently we cannot just return a vector of things,
-    // so we have to convert them to JsValues manually.
+    // so we have to convert them to JsValues manually and use a custom return type
+    // to generate a correct signature for TypeScript.
     // See https://github.com/rustwasm/wasm-bindgen/issues/111
     backend_kfrags
-        .iter()
-        .cloned()
+        .into_vec()
+        .into_iter()
         .map(VerifiedKeyFrag)
         .map(JsValue::from)
-        .collect()
+        .collect::<js_sys::Array>()
+        .unchecked_into::<VerifiedKeyFragArray>()
 }
 
 #[wasm_bindgen]
