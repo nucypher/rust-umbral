@@ -96,7 +96,7 @@ create_exception!(umbral, VerificationError, PyException);
 #[pyclass(module = "umbral")]
 #[derive(derive_more::AsRef, derive_more::From)]
 pub struct SecretKey {
-    pub backend: umbral_pre::SecretKey,
+    backend: umbral_pre::SecretKey,
 }
 
 #[pymethods]
@@ -186,9 +186,9 @@ impl SecretKeyFactory {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone, PartialEq, Eq, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, PartialEq, Eq, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct PublicKey {
-    pub backend: umbral_pre::PublicKey,
+    backend: umbral_pre::PublicKey,
 }
 
 #[pymethods]
@@ -221,9 +221,9 @@ impl PublicKey {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(derive_more::From)]
+#[derive(derive_more::AsRef, derive_more::From)]
 pub struct Signer {
-    pub backend: umbral_pre::Signer,
+    backend: umbral_pre::Signer,
 }
 
 #[pymethods]
@@ -286,9 +286,9 @@ impl Signature {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(Clone, PartialEq, derive_more::AsRef, derive_more::From)]
+#[derive(Clone, PartialEq, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct Capsule {
-    pub backend: umbral_pre::Capsule,
+    backend: umbral_pre::Capsule,
 }
 
 #[pymethods]
@@ -404,9 +404,9 @@ impl KeyFrag {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Clone, derive_more::AsRef, derive_more::From)]
+#[derive(PartialEq, Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct VerifiedKeyFrag {
-    pub backend: umbral_pre::VerifiedKeyFrag,
+    backend: umbral_pre::VerifiedKeyFrag,
 }
 
 #[pymethods]
@@ -535,9 +535,9 @@ impl CapsuleFrag {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Clone, derive_more::AsRef, derive_more::From)]
+#[derive(PartialEq, Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct VerifiedCapsuleFrag {
-    pub backend: umbral_pre::VerifiedCapsuleFrag,
+    backend: umbral_pre::VerifiedCapsuleFrag,
 }
 
 #[pymethods]
