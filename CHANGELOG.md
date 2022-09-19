@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced `AsBackend`/`FromBackend`, `.inner()`, `.new()`, and `pub backend` with derived `AsRef`/`From`/`Into` where appropriate. (#[103])
+- Using a workaround with `wasm-bindgen-derive` to support `Option<&T>` and `&Vec<T>` arguments, and `Vec<T>` return values in WASM bindings. Generating correct TypeScript signatures in all the relevant cases. Affected API: `Capsule.decryptReencrypted()`, `KeyFrag.verify()`, `generate_kfrags()`. (#[103])
+- Removed `serde` usage in WASM bindings. ([#103])
+
+
 ### Added
 
 - `Eq` markers for the types that only had `PartialEq` before. ([#100])
@@ -20,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#100]: https://github.com/nucypher/rust-umbral/pull/100
 [#101]: https://github.com/nucypher/rust-umbral/pull/101
 [#102]: https://github.com/nucypher/rust-umbral/pull/102
+[#103]: https://github.com/nucypher/rust-umbral/pull/103
 
 
 ## [0.6.0] - 2022-08-15
