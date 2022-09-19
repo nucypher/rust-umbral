@@ -1,6 +1,6 @@
 [package]
 name = "umbral-pre-wasm"
-version = "0.6.0"
+version = "0.7.0-alpha.0"
 authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
 edition = "2021"
 license = "GPL-3.0-only"
