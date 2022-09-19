@@ -143,9 +143,7 @@ pub struct SecretKeyFactory {
 impl SecretKeyFactory {
     #[staticmethod]
     pub fn random() -> Self {
-        Self {
-            backend: umbral_pre::SecretKeyFactory::random(),
-        }
+        umbral_pre::SecretKeyFactory::random().into()
     }
 
     #[staticmethod]
@@ -156,22 +154,16 @@ impl SecretKeyFactory {
     #[staticmethod]
     pub fn from_secure_randomness(seed: &[u8]) -> PyResult<SecretKeyFactory> {
         umbral_pre::SecretKeyFactory::from_secure_randomness(seed)
-            .map(|backend_sk| SecretKeyFactory {
-                backend: backend_sk,
-            })
+            .map(SecretKeyFactory::from)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
     pub fn make_key(&self, label: &[u8]) -> SecretKey {
-        SecretKey {
-            backend: self.backend.make_key(label),
-        }
+        self.backend.make_key(label).into()
     }
 
     pub fn make_factory(&self, label: &[u8]) -> Self {
-        Self {
-            backend: self.backend.make_factory(label),
-        }
+        self.backend.make_factory(label).into()
     }
 
     pub fn to_secret_bytes(&self) -> PyResult<PyObject> {
@@ -229,6 +221,7 @@ impl PublicKey {
 }
 
 #[pyclass(module = "umbral")]
+#[derive(derive_more::From)]
 pub struct Signer {
     pub backend: umbral_pre::Signer,
 }
@@ -237,21 +230,15 @@ pub struct Signer {
 impl Signer {
     #[new]
     pub fn new(sk: &SecretKey) -> Self {
-        Self {
-            backend: umbral_pre::Signer::new(sk.backend.clone()),
-        }
+        umbral_pre::Signer::new(sk.backend.clone()).into()
     }
 
     pub fn sign(&self, message: &[u8]) -> Signature {
-        Signature {
-            backend: self.backend.sign(message),
-        }
+        self.backend.sign(message).into()
     }
 
     pub fn verifying_key(&self) -> PublicKey {
-        PublicKey {
-            backend: self.backend.verifying_key(),
-        }
+        self.backend.verifying_key().into()
     }
 
     fn __str__(&self) -> PyResult<String> {
@@ -341,12 +328,7 @@ pub fn encrypt(
 ) -> PyResult<(Capsule, PyObject)> {
     umbral_pre::encrypt(&delegating_pk.backend, plaintext)
         .map(|(backend_capsule, ciphertext)| {
-            (
-                Capsule {
-                    backend: backend_capsule,
-                },
-                PyBytes::new(py, &ciphertext).into(),
-            )
+            (backend_capsule.into(), PyBytes::new(py, &ciphertext).into())
         })
         .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
@@ -385,9 +367,7 @@ impl KeyFrag {
                 receiving_pk.map(|pk| &pk.backend),
             )
             .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{}", err)))
-            .map(|backend_vkfrag| VerifiedKeyFrag {
-                backend: backend_vkfrag,
-            })
+            .map(VerifiedKeyFrag::from)
     }
 
     pub fn skip_verification(&self) -> VerifiedKeyFrag {
@@ -424,7 +404,7 @@ impl KeyFrag {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Clone, derive_more::AsRef)]
+#[derive(PartialEq, Clone, derive_more::AsRef, derive_more::From)]
 pub struct VerifiedKeyFrag {
     pub backend: umbral_pre::VerifiedKeyFrag,
 }
@@ -434,7 +414,7 @@ impl VerifiedKeyFrag {
     #[staticmethod]
     pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
         umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
-            .map(|vkfrag| Self { backend: vkfrag })
+            .map(Self::from)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
@@ -518,9 +498,7 @@ impl CapsuleFrag {
                 &receiving_pk.backend,
             )
             .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{}", err)))
-            .map(|backend_vcfrag| VerifiedCapsuleFrag {
-                backend: backend_vcfrag,
-            })
+            .map(VerifiedCapsuleFrag::from)
     }
 
     pub fn skip_verification(&self) -> VerifiedCapsuleFrag {
@@ -557,7 +535,7 @@ impl CapsuleFrag {
 }
 
 #[pyclass(module = "umbral")]
-#[derive(PartialEq, Clone, derive_more::AsRef)]
+#[derive(PartialEq, Clone, derive_more::AsRef, derive_more::From)]
 pub struct VerifiedCapsuleFrag {
     pub backend: umbral_pre::VerifiedCapsuleFrag,
 }
@@ -579,7 +557,7 @@ impl VerifiedCapsuleFrag {
     #[staticmethod]
     pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
         umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(data)
-            .map(|vcfrag| Self { backend: vcfrag })
+            .map(Self::from)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))
     }
 
@@ -602,9 +580,7 @@ impl VerifiedCapsuleFrag {
 #[pyfunction]
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
     let backend_vcfrag = umbral_pre::reencrypt(&capsule.backend, kfrag.backend.clone());
-    VerifiedCapsuleFrag {
-        backend: backend_vcfrag,
-    }
+    VerifiedCapsuleFrag::from(backend_vcfrag)
 }
 
 #[pyfunction]
@@ -616,11 +592,11 @@ pub fn decrypt_reencrypted(
     verified_cfrags: Vec<VerifiedCapsuleFrag>,
     ciphertext: &[u8],
 ) -> PyResult<PyObject> {
-    let backend_cfrags: Vec<umbral_pre::VerifiedCapsuleFrag> = verified_cfrags
+    let backend_cfrags = verified_cfrags
         .iter()
         .cloned()
         .map(|vcfrag| vcfrag.backend)
-        .collect();
+        .collect::<Vec<_>>();
     umbral_pre::decrypt_reencrypted(
         &receiving_sk.backend,
         &delegating_pk.backend,
