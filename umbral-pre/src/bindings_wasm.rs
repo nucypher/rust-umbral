@@ -22,6 +22,18 @@ use wasm_bindgen_derive::TryFromJsValue;
 use crate as umbral_pre;
 use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "VerifiedCapsuleFrag[]")]
+    pub type VerifiedCapsuleFragArray;
+
+    #[wasm_bindgen(typescript_type = "PublicKey | null")]
+    pub type OptionPublicKey;
+
+    #[wasm_bindgen(typescript_type = "VerifiedKeyFrag[]")]
+    pub type VerifiedKeyFragArray;
+}
+
 fn map_js_err<T: fmt::Display>(err: T) -> Error {
     Error::new(&format!("{}", err))
 }
@@ -398,15 +410,6 @@ pub fn decrypt_original(
     umbral_pre::decrypt_original(&delegating_sk.0, &capsule.0, ciphertext).map_err(map_js_err)
 }
 
-// TODO (#23): using a custom type since `wasm_bindgen` currently does not support
-// Vec<CustomStruct> as a parameter.
-// Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(typescript_type = "VerifiedCapsuleFrag[]")]
-    pub type VerifiedCapsuleFragArray;
-}
-
 #[wasm_bindgen(js_name = decryptReencrypted)]
 pub fn decrypt_reencrypted(
     receiving_sk: &SecretKey,
@@ -415,6 +418,9 @@ pub fn decrypt_reencrypted(
     vcfrags: &VerifiedCapsuleFragArray,
     ciphertext: &[u8],
 ) -> Result<Box<[u8]>, Error> {
+    // TODO (#23): using a custom type since `wasm_bindgen` currently does not support
+    // Vec<CustomStruct> as a parameter.
+    // Will probably be fixed along with https://github.com/rustwasm/wasm-bindgen/issues/111
     let typed_vcfrags = try_from_js_array::<VerifiedCapsuleFrag>(vcfrags.as_ref())?;
     let backend_vcfrags = typed_vcfrags.into_iter().map(|vcfrag| vcfrag.0);
     umbral_pre::decrypt_reencrypted(
@@ -425,12 +431,6 @@ pub fn decrypt_reencrypted(
         ciphertext,
     )
     .map_err(map_js_err)
-}
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(typescript_type = "PublicKey | null")]
-    pub type OptionPublicKey;
 }
 
 #[wasm_bindgen]
@@ -512,12 +512,6 @@ impl VerifiedKeyFrag {
     pub fn equals(&self, other: &VerifiedKeyFrag) -> bool {
         self.0 == other.0
     }
-}
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(typescript_type = "VerifiedKeyFrag[]")]
-    pub type VerifiedKeyFragArray;
 }
 
 #[allow(clippy::too_many_arguments)]
