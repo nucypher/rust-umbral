@@ -14,7 +14,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-use js_sys::Error;
+use js_sys::{Error, Uint8Array};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
@@ -32,6 +32,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "VerifiedKeyFrag[]")]
     pub type VerifiedKeyFragArray;
+
+    #[wasm_bindgen(typescript_type = "[Capsule, Uint8Array]")]
+    pub type EncryptionResult;
 }
 
 fn map_js_err<T: fmt::Display>(err: T) -> Error {
@@ -371,34 +374,18 @@ impl VerifiedCapsuleFrag {
 }
 
 #[wasm_bindgen]
-pub struct EncryptionResult {
-    ciphertext: Box<[u8]>,
-    pub capsule: Capsule,
-}
-
-#[wasm_bindgen]
-impl EncryptionResult {
-    fn new(ciphertext: Box<[u8]>, capsule: Capsule) -> Self {
-        Self {
-            ciphertext,
-            capsule,
-        }
-    }
-
-    // TODO (#24): currently can't just make the field public because `Box` doesn't implement `Copy`.
-    // See https://github.com/rustwasm/wasm-bindgen/issues/439
-    #[wasm_bindgen(getter)]
-    pub fn ciphertext(&self) -> Box<[u8]> {
-        self.ciphertext.clone()
-    }
-}
-
-#[wasm_bindgen]
 pub fn encrypt(delegating_pk: &PublicKey, plaintext: &[u8]) -> Result<EncryptionResult, Error> {
     let backend_pk = delegating_pk.0;
-    umbral_pre::encrypt(&backend_pk, plaintext)
-        .map(|(capsule, ciphertext)| EncryptionResult::new(ciphertext, Capsule(capsule)))
-        .map_err(map_js_err)
+    let (capsule, ciphertext) = umbral_pre::encrypt(&backend_pk, plaintext).map_err(map_js_err)?;
+
+    // TODO (#24): wasm-bindgen does not allow one to return a tuple directly.
+    // Have to cast it manually.
+    let capsule_js: JsValue = Capsule::from(capsule).into();
+    let ciphertext_js: JsValue = Uint8Array::from(ciphertext.as_ref()).into();
+    Ok([capsule_js, ciphertext_js]
+        .into_iter()
+        .collect::<js_sys::Array>()
+        .unchecked_into::<EncryptionResult>())
 }
 
 #[wasm_bindgen(js_name = decryptOriginal)]

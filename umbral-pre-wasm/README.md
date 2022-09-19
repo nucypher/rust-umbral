@@ -36,10 +36,7 @@ let bob_pk = bob_sk.publicKey();
 let plaintext = "Plaintext message";
 let plaintext_bytes = enc.encode(plaintext);
 
-// The API here slightly differs from that in Rust.
-// Since wasm-pack does not support returning tuples, we return an object containing
-// the ciphertext and the capsule.
-let {capsule, ciphertext} = umbral.encrypt(alice_pk, plaintext_bytes);
+let [capsule, ciphertext] = umbral.encrypt(alice_pk, plaintext_bytes);
 let ciphertext = result.ciphertext;
 let capsule = result.capsule;
 

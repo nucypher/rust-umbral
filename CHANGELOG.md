@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `AsBackend`/`FromBackend`, `.inner()`, `.new()`, and `pub backend` with derived `AsRef`/`From`/`Into` where appropriate. (#[103])
 - Using a workaround with `wasm-bindgen-derive` to support `Option<&T>` and `&Vec<T>` arguments, and `Vec<T>` return values in WASM bindings. Generating correct TypeScript signatures in all the relevant cases. Affected API: `Capsule.decryptReencrypted()`, `KeyFrag.verify()`, `generate_kfrags()`. (#[103])
 - Removed `serde` usage in WASM bindings. ([#103])
+- `encrypt()` now returns an actual tuple in WASM bindings instead of a special object. (#[103])
 
 
 ### Added

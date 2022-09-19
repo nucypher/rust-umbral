@@ -49,10 +49,7 @@ function App() {
 
     let plaintext_bytes = enc.encode(plaintext);
 
-    // The API here slightly differs from that in Rust.
-    // Since wasm-pack does not support returning tuples, we return an object containing
-    // the ciphertext and the capsule.
-    let {capsule, ciphertext} = umbral.encrypt(alice_pk, plaintext_bytes);
+    let [capsule, ciphertext] = umbral.encrypt(alice_pk, plaintext_bytes);
 
     // Since data was encrypted with Alice's public key, Alice can open the capsule
     // and decrypt the ciphertext with her private key.
