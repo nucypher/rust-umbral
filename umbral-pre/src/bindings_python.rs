@@ -76,14 +76,14 @@ where
     })
 }
 
-fn richcmp<T, U>(obj: &T, other: PyRef<'_, T>, op: CompareOp) -> PyResult<bool>
+fn richcmp<T, U>(obj: &T, other: &T, op: CompareOp) -> PyResult<bool>
 where
     T: PyClass + PartialEq + AsRef<U>,
     U: HasTypeName,
 {
     match op {
-        CompareOp::Eq => Ok(obj == &*other),
-        CompareOp::Ne => Ok(obj != &*other),
+        CompareOp::Eq => Ok(obj == other),
+        CompareOp::Ne => Ok(obj != other),
         _ => Err(PyTypeError::new_err(format!(
             "{} objects are not ordered",
             U::type_name()
@@ -207,7 +207,7 @@ impl PublicKey {
         to_bytes(self)
     }
 
-    fn __richcmp__(&self, other: PyRef<'_, PublicKey>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -272,7 +272,7 @@ impl Signature {
         to_bytes(self)
     }
 
-    fn __richcmp__(&self, other: PyRef<'_, Signature>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -307,7 +307,7 @@ impl Capsule {
         to_bytes(self)
     }
 
-    fn __richcmp__(&self, other: PyRef<'_, Capsule>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -390,7 +390,7 @@ impl KeyFrag {
         to_bytes(self)
     }
 
-    fn __richcmp__(&self, other: PyRef<'_, KeyFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -433,7 +433,7 @@ impl VerifiedKeyFrag {
         to_bytes(self)
     }
 
-    fn __richcmp__(&self, other: PyRef<'_, VerifiedKeyFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -521,7 +521,7 @@ impl CapsuleFrag {
         to_bytes(self)
     }
 
-    fn __richcmp__(&self, other: PyRef<'_, CapsuleFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
@@ -542,7 +542,7 @@ pub struct VerifiedCapsuleFrag {
 
 #[pymethods]
 impl VerifiedCapsuleFrag {
-    fn __richcmp__(&self, other: PyRef<'_, VerifiedCapsuleFrag>, op: CompareOp) -> PyResult<bool> {
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
 
