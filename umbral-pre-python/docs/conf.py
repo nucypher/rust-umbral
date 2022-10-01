@@ -22,7 +22,7 @@ copyright = '2020, Bogdan Opanchuk'
 author = 'Bogdan Opanchuk'
 
 # The full version, including alpha/beta/rc tags
-release = '0.7.0-alpha.0'
+release = '0.7.0'
 
 
 # -- General configuration ---------------------------------------------------
