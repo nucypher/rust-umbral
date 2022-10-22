@@ -207,7 +207,7 @@ pub enum CapsuleFragVerificationError {
 impl fmt::Display for CapsuleFragVerificationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IncorrectKeyFragSignature => write!(f, "Invalid KeyFrag signature"),
+            Self::IncorrectKeyFragSignature => write!(f, "Invalid CapsuleFrag signature"),
             Self::IncorrectReencryption => write!(f, "Failed to verify reencryption proof"),
         }
     }
