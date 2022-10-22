@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Under construction
+### Fixed
+- A typo in the error message that could be returned from `CapsuleFrag.verify()` - it erroneously mentioned `KeyFrag`. (#[105])
+
+
+[#105]: https://github.com/nucypher/rust-umbral/pull/105
 
 
 ## [0.7.0] - 2022-09-30
