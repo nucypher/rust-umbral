@@ -1,5 +1,6 @@
+use generic_array::GenericArray;
 use sha2::{
-    digest::{Digest, Update},
+    digest::{Digest, OutputSizeUser, Update},
     Sha256,
 };
 use zeroize::Zeroize;
@@ -9,6 +10,8 @@ use crate::secret_box::SecretBox;
 
 // Our hash of choice.
 pub(crate) type BackendDigest = Sha256;
+
+pub(crate) type BackendDigestOutput = GenericArray<u8, <Sha256 as OutputSizeUser>::OutputSize>;
 
 // Wraps BackendDigest for easier replacement, and standardizes the use of DST.
 pub(crate) struct Hash(BackendDigest);

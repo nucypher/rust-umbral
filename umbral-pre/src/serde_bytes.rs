@@ -3,11 +3,13 @@
 
 use alloc::boxed::Box;
 use alloc::format;
+use alloc::string::String;
 use core::any::type_name;
 use core::fmt;
 use core::marker::PhantomData;
 
 use base64::{engine::general_purpose, Engine as _};
+use generic_array::{ArrayLength, GenericArray};
 use serde::{de, Deserializer, Serializer};
 
 pub(crate) enum Encoding {
@@ -225,6 +227,20 @@ impl TryFromBytes for Box<[u8]> {
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
         Ok(bytes.into())
+    }
+}
+
+impl<T: ArrayLength<u8>> TryFromBytes for GenericArray<u8, T> {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::from_exact_iter(bytes.iter().cloned()).ok_or_else(|| {
+            format!(
+                "Failed to instantiate a GenericArray: expected size {}, got {}",
+                T::to_usize(),
+                bytes.len()
+            )
+        })
     }
 }
 

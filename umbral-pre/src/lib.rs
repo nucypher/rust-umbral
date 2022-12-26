@@ -133,6 +133,7 @@ mod capsule;
 mod capsule_frag;
 mod curve;
 mod dem;
+mod evidence;
 mod hashing;
 mod hashing_ds;
 mod key_frag;
@@ -146,9 +147,11 @@ mod traits;
 #[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
 pub mod serde_bytes;
 
+pub use curve::CurvePoint;
 pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::{CapsuleFrag, CapsuleFragVerificationError, VerifiedCapsuleFrag};
 pub use dem::{DecryptionError, EncryptionError};
+pub use evidence::ReencryptionEvidence;
 pub use key_frag::{KeyFrag, KeyFragVerificationError, VerifiedKeyFrag};
 pub use keys::{PublicKey, SecretKey, SecretKeyFactory, Signature, Signer};
 pub use pre::{

@@ -20,12 +20,12 @@ use crate::{DefaultDeserialize, DefaultSerialize};
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub(crate) struct CapsuleFragProof {
-    point_e2: CurvePoint,
-    point_v2: CurvePoint,
-    kfrag_commitment: CurvePoint,
-    kfrag_pok: CurvePoint,
-    signature: CurveScalar,
-    kfrag_signature: Signature,
+    pub(crate) point_e2: CurvePoint,
+    pub(crate) point_v2: CurvePoint,
+    pub(crate) kfrag_commitment: CurvePoint,
+    pub(crate) kfrag_pok: CurvePoint,
+    pub(crate) signature: CurveScalar,
+    pub(crate) kfrag_signature: Signature,
 }
 
 impl CapsuleFragProof {

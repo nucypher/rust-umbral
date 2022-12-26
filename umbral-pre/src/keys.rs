@@ -12,7 +12,10 @@ use generic_array::{
     typenum::{Unsigned, U32, U64},
     GenericArray,
 };
-use k256::elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
+use k256::{
+    ecdsa::recoverable,
+    elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey},
+};
 use rand_core::{CryptoRng, RngCore};
 use sha2::digest::{Digest, FixedOutput};
 use zeroize::ZeroizeOnDrop;
@@ -63,6 +66,14 @@ impl Signature {
     /// The message is hashed internally.
     pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
         verifying_pk.verify_digest(digest_for_signing(message), self)
+    }
+
+    pub(crate) fn get_recovery_byte(&self, verifying_pk: &PublicKey, message: &[u8]) -> u8 {
+        let digest = digest_for_signing(message);
+        recoverable::Signature::from_digest_trial_recovery(&verifying_pk.0.into(), digest, &self.0)
+            .unwrap()
+            .recovery_id()
+            .into()
     }
 }
 
@@ -163,7 +174,7 @@ impl fmt::Display for SecretKey {
     }
 }
 
-fn digest_for_signing(message: &[u8]) -> BackendDigest {
+pub(crate) fn digest_for_signing(message: &[u8]) -> BackendDigest {
     Hash::new().chain_bytes(message).digest()
 }
 

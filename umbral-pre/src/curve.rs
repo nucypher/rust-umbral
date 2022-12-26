@@ -158,7 +158,7 @@ impl From<&NonZeroCurveScalar> for CurveScalar {
 type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct CurvePoint(BackendPoint);
+pub struct CurvePoint(BackendPoint);
 
 impl CurvePoint {
     pub(crate) fn from_backend_point(point: &BackendPoint) -> Self {
@@ -175,6 +175,14 @@ impl CurvePoint {
 
     pub(crate) fn identity() -> Self {
         Self(BackendPoint::IDENTITY)
+    }
+
+    pub fn coordinates(&self) -> Option<(k256::FieldBytes, k256::FieldBytes)> {
+        let point = self.0.to_encoded_point(false);
+        // x() may be None if it is the infinity point.
+        // If x() is not None, y() is not None either because we requested
+        // an uncompressed point in the line above; can safely unwrap.
+        point.x().map(|x| (*x, *point.y().unwrap()))
     }
 
     pub(crate) fn try_from_compressed_bytes(bytes: &[u8]) -> Result<Self, String> {

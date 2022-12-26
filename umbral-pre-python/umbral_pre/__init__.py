@@ -10,6 +10,8 @@ from ._umbral import (
     CapsuleFrag,
     VerifiedCapsuleFrag,
     VerificationError,
+    ReencryptionEvidence,
+    CurvePoint,
     encrypt,
     decrypt_original,
     decrypt_reencrypted,
