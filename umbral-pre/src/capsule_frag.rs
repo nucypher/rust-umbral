@@ -238,6 +238,7 @@ impl CapsuleFrag {
     /// Verifies the integrity of the capsule fragment, given the original capsule,
     /// the encrypting party's key, the decrypting party's key, and the signing key.
     #[allow(clippy::many_single_char_names)]
+    #[allow(clippy::result_large_err)]
     pub fn verify(
         self,
         capsule: &Capsule,
@@ -429,7 +430,7 @@ mod tests {
         let (delegating_pk, receiving_pk, verifying_pk, capsule, verified_cfrags) =
             prepare_cfrags();
 
-        for verified_cfrag in verified_cfrags.iter().cloned() {
+        for verified_cfrag in verified_cfrags.iter() {
             let cfrag_array = verified_cfrag.to_array();
             let cfrag_back = CapsuleFrag::from_array(&cfrag_array).unwrap();
 
@@ -439,7 +440,7 @@ mod tests {
                 .verify(&capsule, &verifying_pk, &delegating_pk, &receiving_pk)
                 .unwrap();
 
-            assert_eq!(verified_cfrag_back, verified_cfrag);
+            assert_eq!(&verified_cfrag_back, verified_cfrag);
         }
     }
 

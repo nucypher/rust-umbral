@@ -312,6 +312,7 @@ impl KeyFrag {
     /// If [`generate_kfrags()`](`crate::generate_kfrags()`) was called with `true`
     /// for `sign_delegating_key` or `sign_receiving_key`, and the respective key
     /// is not provided, the verification fails.
+    #[allow(clippy::result_large_err)]
     pub fn verify(
         self,
         verifying_pk: &PublicKey,
