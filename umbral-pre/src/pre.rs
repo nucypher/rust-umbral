@@ -249,10 +249,9 @@ mod tests {
         // Bob requests re-encryption to some set of `threshold` ursulas
 
         // Simulate network transfer
-        let kfrags: Vec<_> = verified_kfrags
+        let kfrags = verified_kfrags
             .iter()
-            .map(|vkfrag| KeyFrag::from_array(&vkfrag.to_array()).unwrap())
-            .collect();
+            .map(|vkfrag| KeyFrag::from_array(&vkfrag.to_array()).unwrap());
 
         // If Ursula received kfrags from the network, she must check that they are valid
         let verified_kfrags: Vec<_> = kfrags
@@ -270,10 +269,9 @@ mod tests {
             .collect();
 
         // Simulate network transfer
-        let cfrags: Vec<_> = verified_cfrags
+        let cfrags = verified_cfrags
             .iter()
-            .map(|vcfrag| CapsuleFrag::from_array(&vcfrag.to_array()).unwrap())
-            .collect();
+            .map(|vcfrag| CapsuleFrag::from_array(&vcfrag.to_array()).unwrap());
 
         // If Bob received cfrags from the network, he must check that they are valid
         let verified_cfrags: Vec<_> = cfrags

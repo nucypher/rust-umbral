@@ -320,7 +320,7 @@ mod tests {
         let s_from_arr = SomeStruct::from_array(&s_arr).unwrap();
         assert_eq!(s_from_arr, s);
 
-        let s_from_bytes = SomeStruct::from_bytes(&s_arr_ref).unwrap();
+        let s_from_bytes = SomeStruct::from_bytes(s_arr_ref).unwrap();
         assert_eq!(s_from_bytes, s);
     }
 
@@ -328,7 +328,7 @@ mod tests {
     fn test_invalid_data() {
         // invalid value for `f4` (`bool` must be either 0 or 1)
         let s_arr: [u8; 6] = [0x00, 0x01, 0x02, 0x00, 0x03, 0x02];
-        let s = SomeStruct::from_bytes(&s_arr);
+        let s = SomeStruct::from_bytes(s_arr);
         assert_eq!(
             s,
             Err(DeserializationError::ConstructionFailure(
@@ -341,7 +341,7 @@ mod tests {
     fn test_invalid_length() {
         // An excessive byte at the end
         let s_arr: [u8; 7] = [0x00, 0x01, 0x02, 0x00, 0x03, 0x01, 0x00];
-        let s = SomeStruct::from_bytes(&s_arr);
+        let s = SomeStruct::from_bytes(s_arr);
         assert_eq!(
             s,
             Err(DeserializationError::SizeMismatch(SizeMismatchError::new(

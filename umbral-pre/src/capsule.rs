@@ -315,7 +315,7 @@ mod tests {
         // Empty cfrag vector
         let result = capsule.open_reencrypted(&receiving_sk, &delegating_pk, &[]);
         assert_eq!(
-            result.map(|x| x.as_secret().clone()),
+            result.map(|x| *x.as_secret()),
             Err(OpenReencryptedError::NoCapsuleFrags)
         );
 
@@ -334,7 +334,7 @@ mod tests {
 
         let result = capsule.open_reencrypted(&receiving_sk, &delegating_pk, &mismatched_cfrags);
         assert_eq!(
-            result.map(|x| x.as_secret().clone()),
+            result.map(|x| *x.as_secret()),
             Err(OpenReencryptedError::MismatchedCapsuleFrags)
         );
 
@@ -342,7 +342,7 @@ mod tests {
         let (capsule2, _key_seed) = Capsule::from_public_key(&mut OsRng, &delegating_pk);
         let result = capsule2.open_reencrypted(&receiving_sk, &delegating_pk, &cfrags);
         assert_eq!(
-            result.map(|x| x.as_secret().clone()),
+            result.map(|x| *x.as_secret()),
             Err(OpenReencryptedError::ValidationFailed)
         );
     }

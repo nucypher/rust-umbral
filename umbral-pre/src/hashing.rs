@@ -58,7 +58,7 @@ impl ScalarDigest {
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        self.chain_bytes(&point.to_array())
+        self.chain_bytes(point.to_array())
     }
 
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {

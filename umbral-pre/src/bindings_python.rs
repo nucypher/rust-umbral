@@ -340,7 +340,7 @@ pub fn decrypt_original(
     capsule: &Capsule,
     ciphertext: &[u8],
 ) -> PyResult<PyObject> {
-    umbral_pre::decrypt_original(&delegating_sk.backend, &capsule.backend, &ciphertext)
+    umbral_pre::decrypt_original(&delegating_sk.backend, &capsule.backend, ciphertext)
         .map(|plaintext| PyBytes::new(py, &plaintext).into())
         .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
