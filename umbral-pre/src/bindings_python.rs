@@ -22,8 +22,7 @@ use pyo3::wrap_pyfunction;
 
 use crate as umbral_pre;
 use crate::{
-    DeserializableFromArray, HasTypeName, RepresentableAsArray, SerializableToArray,
-    SerializableToSecretArray,
+    DeserializableFromArray, RepresentableAsArray, SerializableToArray, SerializableToSecretArray,
 };
 
 fn to_bytes<T, U>(obj: &T) -> PyResult<PyObject>
@@ -53,24 +52,30 @@ where
 fn from_bytes<T, U>(data: &[u8]) -> PyResult<T>
 where
     T: From<U>,
-    U: DeserializableFromArray + HasTypeName,
+    U: DeserializableFromArray,
 {
     U::from_bytes(data)
         .map(T::from)
         .map_err(|err| PyValueError::new_err(format!("{}", err)))
 }
 
+fn type_name<U>() -> &'static str {
+    // TODO: for a slightly better user experience we can remove qualifiers here,
+    // because the returned string will be something like "crate_name::module_name::TypeName"
+    core::any::type_name::<U>()
+}
+
 fn hash<T, U>(obj: &T) -> PyResult<isize>
 where
     T: AsRef<U>,
-    U: SerializableToArray + HasTypeName,
+    U: SerializableToArray,
 {
     let serialized = obj.as_ref().to_array();
 
     // call `hash((class_name, bytes(obj)))`
     Python::with_gil(|py| {
         let builtins = PyModule::import(py, "builtins")?;
-        let arg1 = PyUnicode::new(py, U::type_name());
+        let arg1 = PyUnicode::new(py, type_name::<U>());
         let arg2: PyObject = PyBytes::new(py, serialized.as_slice()).into();
         builtins.getattr("hash")?.call1(((arg1, arg2),))?.extract()
     })
@@ -79,14 +84,13 @@ where
 fn richcmp<T, U>(obj: &T, other: &T, op: CompareOp) -> PyResult<bool>
 where
     T: PyClass + PartialEq + AsRef<U>,
-    U: HasTypeName,
 {
     match op {
         CompareOp::Eq => Ok(obj == other),
         CompareOp::Ne => Ok(obj != other),
         _ => Err(PyTypeError::new_err(format!(
             "{} objects are not ordered",
-            U::type_name()
+            type_name::<U>()
         ))),
     }
 }

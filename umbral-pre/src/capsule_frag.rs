@@ -15,7 +15,7 @@ use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
 use crate::secret_box::SecretBox;
 use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
+    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError,
     RepresentableAsArray, SerializableToArray,
 };
 
@@ -183,15 +183,9 @@ impl<'de> Deserialize<'de> for CapsuleFrag {
     }
 }
 
-impl HasTypeName for CapsuleFrag {
-    fn type_name() -> &'static str {
-        "CapsuleFrag"
-    }
-}
-
 impl fmt::Display for CapsuleFrag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public::<Self>(self, f)
+        fmt_public("CapsuleFrag", &self.kfrag_id, f)
     }
 }
 
@@ -330,15 +324,9 @@ impl SerializableToArray for VerifiedCapsuleFrag {
     }
 }
 
-impl HasTypeName for VerifiedCapsuleFrag {
-    fn type_name() -> &'static str {
-        "VerifiedCapsuleFrag"
-    }
-}
-
 impl fmt::Display for VerifiedCapsuleFrag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public::<Self>(self, f)
+        fmt_public("VerifiedCapsuleFrag", &self.cfrag.kfrag_id, f)
     }
 }
 

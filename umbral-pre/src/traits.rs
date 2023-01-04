@@ -6,7 +6,7 @@ use core::ops::Sub;
 
 use generic_array::sequence::Split;
 use generic_array::{ArrayLength, GenericArray};
-use typenum::{Diff, Unsigned, U1, U8};
+use typenum::{Diff, Unsigned, U1};
 
 use crate::secret_box::SecretBox;
 
@@ -188,38 +188,20 @@ impl DeserializableFromArray for bool {
     }
 }
 
-/// A reflection trait providing access to the type's name.
-pub trait HasTypeName {
-    /// Returns a string with the name of the type
-    /// (intended for displaying to humans).
-    fn type_name() -> &'static str;
-    // There is `std::any::type_name()` available, but its format is not guaranteed;
-    // for example, it can prepend modules names.
-    // We just want the struct name, without any additions.
-}
-
 /// A `fmt` implementation for types with secret data.
-pub(crate) fn fmt_secret<T: HasTypeName>(f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}:...", T::type_name())
+pub(crate) fn fmt_secret(type_name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}:...", type_name)
 }
 
 /// A `fmt` implementation for types with public data.
-pub(crate) fn fmt_public<T>(obj: &T, f: &mut fmt::Formatter<'_>) -> fmt::Result
-where
-    T: HasTypeName + SerializableToArray + RepresentableAsArray,
-    <T as RepresentableAsArray>::Size: Sub<U8>,
-    Diff<<T as RepresentableAsArray>::Size, U8>: ArrayLength<u8>,
-{
-    let bytes = (*obj).to_array();
-    let (to_show, _): (GenericArray<u8, U8>, GenericArray<u8, _>) = bytes.split();
-    let mut hex_repr = [b'*'; 16]; // exactly 16 bytes long, to fit the encode() result
-    hex::encode_to_slice(to_show, &mut hex_repr).map_err(|_| fmt::Error)?;
-    write!(
-        f,
-        "{}:{}",
-        T::type_name(),
-        String::from_utf8_lossy(&hex_repr)
-    )
+pub(crate) fn fmt_public(
+    type_name: &str,
+    data_to_show: &impl AsRef<[u8]>,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    let bytes = data_to_show.as_ref();
+    let bytes = if bytes.len() > 8 { &bytes[..8] } else { bytes };
+    write!(f, "{}:{}", type_name, hex::encode(bytes),)
 }
 
 #[cfg(test)]

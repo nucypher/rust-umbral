@@ -16,7 +16,7 @@ use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::secret_box::SecretBox;
 use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
+    fmt_public, ConstructionError, DeserializableFromArray, RepresentableAsArray,
     SerializableToArray,
 };
 
@@ -107,15 +107,9 @@ impl<'de> Deserialize<'de> for Capsule {
     }
 }
 
-impl HasTypeName for Capsule {
-    fn type_name() -> &'static str {
-        "Capsule"
-    }
-}
-
 impl fmt::Display for Capsule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public::<Self>(self, f)
+        fmt_public("Capsule", &self.signature.to_array(), f)
     }
 }
 

@@ -20,8 +20,7 @@ use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
 use crate::traits::{
-    ConstructionError, DeserializableFromArray, HasTypeName, RepresentableAsArray,
-    SerializableToArray,
+    ConstructionError, DeserializableFromArray, RepresentableAsArray, SerializableToArray,
 };
 
 pub(crate) type CurveType = Secp256k1;
@@ -72,12 +71,6 @@ impl DeserializableFromArray for CurveScalar {
         maybe_scalar
             .map(Self)
             .ok_or_else(|| ConstructionError::new("CurveScalar", "Internal backend error"))
-    }
-}
-
-impl HasTypeName for CurveScalar {
-    fn type_name() -> &'static str {
-        "CurveScalar"
     }
 }
 
@@ -288,11 +281,5 @@ impl DeserializableFromArray for CurvePoint {
     fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
         Self::from_compressed_array(arr)
             .ok_or_else(|| ConstructionError::new("CurvePoint", "Internal backend error"))
-    }
-}
-
-impl HasTypeName for CurvePoint {
-    fn type_name() -> &'static str {
-        "CurvePoint"
     }
 }

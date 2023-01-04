@@ -22,8 +22,8 @@ use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::SecretBox;
 use crate::traits::{
-    fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, HasTypeName,
-    RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
+    fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, RepresentableAsArray,
+    SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };
 
 #[cfg(feature = "serde-support")]
@@ -83,15 +83,9 @@ impl Signature {
     }
 }
 
-impl HasTypeName for Signature {
-    fn type_name() -> &'static str {
-        "Signature"
-    }
-}
-
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public(self, f)
+        fmt_public("Signature", &self.to_array(), f)
     }
 }
 
@@ -153,15 +147,9 @@ impl DeserializableFromArray for SecretKey {
     }
 }
 
-impl HasTypeName for SecretKey {
-    fn type_name() -> &'static str {
-        "SecretKey"
-    }
-}
-
 impl fmt::Display for SecretKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_secret::<Self>(f)
+        fmt_secret("SecretKey", f)
     }
 }
 
@@ -199,15 +187,9 @@ impl Signer {
     }
 }
 
-impl HasTypeName for Signer {
-    fn type_name() -> &'static str {
-        "Signer"
-    }
-}
-
 impl fmt::Display for Signer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_secret::<Self>(f)
+        fmt_secret("Signer", f)
     }
 }
 
@@ -275,15 +257,9 @@ impl<'de> Deserialize<'de> for PublicKey {
     }
 }
 
-impl HasTypeName for PublicKey {
-    fn type_name() -> &'static str {
-        "PublicKey"
-    }
-}
-
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public(self, f)
+        fmt_public("PublicKey", &self.to_array(), f)
     }
 }
 
@@ -380,15 +356,9 @@ impl DeserializableFromArray for SecretKeyFactory {
     }
 }
 
-impl HasTypeName for SecretKeyFactory {
-    fn type_name() -> &'static str {
-        "SecretKeyFactory"
-    }
-}
-
 impl fmt::Display for SecretKeyFactory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_secret::<Self>(f)
+        fmt_secret("SecretKeyFactory", f)
     }
 }
 

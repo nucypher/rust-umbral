@@ -154,8 +154,8 @@ pub use pre::{
 };
 pub use secret_box::SecretBox;
 pub use traits::{
-    ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
-    RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
+    ConstructionError, DeserializableFromArray, DeserializationError, RepresentableAsArray,
+    SerializableToArray, SerializableToSecretArray, SizeMismatchError,
 };
 
 #[cfg(feature = "default-rng")]

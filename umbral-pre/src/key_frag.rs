@@ -16,7 +16,7 @@ use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
 use crate::secret_box::SecretBox;
 use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
+    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError,
     RepresentableAsArray, SerializableToArray,
 };
 
@@ -226,15 +226,9 @@ impl<'de> Deserialize<'de> for KeyFrag {
     }
 }
 
-impl HasTypeName for KeyFrag {
-    fn type_name() -> &'static str {
-        "KeyFrag"
-    }
-}
-
 impl fmt::Display for KeyFrag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public::<Self>(self, f)
+        fmt_public("KeyFrag", &self.id, f)
     }
 }
 
@@ -387,15 +381,9 @@ impl SerializableToArray for VerifiedKeyFrag {
     }
 }
 
-impl HasTypeName for VerifiedKeyFrag {
-    fn type_name() -> &'static str {
-        "VerifiedKeyFrag"
-    }
-}
-
 impl fmt::Display for VerifiedKeyFrag {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public::<Self>(self, f)
+        fmt_public("VerifiedKeyFrag", &self.kfrag.id, f)
     }
 }
 
