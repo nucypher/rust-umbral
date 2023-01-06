@@ -148,14 +148,13 @@ mod tests {
     use super::kdf;
     use crate::curve::CurvePoint;
     use crate::secret_box::SecretBox;
-    use crate::SerializableToArray;
 
     #[test]
     fn test_kdf() {
         let p1 = CurvePoint::generator();
         let salt = b"abcdefg";
         let info = b"sdasdasd";
-        let seed = SecretBox::new(p1.to_array());
+        let seed = SecretBox::new(p1.to_compressed_array());
         let key = kdf::<U32>(seed.as_secret(), Some(&salt[..]), Some(&info[..]));
         let key_same = kdf::<U32>(seed.as_secret(), Some(&salt[..]), Some(&info[..]));
         assert_eq!(key.as_secret(), key_same.as_secret());

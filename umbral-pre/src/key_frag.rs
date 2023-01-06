@@ -1,11 +1,13 @@
+#[cfg(feature = "serde-support")]
+use alloc::string::String;
+
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 
-use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use typenum::{op, U32};
+use typenum::U32;
 
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -15,13 +17,12 @@ use crate::hashing_ds::{hash_to_polynomial_arg, hash_to_shared_secret, kfrag_sig
 use crate::keys::{PublicKey, SecretKey, Signature, Signer};
 use crate::params::Parameters;
 use crate::secret_box::SecretBox;
-use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError,
-    RepresentableAsArray, SerializableToArray,
-};
+use crate::traits::fmt_public;
 
 #[cfg(feature = "serde-support")]
-use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
+use crate::serde_bytes::{
+    deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
+};
 
 #[allow(clippy::upper_case_acronyms)]
 type KeyFragIDSize = U32;
@@ -44,67 +45,45 @@ impl AsRef<[u8]> for KeyFragID {
     }
 }
 
-impl RepresentableAsArray for KeyFragID {
-    type Size = KeyFragIDSize;
-}
-
-impl SerializableToArray for KeyFragID {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.0
+#[cfg(feature = "serde-support")]
+impl Serialize for KeyFragID {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_with_encoding(&self.0, serializer, Encoding::Hex)
     }
 }
 
-impl DeserializableFromArray for KeyFragID {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Ok(Self(*arr))
+#[cfg(feature = "serde-support")]
+impl<'de> Deserialize<'de> for KeyFragID {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_with_encoding(deserializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl TryFromBytes for KeyFragID {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        let arr = GenericArray::<u8, KeyFragIDSize>::from_exact_iter(bytes.iter().cloned())
+            .ok_or_else(|| "Invalid length of a key frag ID")?;
+        Ok(Self(arr))
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
     signature_for_proxy: Signature,
     pub(crate) signature_for_receiver: Signature,
     delegating_key_signed: bool,
     receiving_key_signed: bool,
-}
-
-type SignatureSize = <Signature as RepresentableAsArray>::Size;
-type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
-type PointSize = <CurvePoint as RepresentableAsArray>::Size;
-type BoolSize = <bool as RepresentableAsArray>::Size;
-type KeyFragProofSize = op!(PointSize + SignatureSize + SignatureSize + BoolSize + BoolSize);
-
-impl RepresentableAsArray for KeyFragProof {
-    type Size = KeyFragProofSize;
-}
-
-impl SerializableToArray for KeyFragProof {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.commitment
-            .to_array()
-            .concat(self.signature_for_proxy.to_array())
-            .concat(self.signature_for_receiver.to_array())
-            .concat(self.delegating_key_signed.to_array())
-            .concat(self.receiving_key_signed.to_array())
-    }
-}
-
-impl DeserializableFromArray for KeyFragProof {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let (commitment, rest) = CurvePoint::take(*arr)?;
-        let (signature_for_proxy, rest) = Signature::take(rest)?;
-        let (signature_for_receiver, rest) = Signature::take(rest)?;
-        let (delegating_key_signed, rest) = bool::take(rest)?;
-        let receiving_key_signed = bool::take_last(rest)?;
-        Ok(Self {
-            commitment,
-            signature_for_proxy,
-            signature_for_receiver,
-            delegating_key_signed,
-            receiving_key_signed,
-        })
-    }
 }
 
 fn none_unless<T>(x: Option<T>, predicate: bool) -> Option<T> {
@@ -165,65 +144,13 @@ impl KeyFragProof {
 
 /// A fragment of the encrypting party's key used to create a [`CapsuleFrag`](`crate::CapsuleFrag`).
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub struct KeyFrag {
     params: Parameters,
     pub(crate) id: KeyFragID,
     pub(crate) key: CurveScalar,
     pub(crate) precursor: CurvePoint,
     pub(crate) proof: KeyFragProof,
-}
-
-impl RepresentableAsArray for KeyFrag {
-    type Size = op!(ScalarSize + ScalarSize + PointSize + KeyFragProofSize);
-}
-
-impl SerializableToArray for KeyFrag {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.id
-            .to_array()
-            .concat(self.key.to_array())
-            .concat(self.precursor.to_array())
-            .concat(self.proof.to_array())
-    }
-}
-
-impl DeserializableFromArray for KeyFrag {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let params = Parameters::new();
-        let (id, rest) = KeyFragID::take(*arr)?;
-        let (key, rest) = CurveScalar::take(rest)?;
-        let (precursor, rest) = CurvePoint::take(rest)?;
-        let proof = KeyFragProof::take_last(rest)?;
-        Ok(Self {
-            params,
-            id,
-            key,
-            precursor,
-            proof,
-        })
-    }
-}
-
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
-impl Serialize for KeyFrag {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize_as_array(self, serializer, Encoding::Base64)
-    }
-}
-
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
-impl<'de> Deserialize<'de> for KeyFrag {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserialize_with_encoding(deserializer, Encoding::Base64)
-    }
 }
 
 impl fmt::Display for KeyFrag {
@@ -354,8 +281,9 @@ impl KeyFrag {
         Ok(VerifiedKeyFrag { kfrag: self })
     }
 
-    /// Explicitly skips verification.
-    /// Useful in cases when the verifying keys are impossible to obtain independently.
+    /// Explicitly skips [`KeyFrag::verify`] call.
+    /// Useful in cases when the verifying keys are impossible to obtain independently,
+    /// or when this capsule frag came from a trusted storage.
     ///
     /// **Warning:** make sure you considered the implications of not enforcing verification.
     pub fn skip_verification(self) -> VerifiedKeyFrag {
@@ -367,18 +295,10 @@ impl KeyFrag {
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`KeyFrag::verify`] or [`KeyFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize))]
+#[cfg_attr(feature = "serde-support", serde(transparent))]
 pub struct VerifiedKeyFrag {
     kfrag: KeyFrag,
-}
-
-impl RepresentableAsArray for VerifiedKeyFrag {
-    type Size = <KeyFrag as RepresentableAsArray>::Size;
-}
-
-impl SerializableToArray for VerifiedKeyFrag {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.kfrag.to_array()
-    }
 }
 
 impl fmt::Display for VerifiedKeyFrag {
@@ -397,15 +317,6 @@ impl VerifiedKeyFrag {
         Self {
             kfrag: KeyFrag::from_base(rng, base, sign_delegating_key, sign_receiving_key),
         }
-    }
-
-    /// Restores a verified keyfrag directly from serialized bytes,
-    /// skipping [`KeyFrag::verify`] call.
-    ///
-    /// Intended for internal storage;
-    /// make sure that the bytes come from a trusted source.
-    pub fn from_verified_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
-        KeyFrag::from_bytes(data).map(|kfrag| Self { kfrag })
     }
 
     /// Clears the verification status from the keyfrag.
@@ -494,15 +405,12 @@ mod tests {
 
     use rand_core::OsRng;
 
-    use super::{KeyFrag, KeyFragBase, KeyFragVerificationError, VerifiedKeyFrag};
+    use super::{KeyFragBase, KeyFragVerificationError, VerifiedKeyFrag};
 
-    use crate::{DeserializableFromArray, PublicKey, SecretKey, SerializableToArray, Signer};
+    use crate::{PublicKey, SecretKey, Signer};
 
     #[cfg(feature = "serde-support")]
-    use crate::serde_bytes::{
-        tests::{check_deserialization, check_serialization},
-        Encoding,
-    };
+    use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     fn prepare_kfrags(
         sign_delegating_key: bool,
@@ -534,11 +442,7 @@ mod tests {
                 let (delegating_pk, receiving_pk, verifying_pk, vkfrags) =
                     prepare_kfrags(sign_dk, sign_rk);
 
-                let kfrag_arr = vkfrags[0].to_array();
-                let kfrag = KeyFrag::from_array(&kfrag_arr).unwrap();
-
-                // Check that the kfrag serializes to the same thing as the verified kfrag
-                assert_eq!(kfrag.to_array(), kfrag_arr);
+                let kfrag = vkfrags[0].clone().unverify();
 
                 for supply_dk in [false, true].iter().copied() {
                     for supply_rk in [false, true].iter().copied() {
@@ -585,10 +489,13 @@ mod tests {
         let (_delegating_pk, _receiving_pk, _verifying_pk, verified_kfrags) =
             prepare_kfrags(true, true);
 
-        let vkfrag = verified_kfrags[0].clone();
-        let kfrag = KeyFrag::from_array(&vkfrag.to_array()).unwrap();
+        let kfrag = verified_kfrags[0].clone().unverify();
 
-        check_serialization(&kfrag, Encoding::Base64);
-        check_deserialization(&kfrag);
+        // Check that the kfrag serializes to the same thing as the verified kfrag
+        let kfrag_bytes = rmp_serde::to_vec(&kfrag).unwrap();
+        let vkfrag_bytes = rmp_serde::to_vec(&verified_kfrags[0]).unwrap();
+        assert_eq!(vkfrag_bytes, kfrag_bytes);
+
+        check_serialization_roundtrip(&kfrag);
     }
 }

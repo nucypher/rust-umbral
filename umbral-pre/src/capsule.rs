@@ -1,27 +1,23 @@
+#[cfg(feature = "serde-support")]
+use alloc::string::String;
+
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 
-use generic_array::sequence::Concat;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use typenum::op;
 
 #[cfg(feature = "serde-support")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::capsule_frag::CapsuleFrag;
-use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
+use crate::curve::{CompressedPointSize, CurvePoint, CurveScalar, NonZeroCurveScalar};
 use crate::hashing_ds::{hash_capsule_points, hash_to_polynomial_arg, hash_to_shared_secret};
 use crate::keys::{PublicKey, SecretKey};
 use crate::params::Parameters;
 use crate::secret_box::SecretBox;
-use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, RepresentableAsArray,
-    SerializableToArray,
-};
-
-#[cfg(feature = "serde-support")]
-use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
+use crate::traits::fmt_public;
 
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
 #[derive(Debug, PartialEq, Eq)]
@@ -50,8 +46,22 @@ impl fmt::Display for OpenReencryptedError {
     }
 }
 
+/// A helper struct:
+/// - allows us not to serialize `params`
+/// - allows us to verify the capsule on deserialization.
+#[cfg(feature = "serde-support")]
+#[derive(Serialize, Deserialize)]
+struct SerializedCapsule {
+    point_e: CurvePoint,
+    point_v: CurvePoint,
+    signature: CurveScalar,
+}
+
 /// Encapsulated symmetric key used to encrypt the plaintext.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde-support", serde(try_from = "SerializedCapsule"))]
+#[cfg_attr(feature = "serde-support", serde(into = "SerializedCapsule"))]
 pub struct Capsule {
     pub(crate) params: Parameters,
     pub(crate) point_e: CurvePoint,
@@ -59,51 +69,24 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-type PointSize = <CurvePoint as RepresentableAsArray>::Size;
-type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
+#[cfg(feature = "serde-support")]
+impl TryFrom<SerializedCapsule> for Capsule {
+    type Error = String;
 
-impl RepresentableAsArray for Capsule {
-    type Size = op!(PointSize + PointSize + ScalarSize);
-}
-
-impl SerializableToArray for Capsule {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.point_e
-            .to_array()
-            .concat(self.point_v.to_array())
-            .concat(self.signature.to_array())
-    }
-}
-
-impl DeserializableFromArray for Capsule {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let (point_e, rest) = CurvePoint::take(*arr)?;
-        let (point_v, rest) = CurvePoint::take(rest)?;
-        let signature = CurveScalar::take_last(rest)?;
-        Self::new_verified(point_e, point_v, signature)
-            .ok_or_else(|| ConstructionError::new("Capsule", "Self-verification failed"))
+    fn try_from(source: SerializedCapsule) -> Result<Self, Self::Error> {
+        Self::new_verified(source.point_e, source.point_v, source.signature)
+            .ok_or_else(|| "Capsule self-verification failed".into())
     }
 }
 
 #[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
-impl Serialize for Capsule {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize_as_array(self, serializer, Encoding::Base64)
-    }
-}
-
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
-impl<'de> Deserialize<'de> for Capsule {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserialize_with_encoding(deserializer, Encoding::Base64)
+impl From<Capsule> for SerializedCapsule {
+    fn from(source: Capsule) -> Self {
+        Self {
+            point_e: source.point_e,
+            point_v: source.point_v,
+            signature: source.signature,
+        }
     }
 }
 
@@ -113,7 +96,7 @@ impl fmt::Display for Capsule {
     }
 }
 
-pub(crate) type KeySeed = GenericArray<u8, <CurvePoint as RepresentableAsArray>::Size>;
+pub(crate) type KeySeed = GenericArray<u8, CompressedPointSize>;
 
 impl Capsule {
     fn new(point_e: CurvePoint, point_v: CurvePoint, signature: CurveScalar) -> Self {
@@ -126,6 +109,7 @@ impl Capsule {
         }
     }
 
+    #[cfg(feature = "serde-support")]
     pub(crate) fn new_verified(
         point_e: CurvePoint,
         point_v: CurvePoint,
@@ -138,7 +122,21 @@ impl Capsule {
         }
     }
 
+    pub(crate) fn to_associated_data_bytes(&self) -> Box<[u8]> {
+        let e = self.point_e.to_compressed_array();
+        let v = self.point_v.to_compressed_array();
+        let s = self.signature.to_array();
+
+        let e_ref: &[u8] = e.as_ref();
+        let v_ref: &[u8] = v.as_ref();
+        let s_ref: &[u8] = s.as_ref();
+
+        let v: Vec<u8> = [e_ref, v_ref, s_ref].concat();
+        v.into()
+    }
+
     /// Verifies the integrity of the capsule.
+    #[cfg(feature = "serde-support")]
     fn verify(&self) -> bool {
         let g = CurvePoint::generator();
         let h = hash_capsule_points(&self.point_e, &self.point_v);
@@ -167,7 +165,10 @@ impl Capsule {
 
         let capsule = Self::new(pub_r, pub_u, s);
 
-        (capsule, SecretBox::new(shared_key.as_secret().to_array()))
+        (
+            capsule,
+            SecretBox::new(shared_key.as_secret().to_compressed_array()),
+        )
     }
 
     /// Derive the same symmetric key
@@ -175,7 +176,7 @@ impl Capsule {
         let shared_key = SecretBox::new(
             &(&self.point_e + &self.point_v) * delegating_sk.to_secret_scalar().as_secret(),
         );
-        SecretBox::new(shared_key.as_secret().to_array())
+        SecretBox::new(shared_key.as_secret().to_compressed_array())
     }
 
     #[allow(clippy::many_single_char_names)]
@@ -231,7 +232,7 @@ impl Capsule {
         }
 
         let shared_key = SecretBox::new(&(&e_prime + &v_prime) * &d);
-        Ok(SecretBox::new(shared_key.as_secret().to_array()))
+        Ok(SecretBox::new(shared_key.as_secret().to_compressed_array()))
     }
 }
 
@@ -256,29 +257,10 @@ mod tests {
 
     use super::{Capsule, OpenReencryptedError};
 
-    use crate::{
-        encrypt, generate_kfrags, reencrypt, DeserializableFromArray, SecretKey,
-        SerializableToArray, Signer,
-    };
+    use crate::{generate_kfrags, reencrypt, SecretKey, Signer};
 
     #[cfg(feature = "serde-support")]
-    use crate::serde_bytes::{
-        tests::{check_deserialization, check_serialization},
-        Encoding,
-    };
-
-    #[test]
-    fn test_serialize() {
-        let delegating_sk = SecretKey::random();
-        let delegating_pk = delegating_sk.public_key();
-
-        let plaintext = b"peace at dawn";
-        let (capsule, _ciphertext) = encrypt(&delegating_pk, plaintext).unwrap();
-
-        let capsule_arr = capsule.to_array();
-        let capsule_back = Capsule::from_array(&capsule_arr).unwrap();
-        assert_eq!(capsule, capsule_back);
-    }
+    use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     #[test]
     fn test_open_reencrypted() {
@@ -348,7 +330,6 @@ mod tests {
         let delegating_pk = delegating_sk.public_key();
         let (capsule, _key_seed) = Capsule::from_public_key(&mut OsRng, &delegating_pk);
 
-        check_serialization(&capsule, Encoding::Base64);
-        check_deserialization(&capsule);
+        check_serialization_roundtrip(&capsule);
     }
 }

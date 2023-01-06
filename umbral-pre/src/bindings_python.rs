@@ -20,43 +20,28 @@ use pyo3::pyclass::PyClass;
 use pyo3::types::{PyBytes, PyUnicode};
 use pyo3::wrap_pyfunction;
 
+use serde::{Deserialize, Serialize};
+
 use crate as umbral_pre;
-use crate::{
-    DeserializableFromArray, RepresentableAsArray, SerializableToArray, SerializableToSecretArray,
-};
 
 fn to_bytes<T, U>(obj: &T) -> PyResult<PyObject>
 where
     T: AsRef<U>,
-    U: SerializableToArray,
+    U: Serialize,
 {
-    let serialized = obj.as_ref().to_array();
-    Python::with_gil(|py| -> PyResult<PyObject> {
-        Ok(PyBytes::new(py, serialized.as_slice()).into())
-    })
+    let serialized =
+        rmp_serde::to_vec(obj.as_ref()).map_err(|err| PyValueError::new_err(format!("{}", err)))?;
+    Python::with_gil(|py| -> PyResult<PyObject> { Ok(PyBytes::new(py, &serialized).into()) })
 }
 
-// Can't keep the secret in Python anymore, so this function does the same as `to_bytes()`
-fn to_secret_bytes<T, U>(obj: &T) -> PyResult<PyObject>
-where
-    T: AsRef<U>,
-    U: SerializableToSecretArray,
-{
-    // Dereferencing a secret.
-    let serialized = obj.as_ref().to_secret_array().as_secret().clone();
-    Python::with_gil(|py| -> PyResult<PyObject> {
-        Ok(PyBytes::new(py, serialized.as_slice()).into())
-    })
-}
-
-fn from_bytes<T, U>(data: &[u8]) -> PyResult<T>
+fn from_bytes<'de, T, U>(data: &'de [u8]) -> PyResult<T>
 where
     T: From<U>,
-    U: DeserializableFromArray,
+    U: Deserialize<'de>,
 {
-    U::from_bytes(data)
-        .map(T::from)
-        .map_err(|err| PyValueError::new_err(format!("{}", err)))
+    let backend: U =
+        rmp_serde::from_slice(data).map_err(|err| PyValueError::new_err(format!("{}", err)))?;
+    Ok(T::from(backend))
 }
 
 fn type_name<U>() -> &'static str {
@@ -68,15 +53,16 @@ fn type_name<U>() -> &'static str {
 fn hash<T, U>(obj: &T) -> PyResult<isize>
 where
     T: AsRef<U>,
-    U: SerializableToArray,
+    U: Serialize,
 {
-    let serialized = obj.as_ref().to_array();
+    let serialized =
+        rmp_serde::to_vec(obj.as_ref()).map_err(|err| PyValueError::new_err(format!("{}", err)))?;
 
     // call `hash((class_name, bytes(obj)))`
     Python::with_gil(|py| {
         let builtins = PyModule::import(py, "builtins")?;
         let arg1 = PyUnicode::new(py, type_name::<U>());
-        let arg2: PyObject = PyBytes::new(py, serialized.as_slice()).into();
+        let arg2: PyObject = PyBytes::new(py, &serialized).into();
         builtins.getattr("hash")?.call1(((arg1, arg2),))?.extract()
     })
 }
@@ -119,17 +105,10 @@ impl SecretKey {
     }
 
     pub fn to_secret_bytes(&self) -> PyResult<PyObject> {
-        to_secret_bytes(self)
-    }
-
-    #[staticmethod]
-    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes::<_, umbral_pre::SecretKey>(data)
-    }
-
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::SecretKey::serialized_size()
+        let serialized = self.as_ref().to_secret_bytes().as_secret().clone();
+        Python::with_gil(|py| -> PyResult<PyObject> {
+            Ok(PyBytes::new(py, serialized.as_slice()).into())
+        })
     }
 
     fn __str__(&self) -> PyResult<String> {
@@ -170,20 +149,6 @@ impl SecretKeyFactory {
         self.backend.make_factory(label).into()
     }
 
-    pub fn to_secret_bytes(&self) -> PyResult<PyObject> {
-        to_secret_bytes(self)
-    }
-
-    #[staticmethod]
-    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
-        from_bytes::<_, umbral_pre::SecretKeyFactory>(data)
-    }
-
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::SecretKeyFactory::serialized_size()
-    }
-
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
     }
@@ -200,11 +165,6 @@ impl PublicKey {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes::<_, umbral_pre::PublicKey>(data)
-    }
-
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::PublicKey::serialized_size()
     }
 
     fn __bytes__(&self) -> PyResult<PyObject> {
@@ -267,11 +227,6 @@ impl Signature {
         self.backend.verify(&verifying_pk.backend, message)
     }
 
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::Signature::serialized_size()
-    }
-
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
@@ -300,11 +255,6 @@ impl Capsule {
     #[staticmethod]
     pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
         from_bytes::<_, umbral_pre::Capsule>(data)
-    }
-
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::Capsule::serialized_size()
     }
 
     fn __bytes__(&self) -> PyResult<PyObject> {
@@ -385,11 +335,6 @@ impl KeyFrag {
         from_bytes::<_, umbral_pre::KeyFrag>(data)
     }
 
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::KeyFrag::serialized_size()
-    }
-
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
@@ -415,18 +360,6 @@ pub struct VerifiedKeyFrag {
 
 #[pymethods]
 impl VerifiedKeyFrag {
-    #[staticmethod]
-    pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
-        umbral_pre::VerifiedKeyFrag::from_verified_bytes(data)
-            .map(Self::from)
-            .map_err(|err| PyValueError::new_err(format!("{}", err)))
-    }
-
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::VerifiedKeyFrag::serialized_size()
-    }
-
     pub fn unverify(&self) -> KeyFrag {
         KeyFrag {
             backend: self.backend.clone().unverify(),
@@ -516,11 +449,6 @@ impl CapsuleFrag {
         from_bytes::<_, umbral_pre::CapsuleFrag>(data)
     }
 
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::CapsuleFrag::serialized_size()
-    }
-
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
@@ -556,18 +484,6 @@ impl VerifiedCapsuleFrag {
 
     fn __str__(&self) -> PyResult<String> {
         Ok(format!("{}", self.backend))
-    }
-
-    #[staticmethod]
-    pub fn from_verified_bytes(data: &[u8]) -> PyResult<Self> {
-        umbral_pre::VerifiedCapsuleFrag::from_verified_bytes(data)
-            .map(Self::from)
-            .map_err(|err| PyValueError::new_err(format!("{}", err)))
-    }
-
-    #[staticmethod]
-    pub fn serialized_size() -> usize {
-        umbral_pre::VerifiedCapsuleFrag::serialized_size()
     }
 
     pub fn unverify(&self) -> CapsuleFrag {

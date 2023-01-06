@@ -8,7 +8,6 @@ use crate::curve::{CurvePoint, NonZeroCurveScalar};
 use crate::hashing::ScalarDigest;
 use crate::key_frag::KeyFragID;
 use crate::keys::PublicKey;
-use crate::traits::SerializableToArray;
 
 pub(crate) fn hash_to_polynomial_arg(
     precursor: &CurvePoint,
@@ -52,6 +51,14 @@ pub(crate) fn hash_to_cfrag_verification(points: &[CurvePoint]) -> NonZeroCurveS
         .finalize()
 }
 
+fn bool_to_array(val: bool) -> [u8; 1] {
+    if val {
+        [1u8]
+    } else {
+        [0u8]
+    }
+}
+
 pub(crate) fn kfrag_signature_message(
     kfrag_id: &KeyFragID,
     commitment: &CurvePoint,
@@ -61,24 +68,24 @@ pub(crate) fn kfrag_signature_message(
 ) -> Box<[u8]> {
     let mut result = Vec::<u8>::new();
 
-    result.extend_from_slice(&kfrag_id.to_array());
-    result.extend_from_slice(&commitment.to_array());
-    result.extend_from_slice(&precursor.to_array());
+    result.extend_from_slice(kfrag_id.as_ref());
+    result.extend_from_slice(&commitment.to_compressed_array());
+    result.extend_from_slice(&precursor.to_compressed_array());
 
     match maybe_delegating_pk {
         Some(delegating_pk) => {
-            result.extend_from_slice(&true.to_array());
+            result.extend_from_slice(&bool_to_array(true));
             result.extend_from_slice(&delegating_pk.to_array())
         }
-        None => result.extend_from_slice(&false.to_array()),
+        None => result.extend_from_slice(&bool_to_array(false)),
     };
 
     match maybe_receiving_pk {
         Some(receiving_pk) => {
-            result.extend_from_slice(&true.to_array());
+            result.extend_from_slice(&bool_to_array(true));
             result.extend_from_slice(&receiving_pk.to_array())
         }
-        None => result.extend_from_slice(&false.to_array()),
+        None => result.extend_from_slice(&bool_to_array(false)),
     };
 
     result.into_boxed_slice()

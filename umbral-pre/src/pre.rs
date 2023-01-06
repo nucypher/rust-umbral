@@ -12,7 +12,6 @@ use crate::capsule_frag::VerifiedCapsuleFrag;
 use crate::dem::{DecryptionError, EncryptionError, DEM};
 use crate::key_frag::{KeyFragBase, VerifiedKeyFrag};
 use crate::keys::{PublicKey, SecretKey, Signer};
-use crate::traits::SerializableToArray;
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -45,7 +44,7 @@ pub fn encrypt_with_rng(
 ) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
     let (capsule, key_seed) = Capsule::from_public_key(rng, delegating_pk);
     let dem = DEM::new(key_seed.as_secret());
-    dem.encrypt(rng, plaintext, &capsule.to_array())
+    dem.encrypt(rng, plaintext, &capsule.to_associated_data_bytes())
         .map(|ciphertext| (capsule, ciphertext))
 }
 
@@ -67,7 +66,7 @@ pub fn decrypt_original(
 ) -> Result<Box<[u8]>, DecryptionError> {
     let key_seed = capsule.open_original(delegating_sk);
     let dem = DEM::new(key_seed.as_secret());
-    dem.decrypt(ciphertext, &capsule.to_array())
+    dem.decrypt(ciphertext, &capsule.to_associated_data_bytes())
 }
 
 /// Creates `shares` fragments of `delegating_sk`,
@@ -185,7 +184,7 @@ pub fn decrypt_reencrypted(
         .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
         .map_err(ReencryptionError::OnOpen)?;
     let dem = DEM::new(key_seed.as_secret());
-    dem.decrypt(&ciphertext, &capsule.to_array())
+    dem.decrypt(&ciphertext, &capsule.to_associated_data_bytes())
         .map_err(ReencryptionError::OnDecryption)
 }
 
@@ -194,10 +193,7 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::{
-        CapsuleFrag, DeserializableFromArray, KeyFrag, SecretKey, SerializableToArray, Signer,
-        VerifiedCapsuleFrag,
-    };
+    use crate::{SecretKey, Signer, VerifiedCapsuleFrag};
 
     use super::{decrypt_original, decrypt_reencrypted, encrypt, generate_kfrags, reencrypt};
 
@@ -250,8 +246,9 @@ mod tests {
 
         // Simulate network transfer
         let kfrags = verified_kfrags
-            .iter()
-            .map(|vkfrag| KeyFrag::from_array(&vkfrag.to_array()).unwrap());
+            .to_vec()
+            .into_iter()
+            .map(|vkfrag| vkfrag.unverify());
 
         // If Ursula received kfrags from the network, she must check that they are valid
         let verified_kfrags: Vec<_> = kfrags
@@ -270,8 +267,9 @@ mod tests {
 
         // Simulate network transfer
         let cfrags = verified_cfrags
-            .iter()
-            .map(|vcfrag| CapsuleFrag::from_array(&vcfrag.to_array()).unwrap());
+            .to_vec()
+            .into_iter()
+            .map(|vcfrag| vcfrag.clone().unverify());
 
         // If Bob received cfrags from the network, he must check that they are valid
         let verified_cfrags: Vec<_> = cfrags

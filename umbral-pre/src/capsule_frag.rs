@@ -1,12 +1,9 @@
 use core::fmt;
 
-use generic_array::sequence::Concat;
-use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use typenum::op;
 
 #[cfg(feature = "serde-support")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::capsule::Capsule;
 use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
@@ -14,15 +11,10 @@ use crate::hashing_ds::{hash_to_cfrag_verification, kfrag_signature_message};
 use crate::key_frag::{KeyFrag, KeyFragID};
 use crate::keys::{PublicKey, Signature};
 use crate::secret_box::SecretBox;
-use crate::traits::{
-    fmt_public, ConstructionError, DeserializableFromArray, DeserializationError,
-    RepresentableAsArray, SerializableToArray,
-};
-
-#[cfg(feature = "serde-support")]
-use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
+use crate::traits::fmt_public;
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub(crate) struct CapsuleFragProof {
     point_e2: CurvePoint,
     point_v2: CurvePoint,
@@ -30,47 +22,6 @@ pub(crate) struct CapsuleFragProof {
     kfrag_pok: CurvePoint,
     signature: CurveScalar,
     kfrag_signature: Signature,
-}
-
-type PointSize = <CurvePoint as RepresentableAsArray>::Size;
-type ScalarSize = <CurveScalar as RepresentableAsArray>::Size;
-type SignatureSize = <Signature as RepresentableAsArray>::Size;
-type CapsuleFragProofSize =
-    op!(PointSize + PointSize + PointSize + PointSize + ScalarSize + SignatureSize);
-
-impl RepresentableAsArray for CapsuleFragProof {
-    type Size = CapsuleFragProofSize;
-}
-
-impl SerializableToArray for CapsuleFragProof {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.point_e2
-            .to_array()
-            .concat(self.point_v2.to_array())
-            .concat(self.kfrag_commitment.to_array())
-            .concat(self.kfrag_pok.to_array())
-            .concat(self.signature.to_array())
-            .concat(self.kfrag_signature.to_array())
-    }
-}
-
-impl DeserializableFromArray for CapsuleFragProof {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let (point_e2, rest) = CurvePoint::take(*arr)?;
-        let (point_v2, rest) = CurvePoint::take(rest)?;
-        let (kfrag_commitment, rest) = CurvePoint::take(rest)?;
-        let (kfrag_pok, rest) = CurvePoint::take(rest)?;
-        let (signature, rest) = CurveScalar::take(rest)?;
-        let kfrag_signature = Signature::take_last(rest)?;
-        Ok(Self {
-            point_e2,
-            point_v2,
-            kfrag_commitment,
-            kfrag_pok,
-            signature,
-            kfrag_signature,
-        })
-    }
 }
 
 impl CapsuleFragProof {
@@ -121,66 +72,13 @@ impl CapsuleFragProof {
 
 /// A reencrypted fragment of a [`Capsule`] created by a proxy.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub struct CapsuleFrag {
     pub(crate) point_e1: CurvePoint,
     pub(crate) point_v1: CurvePoint,
     pub(crate) kfrag_id: KeyFragID,
     pub(crate) precursor: CurvePoint,
     pub(crate) proof: CapsuleFragProof,
-}
-
-impl RepresentableAsArray for CapsuleFrag {
-    type Size = op!(PointSize + PointSize + ScalarSize + PointSize + CapsuleFragProofSize);
-}
-
-impl SerializableToArray for CapsuleFrag {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.point_e1
-            .to_array()
-            .concat(self.point_v1.to_array())
-            .concat(self.kfrag_id.to_array())
-            .concat(self.precursor.to_array())
-            .concat(self.proof.to_array())
-    }
-}
-
-impl DeserializableFromArray for CapsuleFrag {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let (point_e1, rest) = CurvePoint::take(*arr)?;
-        let (point_v1, rest) = CurvePoint::take(rest)?;
-        let (kfrag_id, rest) = KeyFragID::take(rest)?;
-        let (precursor, rest) = CurvePoint::take(rest)?;
-        let proof = CapsuleFragProof::take_last(rest)?;
-        Ok(Self {
-            point_e1,
-            point_v1,
-            kfrag_id,
-            precursor,
-            proof,
-        })
-    }
-}
-
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
-impl Serialize for CapsuleFrag {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize_as_array(self, serializer, Encoding::Base64)
-    }
-}
-
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
-impl<'de> Deserialize<'de> for CapsuleFrag {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserialize_with_encoding(deserializer, Encoding::Base64)
-    }
 }
 
 impl fmt::Display for CapsuleFrag {
@@ -297,8 +195,9 @@ impl CapsuleFrag {
         Ok(VerifiedCapsuleFrag { cfrag: self })
     }
 
-    /// Explicitly skips verification.
-    /// Useful in cases when the verifying keys are impossible to obtain independently.
+    /// Explicitly skips [`CapsuleFrag::verify`] call.
+    /// Useful in cases when the verifying keys are impossible to obtain independently,
+    /// or when this capsule frag came from a trusted storage.
     ///
     /// **Warning:** make sure you considered the implications of not enforcing verification.
     pub fn skip_verification(self) -> VerifiedCapsuleFrag {
@@ -310,18 +209,10 @@ impl CapsuleFrag {
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize))]
+#[cfg_attr(feature = "serde-support", serde(transparent))]
 pub struct VerifiedCapsuleFrag {
     cfrag: CapsuleFrag,
-}
-
-impl RepresentableAsArray for VerifiedCapsuleFrag {
-    type Size = <CapsuleFrag as RepresentableAsArray>::Size;
-}
-
-impl SerializableToArray for VerifiedCapsuleFrag {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.cfrag.to_array()
-    }
 }
 
 impl fmt::Display for VerifiedCapsuleFrag {
@@ -341,15 +232,6 @@ impl VerifiedCapsuleFrag {
         }
     }
 
-    /// Restores a verified capsule frag directly from serialized bytes,
-    /// skipping [`CapsuleFrag::verify`] call.
-    ///
-    /// Intended for internal storage;
-    /// make sure that the bytes come from a trusted source.
-    pub fn from_verified_bytes(data: impl AsRef<[u8]>) -> Result<Self, DeserializationError> {
-        CapsuleFrag::from_bytes(data).map(|cfrag| Self { cfrag })
-    }
-
     /// Clears the verification status from the capsule frag.
     /// Useful for the cases where it needs to be put in the protocol structure
     /// containing [`CapsuleFrag`] types (since those are the ones
@@ -365,18 +247,12 @@ mod tests {
     use alloc::boxed::Box;
     use alloc::vec::Vec;
 
-    use super::{CapsuleFrag, VerifiedCapsuleFrag};
+    use super::VerifiedCapsuleFrag;
 
-    use crate::{
-        encrypt, generate_kfrags, reencrypt, Capsule, DeserializableFromArray, PublicKey,
-        SecretKey, SerializableToArray, Signer,
-    };
+    use crate::{encrypt, generate_kfrags, reencrypt, Capsule, PublicKey, SecretKey, Signer};
 
     #[cfg(feature = "serde-support")]
-    use crate::serde_bytes::{
-        tests::{check_deserialization, check_serialization},
-        Encoding,
-    };
+    use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     fn prepare_cfrags() -> (
         PublicKey,
@@ -419,12 +295,8 @@ mod tests {
             prepare_cfrags();
 
         for verified_cfrag in verified_cfrags.iter() {
-            let cfrag_array = verified_cfrag.to_array();
-            let cfrag_back = CapsuleFrag::from_array(&cfrag_array).unwrap();
-
-            assert_eq!(cfrag_back.to_array(), cfrag_array);
-
-            let verified_cfrag_back = cfrag_back
+            let cfrag = verified_cfrag.clone().unverify();
+            let verified_cfrag_back = cfrag
                 .verify(&capsule, &verifying_pk, &delegating_pk, &receiving_pk)
                 .unwrap();
 
@@ -438,10 +310,13 @@ mod tests {
         let (_delegating_pk, _receiving_pk, _verifying_pk, _capsule, verified_cfrags) =
             prepare_cfrags();
 
-        let vcfrag = verified_cfrags[0].clone();
-        let cfrag = CapsuleFrag::from_array(&vcfrag.to_array()).unwrap();
+        let cfrag = verified_cfrags[0].clone().unverify();
 
-        check_serialization(&cfrag, Encoding::Base64);
-        check_deserialization(&cfrag);
+        // Check that the cfrag serializes to the same thing as the verified cfrag
+        let cfrag_bytes = rmp_serde::to_vec(&cfrag).unwrap();
+        let vcfrag_bytes = rmp_serde::to_vec(&verified_cfrags[0]).unwrap();
+        assert_eq!(vcfrag_bytes, cfrag_bytes);
+
+        check_serialization_roundtrip(&cfrag);
     }
 }

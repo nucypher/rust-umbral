@@ -1,7 +1,11 @@
+#[cfg(feature = "serde-support")]
+use serde::{Deserialize, Serialize};
+
 use crate::curve::CurvePoint;
 
 /// An object containing shared scheme parameters.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub struct Parameters {
     pub(crate) u: CurvePoint,
 }

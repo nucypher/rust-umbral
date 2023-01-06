@@ -1,13 +1,18 @@
+#[cfg(feature = "serde-support")]
+use alloc::string::String;
+
+use alloc::boxed::Box;
+use alloc::format;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::fmt;
 
 use digest::Digest;
-use ecdsa::{Signature as BackendSignature, SignatureSize, SigningKey, VerifyingKey};
+use ecdsa::{Signature as BackendSignature, SigningKey, VerifyingKey};
 use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
-use signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait};
+use signature::{DigestVerifier, RandomizedDigestSigner};
 use typenum::{Unsigned, U32, U64};
 use zeroize::ZeroizeOnDrop;
 
@@ -17,39 +22,32 @@ use rand_core::OsRng;
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::curve::{CurvePoint, CurveScalar, CurveType, NonZeroCurveScalar};
+use crate::curve::{CompressedPointSize, CurvePoint, CurveType, NonZeroCurveScalar, ScalarSize};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::SecretBox;
-use crate::traits::{
-    fmt_public, fmt_secret, ConstructionError, DeserializableFromArray, RepresentableAsArray,
-    SerializableToArray, SerializableToSecretArray, SizeMismatchError,
-};
+use crate::traits::{fmt_public, fmt_secret, SizeMismatchError};
 
 #[cfg(feature = "serde-support")]
-use crate::serde_bytes::{deserialize_with_encoding, serialize_as_array, Encoding};
+use crate::serde_bytes::{
+    deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
+};
 
 /// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signature(BackendSignature<CurveType>);
 
-impl RepresentableAsArray for Signature {
-    type Size = SignatureSize<CurveType>;
-}
-
-impl SerializableToArray for Signature {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        *GenericArray::<u8, Self::Size>::from_slice(self.0.as_bytes())
+impl Signature {
+    pub(crate) fn to_der_bytes(&self) -> Box<[u8]> {
+        self.0.to_der().as_bytes().into()
     }
-}
 
-impl DeserializableFromArray for Signature {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
+    pub(crate) fn from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
-        BackendSignature::<CurveType>::from_bytes(arr.as_slice())
+        BackendSignature::<CurveType>::from_der(bytes)
             .map(Self)
-            .map_err(|_| ConstructionError::new("Signature", "Internal backend error"))
+            .map_err(|err| format!("Internal backend error: {}", err))
     }
 }
 
@@ -60,7 +58,7 @@ impl Serialize for Signature {
     where
         S: Serializer,
     {
-        serialize_as_array(self, serializer, Encoding::Base64)
+        serialize_with_encoding(&self.to_der_bytes(), serializer, Encoding::Hex)
     }
 }
 
@@ -71,7 +69,16 @@ impl<'de> Deserialize<'de> for Signature {
     where
         D: Deserializer<'de>,
     {
-        deserialize_with_encoding(deserializer, Encoding::Base64)
+        deserialize_with_encoding(deserializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl TryFromBytes for Signature {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::from_der_bytes(bytes)
     }
 }
 
@@ -85,12 +92,12 @@ impl Signature {
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public("Signature", &self.to_array(), f)
+        fmt_public("Signature", &self.to_der_bytes(), f)
     }
 }
 
 /// A secret key.
-#[derive(Clone, ZeroizeOnDrop)]
+#[derive(Clone, ZeroizeOnDrop, PartialEq, Eq)]
 pub struct SecretKey(BackendSecretKey<CurveType>);
 
 impl SecretKey {
@@ -101,6 +108,10 @@ impl SecretKey {
     /// Creates a secret key using the given RNG.
     pub fn random_with_rng(rng: impl CryptoRng + RngCore) -> Self {
         Self::new(BackendSecretKey::<CurveType>::random(rng))
+    }
+
+    pub fn to_secret_bytes(&self) -> SecretBox<GenericArray<u8, ScalarSize>> {
+        SecretBox::new(self.0.to_be_bytes().into())
     }
 
     /// Creates a secret key using the default RNG.
@@ -126,24 +137,6 @@ impl SecretKey {
         SecretBox::new(NonZeroCurveScalar::from_backend_scalar(
             *backend_scalar.as_secret(),
         ))
-    }
-}
-
-impl RepresentableAsArray for SecretKey {
-    type Size = <CurveScalar as RepresentableAsArray>::Size;
-}
-
-impl SerializableToSecretArray for SecretKey {
-    fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
-        SecretBox::new(self.0.to_be_bytes())
-    }
-}
-
-impl DeserializableFromArray for SecretKey {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        BackendSecretKey::<CurveType>::from_be_bytes(arr.as_slice())
-            .map(Self::new)
-            .map_err(|_| ConstructionError::new("SecretKey", "Internal backend error"))
     }
 }
 
@@ -214,24 +207,9 @@ impl PublicKey {
         let verifier = VerifyingKey::from(&self.0);
         verifier.verify_digest(digest, &signature.0).is_ok()
     }
-}
 
-impl RepresentableAsArray for PublicKey {
-    type Size = <CurvePoint as RepresentableAsArray>::Size;
-}
-
-impl SerializableToArray for PublicKey {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.to_point().to_array()
-    }
-}
-
-impl DeserializableFromArray for PublicKey {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        let cp = CurvePoint::from_array(arr)?;
-        BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
-            .map(Self)
-            .map_err(|_| ConstructionError::new("PublicKey", "Internal backend error"))
+    pub(crate) fn to_array(&self) -> GenericArray<u8, CompressedPointSize> {
+        self.to_point().to_compressed_array()
     }
 }
 
@@ -242,7 +220,11 @@ impl Serialize for PublicKey {
     where
         S: Serializer,
     {
-        serialize_as_array(self, serializer, Encoding::Hex)
+        serialize_with_encoding(
+            &self.to_point().to_compressed_array(),
+            serializer,
+            Encoding::Hex,
+        )
     }
 }
 
@@ -254,6 +236,18 @@ impl<'de> Deserialize<'de> for PublicKey {
         D: Deserializer<'de>,
     {
         deserialize_with_encoding(deserializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl TryFromBytes for PublicKey {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        let cp = CurvePoint::try_from_bytes(bytes)?;
+        BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
+            .map(Self)
+            .map_err(|_| "Cannot instantiate a public key from the given curve point".into())
     }
 }
 
@@ -269,7 +263,7 @@ type SecretKeyFactorySeed = GenericArray<u8, SecretKeyFactorySeedSize>;
 
 /// This class handles keyring material for Umbral, by allowing deterministic
 /// derivation of `SecretKey` objects based on labels.
-#[derive(Clone)]
+#[derive(Clone, ZeroizeOnDrop, PartialEq)]
 pub struct SecretKeyFactory(SecretBox<SecretKeyFactorySeed>);
 
 impl SecretKeyFactory {
@@ -340,22 +334,6 @@ impl SecretKeyFactory {
     }
 }
 
-impl RepresentableAsArray for SecretKeyFactory {
-    type Size = SecretKeyFactorySeedSize;
-}
-
-impl SerializableToSecretArray for SecretKeyFactory {
-    fn to_secret_array(&self) -> SecretBox<GenericArray<u8, Self::Size>> {
-        self.0.clone()
-    }
-}
-
-impl DeserializableFromArray for SecretKeyFactory {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Ok(Self(SecretBox::new(*arr)))
-    }
-}
-
 impl fmt::Display for SecretKeyFactory {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_secret("SecretKeyFactory", f)
@@ -365,30 +343,10 @@ impl fmt::Display for SecretKeyFactory {
 #[cfg(test)]
 mod tests {
 
-    use super::{PublicKey, SecretKey, SecretKeyFactory, Signer};
-    use crate::{DeserializableFromArray, SerializableToArray, SerializableToSecretArray};
+    use super::{SecretKey, SecretKeyFactory, Signer};
 
     #[cfg(feature = "serde-support")]
-    use crate::serde_bytes::{
-        tests::{check_deserialization, check_serialization},
-        Encoding,
-    };
-
-    #[test]
-    fn test_serialize_secret_key() {
-        let sk = SecretKey::random();
-        let sk_arr = sk.to_secret_array();
-        let sk_back = SecretKey::from_array(sk_arr.as_secret()).unwrap();
-        assert!(sk.to_secret_array().as_secret() == sk_back.to_secret_array().as_secret());
-    }
-
-    #[test]
-    fn test_serialize_secret_key_factory() {
-        let skf = SecretKeyFactory::random();
-        let skf_arr = skf.to_secret_array();
-        let skf_back = SecretKeyFactory::from_array(skf_arr.as_secret()).unwrap();
-        assert!(skf.to_secret_array().as_secret() == skf_back.to_secret_array().as_secret());
-    }
+    use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     #[test]
     fn test_secret_key_factory() {
@@ -397,17 +355,8 @@ mod tests {
         let sk2 = skf.make_key(b"foo");
         let sk3 = skf.make_key(b"bar");
 
-        assert!(sk1.to_secret_array().as_secret() == sk2.to_secret_array().as_secret());
-        assert!(sk1.to_secret_array().as_secret() != sk3.to_secret_array().as_secret());
-    }
-
-    #[test]
-    fn test_serialize_public_key() {
-        let sk = SecretKey::random();
-        let pk = sk.public_key();
-        let pk_arr = pk.to_array();
-        let pk_back = PublicKey::from_array(&pk_arr).unwrap();
-        assert_eq!(pk, pk_back);
+        assert!(sk1 == sk2);
+        assert!(sk1 != sk3);
     }
 
     #[test]
@@ -426,16 +375,20 @@ mod tests {
 
     #[cfg(feature = "serde-support")]
     #[test]
-    fn test_serde_serialization() {
+    fn test_serialize_signature() {
         let message = b"asdafdahsfdasdfasd";
         let signer = Signer::new(SecretKey::random());
-        let pk = signer.verifying_key();
         let signature = signer.sign(message);
 
-        check_serialization(&pk, Encoding::Hex);
-        check_deserialization(&pk);
+        check_serialization_roundtrip(&signature);
+    }
 
-        check_serialization(&signature, Encoding::Base64);
-        check_deserialization(&signature);
+    #[cfg(feature = "serde-support")]
+    #[test]
+    fn test_serialize_public_key() {
+        let signer = Signer::new(SecretKey::random());
+        let pk = signer.verifying_key();
+
+        check_serialization_roundtrip(&pk);
     }
 }

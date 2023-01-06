@@ -4,7 +4,6 @@ use zeroize::Zeroize;
 
 use crate::curve::{CurvePoint, NonZeroCurveScalar};
 use crate::secret_box::SecretBox;
-use crate::traits::SerializableToArray;
 
 // Our hash of choice.
 pub(crate) type BackendDigest = Sha256;
@@ -58,7 +57,7 @@ impl ScalarDigest {
     }
 
     pub fn chain_point(self, point: &CurvePoint) -> Self {
-        self.chain_bytes(point.to_array())
+        self.chain_bytes(point.to_compressed_array())
     }
 
     pub fn chain_points(self, points: &[CurvePoint]) -> Self {

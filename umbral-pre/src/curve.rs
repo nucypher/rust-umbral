@@ -2,12 +2,14 @@
 //! `elliptic_curves` has a somewhat unstable API,
 //! and we isolate all the related logic here.
 
+#[cfg(feature = "serde-support")]
+use alloc::string::String;
+
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 
 use digest::Digest;
 use elliptic_curve::bigint::U256; // Note that this type is different from typenum::U256
-use elliptic_curve::group::ff::PrimeField;
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
@@ -19,14 +21,22 @@ use sha2::Sha256;
 use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
-use crate::traits::{
-    ConstructionError, DeserializableFromArray, RepresentableAsArray, SerializableToArray,
+#[cfg(feature = "serde-support")]
+use elliptic_curve::group::ff::PrimeField;
+
+#[cfg(feature = "serde-support")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+#[cfg(feature = "serde-support")]
+use crate::serde_bytes::{
+    deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
 };
 
 pub(crate) type CurveType = Secp256k1;
-type CompressedPointSize = <FieldSize<CurveType> as ModulusSize>::CompressedPointSize;
+pub(crate) type CompressedPointSize = <FieldSize<CurveType> as ModulusSize>::CompressedPointSize;
 
 type BackendScalar = Scalar<CurveType>;
+pub(crate) type ScalarSize = FieldSize<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 
 // We have to define newtypes for scalar and point here because the compiler
@@ -48,31 +58,49 @@ impl CurveScalar {
     pub(crate) fn one() -> Self {
         Self(BackendScalar::one())
     }
-}
 
-impl DefaultIsZeroes for CurveScalar {}
-
-impl RepresentableAsArray for CurveScalar {
-    // Currently it's the only size available.
-    // A separate scalar size may appear in later versions of `elliptic_curve`.
-    type Size = FieldSize<CurveType>;
-}
-
-impl SerializableToArray for CurveScalar {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
+    pub(crate) fn to_array(&self) -> GenericArray<u8, ScalarSize> {
         self.0.to_bytes()
     }
 }
 
-impl DeserializableFromArray for CurveScalar {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        // unwrap CtOption into Option
-        let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(*arr).into();
-        maybe_scalar
-            .map(Self)
-            .ok_or_else(|| ConstructionError::new("CurveScalar", "Internal backend error"))
+#[cfg(feature = "serde-support")]
+impl Serialize for CurveScalar {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_with_encoding(&self.0.to_bytes(), serializer, Encoding::Hex)
     }
 }
+
+#[cfg(feature = "serde-support")]
+impl<'de> Deserialize<'de> for CurveScalar {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_with_encoding(deserializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl TryFromBytes for CurveScalar {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        let arr = GenericArray::<u8, ScalarSize>::from_exact_iter(bytes.iter().cloned())
+            .ok_or_else(|| "Invalid length of a curve scalar")?;
+
+        // unwrap CtOption into Option
+        let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(arr).into();
+        maybe_scalar
+            .map(Self)
+            .ok_or_else(|| "Invalid curve scalar representation".into())
+    }
+}
+
+impl DefaultIsZeroes for CurveScalar {}
 
 #[derive(Clone, Zeroize)]
 pub(crate) struct NonZeroCurveScalar(BackendNonZeroScalar);
@@ -101,9 +129,7 @@ impl NonZeroCurveScalar {
         Self(BackendNonZeroScalar::new(inv).unwrap())
     }
 
-    pub(crate) fn from_digest(
-        d: impl Digest<OutputSize = <CurveScalar as RepresentableAsArray>::Size>,
-    ) -> Self {
+    pub(crate) fn from_digest(d: impl Digest<OutputSize = ScalarSize>) -> Self {
         // There's currently no way to make the required digest output size
         // depend on the target scalar size, so we are hardcoding it to 256 bit
         // (that is, equal to the scalar size).
@@ -127,7 +153,7 @@ type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
 type BackendPointAffine = AffinePoint<CurveType>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CurvePoint(BackendPoint);
+pub(crate) struct CurvePoint(BackendPoint);
 
 impl CurvePoint {
     pub(crate) fn from_backend_point(point: &BackendPoint) -> Self {
@@ -155,7 +181,7 @@ impl CurvePoint {
         cp_opt.map(Self)
     }
 
-    fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize> {
+    pub(crate) fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize> {
         *GenericArray::<u8, CompressedPointSize>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )
@@ -174,6 +200,38 @@ impl CurvePoint {
 impl Default for CurvePoint {
     fn default() -> Self {
         CurvePoint::identity()
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl Serialize for CurvePoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_with_encoding(&self.to_compressed_array(), serializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl<'de> Deserialize<'de> for CurvePoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_with_encoding(deserializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl TryFromBytes for CurvePoint {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        let arr = GenericArray::<u8, CompressedPointSize>::from_exact_iter(bytes.iter().cloned())
+            .ok_or_else(|| "Invalid length of a curve point")?;
+
+        Self::from_compressed_array(&arr).ok_or_else(|| "Invalid curve point representation".into())
     }
 }
 
@@ -264,22 +322,5 @@ impl Mul<&NonZeroCurveScalar> for &NonZeroCurveScalar {
 
     fn mul(self, other: &NonZeroCurveScalar) -> NonZeroCurveScalar {
         NonZeroCurveScalar(self.0.mul(other.0))
-    }
-}
-
-impl RepresentableAsArray for CurvePoint {
-    type Size = CompressedPointSize;
-}
-
-impl SerializableToArray for CurvePoint {
-    fn to_array(&self) -> GenericArray<u8, Self::Size> {
-        self.to_compressed_array()
-    }
-}
-
-impl DeserializableFromArray for CurvePoint {
-    fn from_array(arr: &GenericArray<u8, Self::Size>) -> Result<Self, ConstructionError> {
-        Self::from_compressed_array(arr)
-            .ok_or_else(|| ConstructionError::new("CurvePoint", "Internal backend error"))
     }
 }
