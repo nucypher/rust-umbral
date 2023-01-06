@@ -20,7 +20,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
 
 use crate as umbral_pre;
-use crate::serde_bytes::TryFromBytes;
+use umbral_pre::{DefaultDeserialize, DefaultSerialize};
 
 #[wasm_bindgen]
 extern "C" {
@@ -97,15 +97,6 @@ impl SecretKey {
         PublicKey(self.0.public_key())
     }
 
-    #[wasm_bindgen(js_name = toSecretBytes)]
-    pub fn to_secret_bytes(&self) -> Box<[u8]> {
-        self.0
-            .to_secret_bytes()
-            .as_secret()
-            .to_vec()
-            .into_boxed_slice()
-    }
-
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
@@ -135,6 +126,13 @@ impl SecretKeyFactory {
             .map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = makeSecret)]
+    pub fn make_secret(&self, label: &[u8]) -> Vec<u8> {
+        let secret = self.0.make_secret(label);
+        let bytes: &[u8] = secret.as_secret().as_ref();
+        bytes.into()
+    }
+
     #[wasm_bindgen(js_name = makeKey)]
     pub fn make_key(&self, label: &[u8]) -> SecretKey {
         SecretKey(self.0.make_key(label))
@@ -159,15 +157,15 @@ pub struct PublicKey(umbral_pre::PublicKey);
 
 #[wasm_bindgen]
 impl PublicKey {
-    #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Box<[u8]> {
-        self.0.to_array().to_vec().into_boxed_slice()
+    #[wasm_bindgen(js_name = toCompressedBytes)]
+    pub fn to_compressed_bytes(&self) -> Box<[u8]> {
+        self.0.to_compressed_bytes()
     }
 
-    #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<PublicKey, Error> {
-        umbral_pre::PublicKey::try_from_bytes(data)
-            .map(PublicKey)
+    #[wasm_bindgen(js_name = fromCompressedBytes)]
+    pub fn from_compressed_bytes(data: &[u8]) -> Result<PublicKey, Error> {
+        umbral_pre::PublicKey::try_from_compressed_bytes(data)
+            .map(Self)
             .map_err(map_js_err)
     }
 
@@ -218,14 +216,14 @@ impl Signature {
         self.0.verify(&verifying_pk.0, message)
     }
 
-    #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Box<[u8]> {
+    #[wasm_bindgen(js_name = toDerBytes)]
+    pub fn to_der_bytes(&self) -> Box<[u8]> {
         self.0.to_der_bytes()
     }
 
-    #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(data: &[u8]) -> Result<Signature, Error> {
-        umbral_pre::Signature::from_der_bytes(data)
+    #[wasm_bindgen(js_name = fromDerBytes)]
+    pub fn from_der_bytes(data: &[u8]) -> Result<Signature, Error> {
+        umbral_pre::Signature::try_from_der_bytes(data)
             .map(Self)
             .map_err(map_js_err)
     }
@@ -243,19 +241,21 @@ impl Signature {
 
 #[derive(TryFromJsValue)]
 #[wasm_bindgen]
-#[derive(Clone, Copy, derive_more::AsRef, derive_more::From, derive_more::Into)]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct Capsule(umbral_pre::Capsule);
 
 #[wasm_bindgen]
 impl Capsule {
     #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        rmp_serde::to_vec(&self.0).map_err(map_js_err)
+    pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
+        self.0.to_bytes().map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<Capsule, Error> {
-        rmp_serde::from_slice(data).map(Self).map_err(map_js_err)
+        umbral_pre::Capsule::from_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -296,13 +296,15 @@ impl CapsuleFrag {
     }
 
     #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        rmp_serde::to_vec(&self.0).map_err(map_js_err)
+    pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
+        self.0.to_bytes().map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, Error> {
-        rmp_serde::from_slice(data).map(Self).map_err(map_js_err)
+        umbral_pre::CapsuleFrag::from_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -329,8 +331,8 @@ pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
     #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        rmp_serde::to_vec(&self.0).map_err(map_js_err)
+    pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
+        self.0.to_bytes().map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -420,13 +422,15 @@ impl KeyFrag {
     }
 
     #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        rmp_serde::to_vec(&self.0).map_err(map_js_err)
+    pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
+        self.0.to_bytes().map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<KeyFrag, Error> {
-        rmp_serde::from_slice(data).map(Self).map_err(map_js_err)
+        umbral_pre::KeyFrag::from_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]
@@ -453,8 +457,8 @@ pub struct VerifiedKeyFrag(umbral_pre::VerifiedKeyFrag);
 #[wasm_bindgen]
 impl VerifiedKeyFrag {
     #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        rmp_serde::to_vec(&self.0).map_err(map_js_err)
+    pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
+        self.0.to_bytes().map_err(map_js_err)
     }
 
     #[allow(clippy::inherent_to_string)]

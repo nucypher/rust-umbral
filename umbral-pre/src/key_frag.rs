@@ -19,6 +19,9 @@ use crate::params::Parameters;
 use crate::secret_box::SecretBox;
 use crate::traits::fmt_public;
 
+#[cfg(feature = "default-serialization")]
+use crate::{DefaultDeserialize, DefaultSerialize};
+
 #[cfg(feature = "serde-support")]
 use crate::serde_bytes::{
     deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
@@ -71,7 +74,7 @@ impl TryFromBytes for KeyFragID {
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
         let arr = GenericArray::<u8, KeyFragIDSize>::from_exact_iter(bytes.iter().cloned())
-            .ok_or_else(|| "Invalid length of a key frag ID")?;
+            .ok_or("Invalid length of a key frag ID")?;
         Ok(Self(arr))
     }
 }
@@ -291,6 +294,12 @@ impl KeyFrag {
     }
 }
 
+#[cfg(feature = "default-serialization")]
+impl DefaultSerialize for KeyFrag {}
+
+#[cfg(feature = "default-serialization")]
+impl<'de> DefaultDeserialize<'de> for KeyFrag {}
+
 /// Verified key fragment, good for reencryption.
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`KeyFrag::verify`] or [`KeyFrag::skip_verification`].
@@ -327,6 +336,9 @@ impl VerifiedKeyFrag {
         self.kfrag
     }
 }
+
+#[cfg(feature = "default-serialization")]
+impl DefaultSerialize for VerifiedKeyFrag {}
 
 pub(crate) struct KeyFragBase<'a> {
     signer: &'a Signer,

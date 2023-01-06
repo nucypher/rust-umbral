@@ -1,9 +1,8 @@
 #[cfg(feature = "serde-support")]
-use alloc::string::String;
+use alloc::format;
 
 use alloc::boxed::Box;
-use alloc::format;
-use alloc::vec::Vec;
+use alloc::string::String;
 use core::cmp::Ordering;
 use core::fmt;
 
@@ -22,7 +21,7 @@ use rand_core::OsRng;
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::curve::{CompressedPointSize, CurvePoint, CurveType, NonZeroCurveScalar, ScalarSize};
+use crate::curve::{CompressedPointSize, CurvePoint, CurveType, NonZeroCurveScalar};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::SecretBox;
@@ -42,7 +41,8 @@ impl Signature {
         self.0.to_der().as_bytes().into()
     }
 
-    pub(crate) fn from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
+    #[cfg(feature = "serde-support")]
+    pub(crate) fn try_from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_der(bytes)
@@ -78,7 +78,7 @@ impl TryFromBytes for Signature {
     type Error = String;
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::from_der_bytes(bytes)
+        Self::try_from_der_bytes(bytes)
     }
 }
 
@@ -108,10 +108,6 @@ impl SecretKey {
     /// Creates a secret key using the given RNG.
     pub fn random_with_rng(rng: impl CryptoRng + RngCore) -> Self {
         Self::new(BackendSecretKey::<CurveType>::random(rng))
-    }
-
-    pub fn to_secret_bytes(&self) -> SecretBox<GenericArray<u8, ScalarSize>> {
-        SecretBox::new(self.0.to_be_bytes().into())
     }
 
     /// Creates a secret key using the default RNG.
@@ -208,8 +204,19 @@ impl PublicKey {
         verifier.verify_digest(digest, &signature.0).is_ok()
     }
 
-    pub(crate) fn to_array(&self) -> GenericArray<u8, CompressedPointSize> {
-        self.to_point().to_compressed_array()
+    /// Retunrs the serialized pubic key as the compressed curve point.
+    pub fn try_from_compressed_bytes(bytes: &[u8]) -> Result<Self, String> {
+        let cp = CurvePoint::try_from_compressed_bytes(bytes)?;
+        BackendPublicKey::<CurveType>::try_from(cp.as_backend_point())
+            .map(Self)
+            .map_err(|_| "Cannot instantiate a public key from the given curve point".into())
+    }
+
+    /// Restores the public key from a compressed curve point.
+    pub fn to_compressed_bytes(self) -> Box<[u8]> {
+        let arr: GenericArray<u8, CompressedPointSize> = self.to_point().to_compressed_array();
+        let slice: &[u8] = arr.as_ref();
+        slice.into()
     }
 }
 
@@ -220,11 +227,7 @@ impl Serialize for PublicKey {
     where
         S: Serializer,
     {
-        serialize_with_encoding(
-            &self.to_point().to_compressed_array(),
-            serializer,
-            Encoding::Hex,
-        )
+        serialize_with_encoding(&self.to_compressed_bytes(), serializer, Encoding::Hex)
     }
 }
 
@@ -244,16 +247,13 @@ impl TryFromBytes for PublicKey {
     type Error = String;
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let cp = CurvePoint::try_from_bytes(bytes)?;
-        BackendPublicKey::<CurveType>::from_affine(cp.to_affine_point())
-            .map(Self)
-            .map_err(|_| "Cannot instantiate a public key from the given curve point".into())
+        Self::try_from_compressed_bytes(bytes)
     }
 }
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public("PublicKey", &self.to_array(), f)
+        fmt_public("PublicKey", &self.to_compressed_bytes(), f)
     }
 }
 
@@ -304,14 +304,21 @@ impl SecretKeyFactory {
         }
     }
 
+    /// Creates an untyped bytestring deterministically from the given label.
+    /// This can be used externally to seed some kind of a secret key.
+    pub fn make_secret(
+        &self,
+        label: &[u8],
+    ) -> SecretBox<GenericArray<u8, SecretKeyFactoryDerivedSize>> {
+        let prefix = b"SECRET_DERIVATION/";
+        let info = [prefix, label].concat();
+        kdf::<SecretKeyFactoryDerivedSize>(self.0.as_secret(), None, Some(&info))
+    }
+
     /// Creates a `SecretKey` deterministically from the given label.
     pub fn make_key(&self, label: &[u8]) -> SecretKey {
         let prefix = b"KEY_DERIVATION/";
-        let info: Vec<u8> = prefix
-            .iter()
-            .cloned()
-            .chain(label.iter().cloned())
-            .collect();
+        let info = [prefix, label].concat();
         let key = kdf::<SecretKeyFactoryDerivedSize>(self.0.as_secret(), None, Some(&info));
         let nz_scalar = SecretBox::new(
             ScalarDigest::new_with_dst(&info)
@@ -324,11 +331,7 @@ impl SecretKeyFactory {
     /// Creates a `SecretKeyFactory` deterministically from the given label.
     pub fn make_factory(&self, label: &[u8]) -> Self {
         let prefix = b"FACTORY_DERIVATION/";
-        let info: Vec<u8> = prefix
-            .iter()
-            .cloned()
-            .chain(label.iter().cloned())
-            .collect();
+        let info = [prefix, label].concat();
         let derived_seed = kdf::<SecretKeyFactorySeedSize>(self.0.as_secret(), None, Some(&info));
         Self(derived_seed)
     }

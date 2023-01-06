@@ -75,7 +75,7 @@ pub(crate) fn kfrag_signature_message(
     match maybe_delegating_pk {
         Some(delegating_pk) => {
             result.extend_from_slice(&bool_to_array(true));
-            result.extend_from_slice(&delegating_pk.to_array())
+            result.extend_from_slice(&delegating_pk.to_point().to_compressed_array())
         }
         None => result.extend_from_slice(&bool_to_array(false)),
     };
@@ -83,7 +83,7 @@ pub(crate) fn kfrag_signature_message(
     match maybe_receiving_pk {
         Some(receiving_pk) => {
             result.extend_from_slice(&bool_to_array(true));
-            result.extend_from_slice(&receiving_pk.to_array())
+            result.extend_from_slice(&receiving_pk.to_point().to_compressed_array())
         }
         None => result.extend_from_slice(&bool_to_array(false)),
     };

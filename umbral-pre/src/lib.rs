@@ -156,3 +156,6 @@ pub use secret_box::SecretBox;
 
 #[cfg(feature = "default-rng")]
 pub use pre::{encrypt, generate_kfrags, reencrypt};
+
+#[cfg(feature = "default-serialization")]
+pub use traits::{DefaultDeserialize, DefaultSerialize};

@@ -246,8 +246,8 @@ mod tests {
 
         // Simulate network transfer
         let kfrags = verified_kfrags
-            .to_vec()
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|vkfrag| vkfrag.unverify());
 
         // If Ursula received kfrags from the network, she must check that they are valid
@@ -267,9 +267,9 @@ mod tests {
 
         // Simulate network transfer
         let cfrags = verified_cfrags
-            .to_vec()
-            .into_iter()
-            .map(|vcfrag| vcfrag.clone().unverify());
+            .iter()
+            .cloned()
+            .map(|vcfrag| vcfrag.unverify());
 
         // If Bob received cfrags from the network, he must check that they are valid
         let verified_cfrags: Vec<_> = cfrags

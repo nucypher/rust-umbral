@@ -46,9 +46,10 @@ rmp-serde = "0.15"
 [features]
 default = ["default-rng"]
 bench-internals = ["default-rng"]
-bindings-python = ["pyo3", "std", "derive_more", "serde-support", "rmp-serde"]
-bindings-wasm = ["js-sys", "serde-support", "rmp-serde", "wasm-bindgen", "derive_more", "wasm-bindgen-derive"]
+bindings-python = ["pyo3", "std", "derive_more", "default-serialization"]
+bindings-wasm = ["js-sys", "default-serialization", "wasm-bindgen", "derive_more", "wasm-bindgen-derive"]
 default-rng = ["getrandom", "rand_core/getrandom"]
+default-serialization = ["serde-support", "rmp-serde"]
 serde-support = ["serde"]
 std = []
 

@@ -1,4 +1,10 @@
+#[cfg(feature = "default-serialization")]
+use alloc::boxed::Box;
+
 use core::fmt;
+
+#[cfg(feature = "default-serialization")]
+use serde::{Deserialize, Serialize};
 
 /// The provided bytestring is of an incorrect size.
 #[derive(Debug, PartialEq, Eq)]
@@ -41,4 +47,24 @@ pub(crate) fn fmt_public(
     let bytes = data_to_show.as_ref();
     let bytes = if bytes.len() > 8 { &bytes[..8] } else { bytes };
     write!(f, "{}:{}", type_name, hex::encode(bytes),)
+}
+
+/// Default serialization of an object that is used in all the bindings.
+/// Uses MessagePack format.
+#[cfg(feature = "default-serialization")]
+pub trait DefaultSerialize: Serialize {
+    /// Serializes this object.
+    fn to_bytes(&self) -> Result<Box<[u8]>, rmp_serde::encode::Error> {
+        rmp_serde::to_vec(self).map(|v| v.into_boxed_slice())
+    }
+}
+
+/// Default deserialization of an object that is used in all the bindings.
+/// Uses MessagePack format.
+#[cfg(feature = "default-serialization")]
+pub trait DefaultDeserialize<'de>: Deserialize<'de> {
+    /// Deserializes a bytestring into this object.
+    fn from_bytes(bytes: &'de [u8]) -> Result<Self, rmp_serde::decode::Error> {
+        rmp_serde::from_slice(bytes)
+    }
 }

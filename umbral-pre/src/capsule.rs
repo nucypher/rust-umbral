@@ -19,6 +19,9 @@ use crate::params::Parameters;
 use crate::secret_box::SecretBox;
 use crate::traits::fmt_public;
 
+#[cfg(feature = "default-serialization")]
+use crate::{DefaultDeserialize, DefaultSerialize};
+
 /// Errors that can happen when opening a `Capsule` using reencrypted `CapsuleFrag` objects.
 #[derive(Debug, PartialEq, Eq)]
 pub enum OpenReencryptedError {
@@ -58,7 +61,7 @@ struct SerializedCapsule {
 }
 
 /// Encapsulated symmetric key used to encrypt the plaintext.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde-support", serde(try_from = "SerializedCapsule"))]
 #[cfg_attr(feature = "serde-support", serde(into = "SerializedCapsule"))]
@@ -89,6 +92,12 @@ impl From<Capsule> for SerializedCapsule {
         }
     }
 }
+
+#[cfg(feature = "default-serialization")]
+impl DefaultSerialize for Capsule {}
+
+#[cfg(feature = "default-serialization")]
+impl<'de> DefaultDeserialize<'de> for Capsule {}
 
 impl fmt::Display for Capsule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

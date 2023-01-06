@@ -2,9 +2,8 @@
 //! `elliptic_curves` has a somewhat unstable API,
 //! and we isolate all the related logic here.
 
-#[cfg(feature = "serde-support")]
+use alloc::format;
 use alloc::string::String;
-
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 
@@ -13,7 +12,7 @@ use elliptic_curve::bigint::U256; // Note that this type is different from typen
 use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
 use elliptic_curve::ops::Reduce;
 use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
-use elliptic_curve::{AffinePoint, Field, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
+use elliptic_curve::{Field, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
 use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand_core::{CryptoRng, RngCore};
@@ -59,7 +58,7 @@ impl CurveScalar {
         Self(BackendScalar::one())
     }
 
-    pub(crate) fn to_array(&self) -> GenericArray<u8, ScalarSize> {
+    pub(crate) fn to_array(self) -> k256::FieldBytes {
         self.0.to_bytes()
     }
 }
@@ -90,7 +89,7 @@ impl TryFromBytes for CurveScalar {
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
         let arr = GenericArray::<u8, ScalarSize>::from_exact_iter(bytes.iter().cloned())
-            .ok_or_else(|| "Invalid length of a curve scalar")?;
+            .ok_or("Invalid length of a curve scalar")?;
 
         // unwrap CtOption into Option
         let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(arr).into();
@@ -150,7 +149,6 @@ impl From<&NonZeroCurveScalar> for CurveScalar {
 }
 
 type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
-type BackendPointAffine = AffinePoint<CurveType>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct CurvePoint(BackendPoint);
@@ -158,6 +156,10 @@ pub(crate) struct CurvePoint(BackendPoint);
 impl CurvePoint {
     pub(crate) fn from_backend_point(point: &BackendPoint) -> Self {
         Self(*point)
+    }
+
+    pub(crate) fn as_backend_point(&self) -> &BackendPoint {
+        &self.0
     }
 
     pub(crate) fn generator() -> Self {
@@ -168,17 +170,14 @@ impl CurvePoint {
         Self(BackendPoint::IDENTITY)
     }
 
-    pub(crate) fn to_affine_point(self) -> BackendPointAffine {
-        self.0.to_affine()
-    }
+    pub(crate) fn try_from_compressed_bytes(bytes: &[u8]) -> Result<Self, String> {
+        let ep = EncodedPoint::<CurveType>::from_bytes(bytes).map_err(|err| format!("{}", err))?;
 
-    pub(crate) fn from_compressed_array(
-        arr: &GenericArray<u8, CompressedPointSize>,
-    ) -> Option<Self> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(arr.as_slice()).ok()?;
         // Unwrap CtOption into Option
         let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep).into();
-        cp_opt.map(Self)
+        cp_opt
+            .map(Self)
+            .ok_or_else(|| "Invalid curve point representation".into())
     }
 
     pub(crate) fn to_compressed_array(self) -> GenericArray<u8, CompressedPointSize> {
@@ -228,10 +227,7 @@ impl TryFromBytes for CurvePoint {
     type Error = String;
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let arr = GenericArray::<u8, CompressedPointSize>::from_exact_iter(bytes.iter().cloned())
-            .ok_or_else(|| "Invalid length of a curve point")?;
-
-        Self::from_compressed_array(&arr).ok_or_else(|| "Invalid curve point representation".into())
+        Self::try_from_compressed_bytes(bytes)
     }
 }
 

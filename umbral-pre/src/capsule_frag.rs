@@ -13,6 +13,9 @@ use crate::keys::{PublicKey, Signature};
 use crate::secret_box::SecretBox;
 use crate::traits::fmt_public;
 
+#[cfg(feature = "default-serialization")]
+use crate::{DefaultDeserialize, DefaultSerialize};
+
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub(crate) struct CapsuleFragProof {
@@ -205,6 +208,12 @@ impl CapsuleFrag {
     }
 }
 
+#[cfg(feature = "default-serialization")]
+impl DefaultSerialize for CapsuleFrag {}
+
+#[cfg(feature = "default-serialization")]
+impl<'de> DefaultDeserialize<'de> for CapsuleFrag {}
+
 /// Verified capsule fragment, good for dencryption.
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
@@ -240,6 +249,9 @@ impl VerifiedCapsuleFrag {
         self.cfrag
     }
 }
+
+#[cfg(feature = "default-serialization")]
+impl DefaultSerialize for VerifiedCapsuleFrag {}
 
 #[cfg(test)]
 mod tests {
