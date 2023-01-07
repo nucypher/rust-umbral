@@ -24,7 +24,7 @@ use pyo3::wrap_pyfunction;
 use sha2::{digest::Update, Digest, Sha256};
 
 use crate as umbral_pre;
-use umbral_pre::{DefaultDeserialize, DefaultSerialize};
+use crate::{DefaultDeserialize, DefaultSerialize};
 
 fn map_py_value_err<T: fmt::Display>(err: T) -> PyErr {
     PyValueError::new_err(format!("{}", err))

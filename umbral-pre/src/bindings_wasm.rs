@@ -20,7 +20,7 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
 
 use crate as umbral_pre;
-use umbral_pre::{DefaultDeserialize, DefaultSerialize};
+use crate::{DefaultDeserialize, DefaultSerialize};
 
 #[wasm_bindgen]
 extern "C" {
