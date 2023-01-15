@@ -62,8 +62,8 @@
 //! // obtaining this way a "capsule fragment", or cfrag.
 //!
 //! // Simulate network transfer
-//! let kfrag0 = KeyFrag::from_array(&verified_kfrags[0].to_array()).unwrap();
-//! let kfrag1 = KeyFrag::from_array(&verified_kfrags[1].to_array()).unwrap();
+//! let kfrag0 = verified_kfrags[0].clone().unverify();
+//! let kfrag1 = verified_kfrags[1].clone().unverify();
 //!
 //! // Bob collects the resulting cfrags from several Ursulas.
 //! // Bob must gather at least `threshold` cfrags in order to open the capsule.
@@ -82,8 +82,8 @@
 //! // ...
 //!
 //! // Simulate network transfer
-//! let cfrag0 = CapsuleFrag::from_array(&verified_cfrag0.to_array()).unwrap();
-//! let cfrag1 = CapsuleFrag::from_array(&verified_cfrag1.to_array()).unwrap();
+//! let cfrag0 = verified_cfrag0.clone().unverify();
+//! let cfrag1 = verified_cfrag1.clone().unverify();
 //!
 //! // Finally, Bob opens the capsule by using at least `threshold` cfrags,
 //! // and then decrypts the re-encrypted ciphertext.
@@ -108,7 +108,7 @@
 #![warn(missing_docs, rust_2018_idioms, unused_qualifications)]
 #![no_std]
 // Allows us to mark items in the documentation as gated under specific features.
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -153,10 +153,9 @@ pub use pre::{
     reencrypt_with_rng, ReencryptionError,
 };
 pub use secret_box::SecretBox;
-pub use traits::{
-    ConstructionError, DeserializableFromArray, DeserializationError, HasTypeName,
-    RepresentableAsArray, SerializableToArray, SerializableToSecretArray, SizeMismatchError,
-};
 
 #[cfg(feature = "default-rng")]
 pub use pre::{encrypt, generate_kfrags, reencrypt};
+
+#[cfg(feature = "default-serialization")]
+pub use traits::{DefaultDeserialize, DefaultSerialize};

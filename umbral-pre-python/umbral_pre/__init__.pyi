@@ -10,15 +10,8 @@ class SecretKey:
     def public_key(self) -> PublicKey:
         ...
 
-    def to_secret_bytes(self) -> bytes:
-        ...
-
     @staticmethod
     def from_bytes(data: bytes) -> SecretKey:
-        ...
-
-    @staticmethod
-    def serialized_size() -> int:
         ...
 
 
@@ -36,35 +29,27 @@ class SecretKeyFactory:
     def from_secure_randomness(seed: bytes) -> SecretKeyFactory:
         ...
 
+    def make_secret(self, label: bytes) -> bytes:
+        ...
+
     def make_key(self, label: bytes) -> SecretKey:
         ...
 
     def make_factory(self, label: bytes) -> SecretKeyFactory:
         ...
 
-    def to_secret_bytes(self) -> bytes:
-        ...
-
     @staticmethod
-    def from_bytes(data: bytes) -> SecretKeyFactory:
-        ...
-
-    @staticmethod
-    def serialized_size() -> int:
+    def from_secure_randomness(data: bytes) -> SecretKeyFactory:
         ...
 
 
 class PublicKey:
 
     @staticmethod
-    def from_bytes(data: bytes) -> PublicKey:
+    def from_compressed_bytes(data: bytes) -> PublicKey:
         ...
 
-    def __bytes__(self) -> bytes:
-        ...
-
-    @staticmethod
-    def serialized_size() -> int:
+    def to_compressed_bytes(self) -> bytes:
         ...
 
 
@@ -86,22 +71,14 @@ class Signature:
         ...
 
     @staticmethod
-    def from_bytes(data: bytes) -> Signature:
+    def from_der_bytes(data: bytes) -> Signature:
         ...
 
-    def __bytes__(self) -> bytes:
-        ...
-
-    @staticmethod
-    def serialized_size() -> int:
+    def to_der_bytes(self) -> bytes:
         ...
 
 
 class Capsule:
-
-    @staticmethod
-    def serialized_size() -> int:
-        ...
 
     @staticmethod
     def from_bytes(data: bytes) -> Capsule:
@@ -139,24 +116,13 @@ class KeyFrag:
     def __bytes__(self) -> bytes:
         ...
 
-    @staticmethod
-    def serialized_size() -> int:
-        ...
-
 
 class VerifiedKeyFrag:
-
-    def from_verified_bytes(self, data: bytes) -> VerifiedKeyFrag:
-        ...
 
     def __bytes__(self) -> bytes:
         ...
 
     def unverify(self) -> KeyFrag:
-        ...
-
-    @staticmethod
-    def serialized_size() -> int:
         ...
 
 
@@ -193,25 +159,13 @@ class CapsuleFrag:
     def __bytes__(self) -> bytes:
         ...
 
-    @staticmethod
-    def serialized_size() -> int:
-        ...
-
 
 class VerifiedCapsuleFrag:
-
-    @staticmethod
-    def from_verified_bytes(data: bytes) -> VerifiedCapsuleFrag:
-        ...
 
     def __bytes__(self) -> bytes:
         ...
 
     def unverify(self) -> CapsuleFrag:
-        ...
-
-    @staticmethod
-    def serialized_size() -> int:
         ...
 
 

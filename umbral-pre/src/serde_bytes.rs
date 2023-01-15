@@ -9,8 +9,6 @@ use core::marker::PhantomData;
 
 use serde::{de, Deserializer, Serializer};
 
-use crate::traits::{DeserializableFromArray, DeserializationError, SerializableToArray};
-
 pub(crate) enum Encoding {
     /// Use base64 representation for byte arrays.
     Base64,
@@ -227,32 +225,6 @@ impl TryFromBytes for Box<[u8]> {
     }
 }
 
-/// An adapter `SerializableToArray` -> `AsRef<[u8]>` for serialization.
-/// (we can't just define a trait since we need to instantiate the array first
-/// and cannot return a dangling reference to it).
-pub(crate) fn serialize_as_array<T, S>(
-    obj: &T,
-    serializer: S,
-    encoding: Encoding,
-) -> Result<S::Ok, S::Error>
-where
-    T: SerializableToArray,
-    S: Serializer,
-{
-    let array = obj.to_array();
-    serialize_with_encoding(&array, serializer, encoding)
-}
-
-/// For deserialization, unlike serialization, we can piggyback on `TryFromBytes` support directly,
-/// since anything implementing `DeserializableFromArray` trivially implements `TryFromBytes`.
-impl<T: DeserializableFromArray> TryFromBytes for T {
-    type Error = DeserializationError;
-
-    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::from_bytes(bytes)
-    }
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
 
@@ -261,40 +233,9 @@ pub(crate) mod tests {
     use serde::de::DeserializeOwned;
     use serde::Serialize;
 
-    use super::Encoding;
-    use crate::SerializableToArray;
-
-    /// A helper function that checks that serialization to a human-readable format
-    /// uses b64 encoding, and serialization to a binary format contains plain bytes of the object.
-    pub(crate) fn check_serialization<T>(obj: &T, encoding: Encoding)
+    pub(crate) fn check_serialization_roundtrip<T>(obj: &T)
     where
-        T: SerializableToArray + fmt::Debug + PartialEq + Serialize,
-    {
-        // Check serialization to JSON (human-readable)
-
-        let serialized = serde_json::to_string(obj).unwrap();
-
-        let substr = match encoding {
-            Encoding::Base64 => base64::encode(obj.to_array().as_ref()),
-            Encoding::Hex => hex::encode(obj.to_array().as_ref()),
-        };
-
-        // check that the serialization contains the properly encoded bytestring
-        assert!(serialized.contains(&substr));
-
-        // Check serialization to MessagePack (binary)
-
-        let serialized = rmp_serde::to_vec(obj).unwrap();
-        let bytes = obj.to_array();
-        // check that the serialization contains the bytestring
-        assert!(serialized
-            .windows(bytes.len())
-            .any(move |sub_slice| sub_slice == bytes.as_ref()));
-    }
-
-    pub(crate) fn check_deserialization<T>(obj: &T)
-    where
-        T: SerializableToArray + fmt::Debug + PartialEq + Serialize + DeserializeOwned,
+        T: fmt::Debug + PartialEq + Serialize + DeserializeOwned,
     {
         // Check serialization to JSON (human-readable)
 
@@ -305,7 +246,7 @@ pub(crate) mod tests {
         // Check serialization to MessagePack (binary)
 
         let serialized = rmp_serde::to_vec(obj).unwrap();
-        let deserialized: T = rmp_serde::from_read(&*serialized).unwrap();
+        let deserialized: T = rmp_serde::from_slice(&serialized).unwrap();
         assert_eq!(obj, &deserialized);
     }
 }

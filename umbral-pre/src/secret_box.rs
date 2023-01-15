@@ -35,6 +35,12 @@ pub struct SecretBox<T>(Box<T>)
 where
     T: Zeroize + Clone;
 
+impl<T: PartialEq + Zeroize + Clone> PartialEq<SecretBox<T>> for SecretBox<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl<T> SecretBox<T>
 where
     T: Zeroize + Clone,

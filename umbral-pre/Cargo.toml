@@ -36,6 +36,7 @@ typenum = "1.13" # typenum is a 2018-edition crate starting from 1.13
 getrandom = { version = "0.2", optional = true, default-features = false, features = ["js"] }
 subtle = { version = "2.4", default-features = false }
 zeroize = { version = "1.5", default-features = false, features = ["derive"] }
+rmp-serde = { version = "0.15", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.3", features = ["html_reports"] }
@@ -45,9 +46,10 @@ rmp-serde = "0.15"
 [features]
 default = ["default-rng"]
 bench-internals = ["default-rng"]
-bindings-python = ["pyo3", "std", "derive_more"]
-bindings-wasm = ["js-sys", "wasm-bindgen", "derive_more", "wasm-bindgen-derive"]
+bindings-python = ["pyo3", "std", "derive_more", "default-serialization"]
+bindings-wasm = ["js-sys", "default-serialization", "wasm-bindgen", "derive_more", "wasm-bindgen-derive"]
 default-rng = ["getrandom", "rand_core/getrandom"]
+default-serialization = ["serde-support", "rmp-serde"]
 serde-support = ["serde"]
 std = []
 
