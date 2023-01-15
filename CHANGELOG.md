@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `VerifiedCapsuleFrag::from_verified_bytes()` and `VerifiedKeyFrag::from_verified_bytes()`. For this behavior, deserialize into `CapsuleFrag` or `KeyFrag` and call `skip_verification()`. ([#110])
 - `Capsule` no longer implements `Copy`. ([#110])
 - Removed default serialization methods for `PublicKey` and `Signature` in the bindings; use `to_compressed_bytes()`/`to_der_bytes()` instead. ([#110])
+- MSRV bumped to 1.60 to satisfy the dependencies. ([#111])
 
 
 ### Added
 
 - `DefaultSerialize`/`DefaultDeserialize` for Umbral objects (`Caspule`, `(Verified)CapsuleFrag`, `(Verified)KeyFrag`) which uses MessagePack via `serde` (gated by `default-serialization` feature). This is what the serialization methods in the bindings use. ([#110])
+- Use ASN.1 DER instead of MessagePack in the traits above. ([#111])
 - `to_compressed_bytes()`/`try_from_compressed_bytes()` for `PublicKey` to give access to non-serde representation (just 33 bytes). These are exposed in the bindings in lieu of the "default" methods (e.g. `__bytes__()` or `toBytes()`). ([#110])
 - `to_der_bytes()`/`try_from_der_bytes()` for `Signature` to give access to non-serde representation. These are exposed in the bindings in lieu of the "default" methods (e.g. `__bytes__()` or `toBytes()`). ([#110])
 - `SecretKeyFactory::make_secret()` to provide a more straightforward replacement of `SecretKeyFactory::make_secret_key()`->`SecretKey::to_secret_bytes()`. ([#110])
@@ -30,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#105]: https://github.com/nucypher/rust-umbral/pull/105
 [#110]: https://github.com/nucypher/rust-umbral/pull/110
+[#111]: https://github.com/nucypher/rust-umbral/pull/111
 
 
 ## [0.7.0] - 2022-09-30

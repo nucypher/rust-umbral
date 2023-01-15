@@ -325,8 +325,8 @@ mod tests {
         let cfrag = verified_cfrags[0].clone().unverify();
 
         // Check that the cfrag serializes to the same thing as the verified cfrag
-        let cfrag_bytes = rmp_serde::to_vec(&cfrag).unwrap();
-        let vcfrag_bytes = rmp_serde::to_vec(&verified_cfrags[0]).unwrap();
+        let cfrag_bytes = picky_asn1_der::to_vec(&cfrag).unwrap();
+        let vcfrag_bytes = picky_asn1_der::to_vec(&verified_cfrags[0]).unwrap();
         assert_eq!(vcfrag_bytes, cfrag_bytes);
 
         check_serialization_roundtrip(&cfrag);
