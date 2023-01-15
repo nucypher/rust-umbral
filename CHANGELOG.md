@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `VerifiedCapsuleFrag::from_verified_bytes()` and `VerifiedKeyFrag::from_verified_bytes()`. For this behavior, deserialize into `CapsuleFrag` or `KeyFrag` and call `skip_verification()`. ([#110])
 - `Capsule` no longer implements `Copy`. ([#110])
 - Removed default serialization methods for `PublicKey` and `Signature` in the bindings; use `to_compressed_bytes()`/`to_der_bytes()` instead. ([#110])
+- MSRV bumped to 1.60 to satisfy the dependencies. ([#111])
 
 
 ### Added
