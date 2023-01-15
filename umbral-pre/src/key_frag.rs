@@ -504,8 +504,8 @@ mod tests {
         let kfrag = verified_kfrags[0].clone().unverify();
 
         // Check that the kfrag serializes to the same thing as the verified kfrag
-        let kfrag_bytes = rmp_serde::to_vec(&kfrag).unwrap();
-        let vkfrag_bytes = rmp_serde::to_vec(&verified_kfrags[0]).unwrap();
+        let kfrag_bytes = picky_asn1_der::to_vec(&kfrag).unwrap();
+        let vkfrag_bytes = picky_asn1_der::to_vec(&verified_kfrags[0]).unwrap();
         assert_eq!(vkfrag_bytes, kfrag_bytes);
 
         check_serialization_roundtrip(&kfrag);

@@ -243,10 +243,10 @@ pub(crate) mod tests {
         let deserialized: T = serde_json::from_str(&serialized).unwrap();
         assert_eq!(obj, &deserialized);
 
-        // Check serialization to MessagePack (binary)
+        // Check serialization to ASN.1 DER (binary)
 
-        let serialized = rmp_serde::to_vec(obj).unwrap();
-        let deserialized: T = rmp_serde::from_slice(&serialized).unwrap();
+        let serialized = picky_asn1_der::to_vec(obj).unwrap();
+        let deserialized: T = picky_asn1_der::from_bytes(&serialized).unwrap();
         assert_eq!(obj, &deserialized);
     }
 }

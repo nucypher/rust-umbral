@@ -50,21 +50,21 @@ pub(crate) fn fmt_public(
 }
 
 /// Default serialization of an object that is used in all the bindings.
-/// Uses MessagePack format.
+/// Uses ASN.1 DER format.
 #[cfg(feature = "default-serialization")]
 pub trait DefaultSerialize: Serialize {
     /// Serializes this object.
-    fn to_bytes(&self) -> Result<Box<[u8]>, rmp_serde::encode::Error> {
-        rmp_serde::to_vec(self).map(|v| v.into_boxed_slice())
+    fn to_bytes(&self) -> Result<Box<[u8]>, picky_asn1_der::Asn1DerError> {
+        picky_asn1_der::to_vec(self).map(|v| v.into_boxed_slice())
     }
 }
 
 /// Default deserialization of an object that is used in all the bindings.
-/// Uses MessagePack format.
+/// Uses ASN.1 DER format.
 #[cfg(feature = "default-serialization")]
 pub trait DefaultDeserialize<'de>: Deserialize<'de> {
     /// Deserializes a bytestring into this object.
-    fn from_bytes(bytes: &'de [u8]) -> Result<Self, rmp_serde::decode::Error> {
-        rmp_serde::from_slice(bytes)
+    fn from_bytes(bytes: &'de [u8]) -> Result<Self, picky_asn1_der::Asn1DerError> {
+        picky_asn1_der::from_bytes(bytes)
     }
 }
