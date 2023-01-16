@@ -1,6 +1,7 @@
 use core::fmt;
 
 use rand_core::{CryptoRng, RngCore};
+use snafu::Snafu;
 
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Serialize};
@@ -91,21 +92,14 @@ impl fmt::Display for CapsuleFrag {
 }
 
 /// Possible errors that can be returned by [`CapsuleFrag::verify`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
 pub enum CapsuleFragVerificationError {
     /// Inconsistent internal state leading to signature verification failure.
+    #[snafu(display("Invalid CapsuleFrag signature"))]
     IncorrectKeyFragSignature,
     /// Inconsistent internal state leading to commitment verification failure.
+    #[snafu(display("Failed to verify reencryption proof"))]
     IncorrectReencryption,
-}
-
-impl fmt::Display for CapsuleFragVerificationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::IncorrectKeyFragSignature => write!(f, "Invalid CapsuleFrag signature"),
-            Self::IncorrectReencryption => write!(f, "Failed to verify reencryption proof"),
-        }
-    }
 }
 
 impl CapsuleFrag {

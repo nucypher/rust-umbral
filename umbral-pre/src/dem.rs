@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use core::fmt;
 
 use aead::{Aead, AeadCore, Payload};
 use chacha20poly1305::{Key, KeyInit, KeySizeUser, XChaCha20Poly1305, XNonce};
@@ -7,51 +6,33 @@ use generic_array::{ArrayLength, GenericArray};
 use hkdf::Hkdf;
 use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
+use snafu::Snafu;
 use typenum::Unsigned;
 use zeroize::ZeroizeOnDrop;
 
 use crate::secret_box::SecretBox;
 
 /// Errors that can happen during symmetric encryption.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
 pub enum EncryptionError {
     /// Given plaintext is too large for the backend to handle.
+    #[snafu(display("Plaintext is too large to encrypt"))]
     PlaintextTooLarge,
 }
 
-impl fmt::Display for EncryptionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::PlaintextTooLarge => write!(f, "Plaintext is too large to encrypt"),
-        }
-    }
-}
-
 /// Errors that can happend during symmetric decryption.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
 pub enum DecryptionError {
     /// Ciphertext (which should be prepended by the nonce) is shorter than the nonce length.
+    #[snafu(display("The ciphertext must include the nonce"))]
     CiphertextTooShort,
     /// The ciphertext and the attached authentication data are inconsistent.
     /// This can happen if:
     /// - an incorrect key is used,
     /// - the ciphertext is modified or cut short,
     /// - an incorrect authentication data is provided on decryption.
+    #[snafu(display("Decryption of ciphertext failed."))]
     AuthenticationFailed,
-}
-
-impl fmt::Display for DecryptionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::CiphertextTooShort => write!(f, "The ciphertext must include the nonce"),
-            Self::AuthenticationFailed => write!(
-                f,
-                "Decryption of ciphertext failed: \
-                either someone tampered with the ciphertext or \
-                you are using an incorrect decryption key."
-            ),
-        }
-    }
 }
 
 pub(crate) fn kdf<S: ArrayLength<u8>>(

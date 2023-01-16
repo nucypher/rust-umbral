@@ -1,8 +1,7 @@
 //! The high-level functional reencryption API.
 
-use core::fmt;
-
 use rand_core::{CryptoRng, RngCore};
+use snafu::{ResultExt, Snafu};
 
 #[cfg(feature = "default-rng")]
 use rand_core::OsRng;
@@ -17,21 +16,20 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 /// Errors that can happen when decrypting a reencrypted ciphertext.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
 pub enum ReencryptionError {
     /// An error when opening a capsule. See [`OpenReencryptedError`] for the options.
-    OnOpen(OpenReencryptedError),
+    #[snafu(display("Re-encryption error on open: {source}"))]
+    OnOpen {
+        /// The underlying error.
+        source: OpenReencryptedError,
+    },
     /// An error when decrypting the ciphertext. See [`DecryptionError`] for the options.
-    OnDecryption(DecryptionError),
-}
-
-impl fmt::Display for ReencryptionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::OnOpen(err) => write!(f, "Re-encryption error on open: {}", err),
-            Self::OnDecryption(err) => write!(f, "Re-encryption error on decryption: {}", err),
-        }
-    }
+    #[snafu(display("Re-encryption error on decryption: {source}"))]
+    OnDecryption {
+        /// The underlying error.
+        source: DecryptionError,
+    },
 }
 
 /// Encrypts the given plaintext message using a DEM scheme,
@@ -182,10 +180,10 @@ pub fn decrypt_reencrypted(
         .collect();
     let key_seed = capsule
         .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
-        .map_err(ReencryptionError::OnOpen)?;
+        .context(OnOpenSnafu)?;
     let dem = DEM::new(key_seed.as_secret());
     dem.decrypt(&ciphertext, &capsule.to_associated_data_bytes())
-        .map_err(ReencryptionError::OnDecryption)
+        .context(OnDecryptionSnafu)
 }
 
 #[cfg(test)]
