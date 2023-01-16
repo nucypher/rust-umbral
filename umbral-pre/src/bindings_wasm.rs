@@ -14,13 +14,14 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
+use generic_array::GenericArray;
 use js_sys::{Error, Uint8Array};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
 
 use crate as umbral_pre;
-use crate::{DefaultDeserialize, DefaultSerialize};
+use crate::{curve::ScalarSize, DefaultDeserialize, DefaultSerialize, SecretBox};
 
 #[wasm_bindgen]
 extern "C" {
@@ -89,6 +90,24 @@ impl SecretKey {
     /// Generates a secret key using the default RNG and returns it.
     pub fn random() -> Self {
         Self(umbral_pre::SecretKey::random())
+    }
+
+    #[wasm_bindgen(js_name = toBEBytes)]
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        let serialized = self.0.to_be_bytes();
+        let bytes: &[u8] = serialized.as_secret().as_ref();
+        bytes.into()
+    }
+
+    #[wasm_bindgen(js_name = fromBEBytes)]
+    pub fn from_be_bytes(data: &[u8]) -> Result<SecretKey, Error> {
+        let arr = SecretBox::new(
+            GenericArray::<u8, ScalarSize>::from_exact_iter(data.iter().cloned())
+                .ok_or_else(|| map_js_err("Invalid length of a curve scalar"))?,
+        );
+        umbral_pre::SecretKey::try_from_be_bytes(&arr)
+            .map(Self)
+            .map_err(map_js_err)
     }
 
     /// Generates a secret key using the default RNG and returns it.

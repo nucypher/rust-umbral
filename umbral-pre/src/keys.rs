@@ -1,7 +1,5 @@
-#[cfg(feature = "serde-support")]
-use alloc::format;
-
 use alloc::boxed::Box;
+use alloc::format;
 use alloc::string::String;
 use core::cmp::Ordering;
 use core::fmt;
@@ -21,7 +19,7 @@ use rand_core::OsRng;
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::curve::{CompressedPointSize, CurvePoint, CurveType, NonZeroCurveScalar};
+use crate::curve::{CompressedPointSize, CurvePoint, CurveType, NonZeroCurveScalar, ScalarSize};
 use crate::dem::kdf;
 use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::SecretBox;
@@ -133,6 +131,20 @@ impl SecretKey {
         SecretBox::new(NonZeroCurveScalar::from_backend_scalar(
             *backend_scalar.as_secret(),
         ))
+    }
+
+    /// Serializes the secret key as a scalar in the big-endian representation.
+    pub fn to_be_bytes(&self) -> SecretBox<GenericArray<u8, ScalarSize>> {
+        SecretBox::new(self.0.to_be_bytes())
+    }
+
+    /// Deserializes the secret key from a scalar in the big-endian representation.
+    pub fn try_from_be_bytes(
+        bytes: &SecretBox<GenericArray<u8, ScalarSize>>,
+    ) -> Result<Self, String> {
+        BackendSecretKey::<CurveType>::from_be_bytes(bytes.as_secret().as_slice())
+            .map(Self::new)
+            .map_err(|err| format!("{}", err))
     }
 }
 

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `to_compressed_bytes()`/`try_from_compressed_bytes()` for `PublicKey` to give access to non-serde representation (just 33 bytes). These are exposed in the bindings in lieu of the "default" methods (e.g. `__bytes__()` or `toBytes()`). ([#110])
 - `to_der_bytes()`/`try_from_der_bytes()` for `Signature` to give access to non-serde representation. These are exposed in the bindings in lieu of the "default" methods (e.g. `__bytes__()` or `toBytes()`). ([#110])
 - `SecretKeyFactory::make_secret()` to provide a more straightforward replacement of `SecretKeyFactory::make_secret_key()`->`SecretKey::to_secret_bytes()`. ([#110])
+- Added `SecretKey::to_be_bytes()` and `try_from_be_bytes()`. ([#112])
 
 
 ### Fixed
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#105]: https://github.com/nucypher/rust-umbral/pull/105
 [#110]: https://github.com/nucypher/rust-umbral/pull/110
+[#112]: https://github.com/nucypher/rust-umbral/pull/112
 
 
 ## [0.7.0] - 2022-09-30
