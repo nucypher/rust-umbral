@@ -146,10 +146,10 @@ impl SecretKeyFactory {
             .map_err(map_py_value_err)
     }
 
-    pub fn make_secret(&self, label: &[u8]) -> Vec<u8> {
+    pub fn make_secret(&self, label: &[u8]) -> PyObject {
         let secret = self.backend.make_secret(label);
         let bytes: &[u8] = secret.as_secret().as_ref();
-        bytes.into()
+        Python::with_gil(|py| PyBytes::new(py, bytes).into())
     }
 
     pub fn make_key(&self, label: &[u8]) -> SecretKey {
