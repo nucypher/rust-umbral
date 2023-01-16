@@ -10,8 +10,11 @@ class SecretKey:
     def public_key(self) -> PublicKey:
         ...
 
+    def to_be_bytes(self) -> bytes:
+        ...
+
     @staticmethod
-    def from_bytes(data: bytes) -> SecretKey:
+    def from_be_bytes(data: bytes) -> SecretKey:
         ...
 
 

@@ -24,7 +24,7 @@ use pyo3::wrap_pyfunction;
 use sha2::{digest::Update, Digest, Sha256};
 
 use crate as umbral_pre;
-use crate::{DefaultDeserialize, DefaultSerialize};
+use crate::{curve::ScalarSize, DefaultDeserialize, DefaultSerialize, SecretBox};
 
 fn map_py_value_err<T: fmt::Display>(err: T) -> PyErr {
     PyValueError::new_err(format!("{}", err))
@@ -92,6 +92,22 @@ impl SecretKey {
         Self {
             backend: umbral_pre::SecretKey::random(),
         }
+    }
+
+    pub fn to_be_bytes(&self) -> PyObject {
+        let serialized = self.backend.to_be_bytes();
+        Python::with_gil(|py| PyBytes::new(py, serialized.as_secret()).into())
+    }
+
+    #[staticmethod]
+    pub fn from_be_bytes(data: &[u8]) -> PyResult<Self> {
+        let arr = SecretBox::new(
+            GenericArray::<u8, ScalarSize>::from_exact_iter(data.iter().cloned())
+                .ok_or_else(|| map_py_value_err("Invalid length of a curve scalar"))?,
+        );
+        umbral_pre::SecretKey::try_from_be_bytes(&arr)
+            .map_err(map_py_value_err)
+            .map(Self::from)
     }
 
     pub fn public_key(&self) -> PublicKey {
@@ -164,9 +180,9 @@ impl PublicKey {
             .map(Self::from)
     }
 
-    fn to_compressed_bytes(&self) -> PyResult<PyObject> {
+    fn to_compressed_bytes(&self) -> PyObject {
         let serialized = self.backend.to_compressed_bytes();
-        Python::with_gil(|py| -> PyResult<PyObject> { Ok(PyBytes::new(py, &serialized).into()) })
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -223,9 +239,9 @@ impl Signature {
             .map(Self::from)
     }
 
-    fn to_der_bytes(&self) -> PyResult<PyObject> {
+    fn to_der_bytes(&self) -> PyObject {
         let serialized = self.backend.to_der_bytes();
-        Python::with_gil(|py| -> PyResult<PyObject> { Ok(PyBytes::new(py, &serialized).into()) })
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
     fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
