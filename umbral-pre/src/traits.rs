@@ -3,11 +3,18 @@ use alloc::boxed::Box;
 
 use core::fmt;
 
+use snafu::Snafu;
+
 #[cfg(feature = "default-serialization")]
 use serde::{Deserialize, Serialize};
 
 /// The provided bytestring is of an incorrect size.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
+#[snafu(display(
+    "Bytestring size mismatch: expected {} bytes, got {}",
+    expected_size,
+    received_size
+))]
 pub struct SizeMismatchError {
     pub(crate) received_size: usize,
     pub(crate) expected_size: usize,
@@ -20,16 +27,6 @@ impl SizeMismatchError {
             received_size,
             expected_size,
         }
-    }
-}
-
-impl fmt::Display for SizeMismatchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Bytestring size mismatch: expected {} bytes, got {}",
-            self.expected_size, self.received_size
-        )
     }
 }
 

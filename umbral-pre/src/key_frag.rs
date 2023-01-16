@@ -7,6 +7,7 @@ use core::fmt;
 
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
+use snafu::Snafu;
 use typenum::U32;
 
 #[cfg(feature = "serde-support")]
@@ -163,29 +164,26 @@ impl fmt::Display for KeyFrag {
 }
 
 /// Possible errors that can be returned by [`KeyFrag::verify`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Snafu)]
 pub enum KeyFragVerificationError {
     /// Inconsistent internal state leading to commitment verification failure.
+    #[snafu(display("Invalid kfrag commitment"))]
     IncorrectCommitment,
     /// A delegating key was included in the signature when [`KeyFrag`] was created,
     /// but no delegating key was provided during verification.
+    #[snafu(display(
+        "A signature of a delegating key was included in this kfrag but the key is not provided"
+    ))]
     DelegatingKeyNotProvided,
     /// A receiving key was included in the signature when [`KeyFrag`] was created,
     /// but no receiving key was provided during verification.
+    #[snafu(display(
+        "A signature of a receiving key was included in this kfrag, but the key is not provided"
+    ))]
     ReceivingKeyNotProvided,
     /// Inconsistent internal state leading to signature verification failure.
+    #[snafu(display("Failed to verify the kfrag signature"))]
     IncorrectSignature,
-}
-
-impl fmt::Display for KeyFragVerificationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::IncorrectCommitment => write!(f, "Invalid kfrag commitment"),
-            Self::DelegatingKeyNotProvided => write!(f, "A signature of a delegating key was included in this kfrag but the key is not provided"),
-            Self::ReceivingKeyNotProvided => write!(f, "A signature of a receiving key was included in this kfrag, but the key is not provided"),
-            Self::IncorrectSignature => write!(f, "Failed to verify the kfrag signature"),
-        }
-    }
 }
 
 impl KeyFrag {
