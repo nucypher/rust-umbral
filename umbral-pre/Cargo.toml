@@ -16,8 +16,9 @@ chacha20poly1305 = { version = "0.10", default-features = false, features = ["al
 hkdf = { version = "0.12", default-features = false }
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
-base64 = { version = "0.13", default-features = false, features = ["alloc"] }
-pyo3 = { version = "0.16", optional = true }
+base64 = { version = "0.21", default-features = false, features = ["alloc"] }
+rmp-serde = { version = "1", optional = true }
+pyo3 = { version = "0.17", optional = true }
 js-sys = { version = "0.3", optional = true }
 wasm-bindgen = { version = "0.2.74", optional = true }
 derive_more = { version = "0.99", optional = true, default_features = false, features = ["as_ref", "from", "into"] }
@@ -25,29 +26,23 @@ wasm-bindgen-derive = { version = "0.1", optional = true }
 
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
-elliptic-curve = { version = "0.12" }
-digest = "0.10"
 generic-array = { version = "0.14.6", features = ["zeroize"] }
-aead = { version = "0.5", default-features = false }
 ecdsa = { version = "0.14.4" } # Pin patch version to enable ZeroizeOnDrop for SigningKey
-signature = { version = "1.5", default-features = false }
 rand_core = { version = "0.6", default-features = false }
-typenum = "1.13" # typenum is a 2018-edition crate starting from 1.13
-getrandom = { version = "0.2", optional = true, default-features = false, features = ["js"] }
+getrandom = { version = "0.2", optional = true, default-features = false }
 subtle = { version = "2.4", default-features = false }
 zeroize = { version = "1.5", default-features = false, features = ["derive"] }
-rmp-serde = { version = "0.15", optional = true }
 
 [dev-dependencies]
-criterion = { version = "0.3", features = ["html_reports"] }
+criterion = { version = "0.4", features = ["html_reports"] }
 serde_json = "1"
-rmp-serde = "0.15"
+rmp-serde = "1"
 
 [features]
 default = ["default-rng"]
 bench-internals = ["default-rng"]
 bindings-python = ["pyo3", "std", "derive_more", "default-serialization"]
-bindings-wasm = ["js-sys", "default-serialization", "wasm-bindgen", "derive_more", "wasm-bindgen-derive"]
+bindings-wasm = ["js-sys", "default-serialization", "wasm-bindgen", "derive_more", "wasm-bindgen-derive", "getrandom/js"]
 default-rng = ["getrandom", "rand_core/getrandom"]
 default-serialization = ["serde-support", "rmp-serde"]
 serde-support = ["serde"]
@@ -55,7 +50,7 @@ std = []
 
 # What features to use when building documentation on docs.rs
 [package.metadata.docs.rs]
-features = ["serde-support"]
+features = ["default-rng", "default-serialization"]
 # Used to conditionally enable the unstable feature `doc-cfg`
 rustdoc-args = ["--cfg", "docsrs"]
 

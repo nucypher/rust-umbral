@@ -4,13 +4,17 @@ use alloc::string::String;
 use core::cmp::Ordering;
 use core::fmt;
 
-use digest::Digest;
-use ecdsa::{Signature as BackendSignature, SigningKey, VerifyingKey};
-use elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
-use generic_array::GenericArray;
+use ecdsa::{
+    signature::{DigestVerifier, RandomizedDigestSigner},
+    Signature as BackendSignature, SigningKey, VerifyingKey,
+};
+use generic_array::{
+    typenum::{Unsigned, U32, U64},
+    GenericArray,
+};
+use k256::elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey};
 use rand_core::{CryptoRng, RngCore};
-use signature::{DigestVerifier, RandomizedDigestSigner};
-use typenum::{Unsigned, U32, U64};
+use sha2::digest::{Digest, FixedOutput};
 use zeroize::ZeroizeOnDrop;
 
 #[cfg(feature = "default-rng")]
@@ -209,7 +213,7 @@ impl PublicKey {
     /// Verifies the signature.
     pub(crate) fn verify_digest(
         &self,
-        digest: impl Digest<OutputSize = U32> + digest::FixedOutput,
+        digest: impl Digest<OutputSize = U32> + FixedOutput,
         signature: &Signature,
     ) -> bool {
         let verifier = VerifyingKey::from(&self.0);

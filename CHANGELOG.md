@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `VerifiedCapsuleFrag::from_verified_bytes()` and `VerifiedKeyFrag::from_verified_bytes()`. For this behavior, deserialize into `CapsuleFrag` or `KeyFrag` and call `skip_verification()`. ([#110])
 - `Capsule` no longer implements `Copy`. ([#110])
 - Removed default serialization methods for `PublicKey` and `Signature` in the bindings; use `to_compressed_bytes()`/`to_der_bytes()` instead. ([#110])
+- Bumped `rmp-serde` to 1, `base64` to 0.21, and `pyo3` to 0.17. (#[114])
 
 
 ### Added
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#105]: https://github.com/nucypher/rust-umbral/pull/105
 [#110]: https://github.com/nucypher/rust-umbral/pull/110
 [#112]: https://github.com/nucypher/rust-umbral/pull/112
+[#114]: https://github.com/nucypher/rust-umbral/pull/114
 
 
 ## [0.7.0] - 2022-09-30

@@ -5,9 +5,8 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 
-use generic_array::GenericArray;
+use generic_array::{typenum::U32, GenericArray};
 use rand_core::{CryptoRng, RngCore};
-use typenum::U32;
 
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
