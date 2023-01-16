@@ -9,9 +9,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 umbral-pre = { path = "../umbral-pre", features = ["bindings-python"] }
-generic-array = "0.14"
 
 # Unfortunately, we (for the time being?) cannot use a re-exported `pyo3`
 # from the main `umbral-pre`, since `pyo3` macros and `pip` build need an explicit dependency.
 # This version has to be matched with the one in `umbral-pre`.
-pyo3 = "0.16"
+pyo3 = "0.17"

@@ -7,21 +7,28 @@ use alloc::string::String;
 use core::default::Default;
 use core::ops::{Add, Mul, Sub};
 
-use digest::Digest;
-use elliptic_curve::bigint::U256; // Note that this type is different from typenum::U256
-use elliptic_curve::hash2curve::{ExpandMsgXmd, GroupDigest};
-use elliptic_curve::ops::Reduce;
-use elliptic_curve::sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint};
-use elliptic_curve::{Field, FieldSize, NonZeroScalar, ProjectiveArithmetic, Scalar};
-use generic_array::GenericArray;
-use k256::Secp256k1;
+use k256::{
+    elliptic_curve::{
+        bigint::U256, // Note that this type is different from typenum::U256
+        generic_array::GenericArray,
+        hash2curve::{ExpandMsgXmd, GroupDigest},
+        ops::Reduce,
+        sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
+        Field,
+        FieldSize,
+        NonZeroScalar,
+        ProjectiveArithmetic,
+        Scalar,
+    },
+    Secp256k1,
+};
 use rand_core::{CryptoRng, RngCore};
-use sha2::Sha256;
+use sha2::{digest::Digest, Sha256};
 use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
 #[cfg(feature = "serde-support")]
-use elliptic_curve::group::ff::PrimeField;
+use k256::elliptic_curve::group::ff::PrimeField;
 
 #[cfg(feature = "serde-support")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

@@ -1,13 +1,14 @@
 use alloc::boxed::Box;
 use core::fmt;
 
-use aead::{Aead, AeadCore, Payload};
-use chacha20poly1305::{Key, KeyInit, KeySizeUser, XChaCha20Poly1305, XNonce};
-use generic_array::{ArrayLength, GenericArray};
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, Payload},
+    Key, KeyInit, KeySizeUser, XChaCha20Poly1305, XNonce,
+};
+use generic_array::{typenum::Unsigned, ArrayLength, GenericArray};
 use hkdf::Hkdf;
 use rand_core::{CryptoRng, RngCore};
 use sha2::Sha256;
-use typenum::Unsigned;
 use zeroize::ZeroizeOnDrop;
 
 use crate::secret_box::SecretBox;
@@ -143,7 +144,7 @@ impl DEM {
 #[cfg(test)]
 mod tests {
 
-    use typenum::U32;
+    use generic_array::typenum::U32;
 
     use super::kdf;
     use crate::curve::CurvePoint;

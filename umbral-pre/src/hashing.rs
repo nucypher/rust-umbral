@@ -1,5 +1,7 @@
-use digest::{Digest, Update};
-use sha2::Sha256;
+use sha2::{
+    digest::{Digest, Update},
+    Sha256,
+};
 use zeroize::Zeroize;
 
 use crate::curve::{CurvePoint, NonZeroCurveScalar};

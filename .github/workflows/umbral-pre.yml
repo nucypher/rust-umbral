@@ -40,7 +40,7 @@ jobs:
           target: ${{ matrix.target }}
           override: true
       #- run: cp ../../Cargo.lock .. # Use same Cargo.lock resolution that's checked in
-      - run: cargo build --release --target ${{ matrix.target }}
+      - run: cargo build --features bindings-wasm --release --target ${{ matrix.target }}
 
   build-arm:
     runs-on: ubuntu-latest

@@ -7,6 +7,7 @@ use core::any::type_name;
 use core::fmt;
 use core::marker::PhantomData;
 
+use base64::{engine::general_purpose, Engine as _};
 use serde::{de, Deserializer, Serializer};
 
 pub(crate) enum Encoding {
@@ -32,7 +33,9 @@ where
     where
         E: de::Error,
     {
-        let bytes = base64::decode(v).map_err(de::Error::custom)?;
+        let bytes = general_purpose::STANDARD_NO_PAD
+            .decode(v)
+            .map_err(de::Error::custom)?;
         T::try_from_bytes(&bytes).map_err(de::Error::custom)
     }
 }
@@ -103,7 +106,7 @@ where
 {
     if serializer.is_human_readable() {
         let encoded = match encoding {
-            Encoding::Base64 => base64::encode(obj.as_ref()),
+            Encoding::Base64 => general_purpose::STANDARD_NO_PAD.encode(obj.as_ref()),
             Encoding::Hex => format!("0x{}", hex::encode(obj.as_ref())),
         };
         serializer.serialize_str(&encoded)
