@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Under construction.
+
+
+## [0.8.0] - 2023-01-15
+
 ### Changed
 
 - Removed `HasTypeName` trait. ([#110])
@@ -224,3 +229,4 @@ the corresponding methods in Python and WASM bindings. ([#84])
 [0.5.2]: https://github.com/nucypher/rust-umbral/releases/tag/v0.5.2
 [0.6.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.6.0
 [0.7.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.7.0
+[0.8.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.8.0
