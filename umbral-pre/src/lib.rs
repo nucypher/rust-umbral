@@ -11,6 +11,9 @@
 //! ## Available feature flags
 //!
 //! * `default-rng` - adds methods that use the system RNG (default).
+//! * `default-serialization` - adds methods for default binary serialization
+//!    that matches the serialization in the bindings.
+//!    MessagePack, `serde`-based.
 //! * `serde-support` - implements `serde`-based serialization and deserialization.
 //! * `bindings-python` - adds a `bindings_python` submodule allowing dependent crates
 //!        to use and re-export some of the Python-wrapped Umbral types.
