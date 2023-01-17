@@ -39,12 +39,13 @@ use crate::serde_bytes::{
 pub struct Signature(BackendSignature<CurveType>);
 
 impl Signature {
-    pub(crate) fn to_der_bytes(&self) -> Box<[u8]> {
+    /// Returns the signature serialized in ASN.1 DER format.
+    pub fn to_der_bytes(&self) -> Box<[u8]> {
         self.0.to_der().as_bytes().into()
     }
 
-    #[cfg(feature = "serde-support")]
-    pub(crate) fn try_from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
+    /// Restores the signature from a bytestring in ASN.1 DER format.
+    pub fn try_from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_der(bytes)
