@@ -364,6 +364,10 @@ pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
+    pub fn unverify(&self) -> CapsuleFrag {
+        CapsuleFrag(self.0.clone().unverify())
+    }
+
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
         self.0.to_bytes().map_err(map_js_err)
