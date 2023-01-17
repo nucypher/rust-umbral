@@ -240,6 +240,11 @@ impl Signature {
         self.0.to_der_bytes()
     }
 
+    #[wasm_bindgen(js_name = toBEBytes)]
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.0.to_be_bytes()
+    }
+
     #[wasm_bindgen(js_name = fromDerBytes)]
     pub fn from_der_bytes(data: &[u8]) -> Result<Signature, Error> {
         umbral_pre::Signature::try_from_der_bytes(data)

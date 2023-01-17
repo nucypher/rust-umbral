@@ -80,6 +80,9 @@ class Signature:
     def to_der_bytes(self) -> bytes:
         ...
 
+    def to_be_bytes(self) -> bytes:
+        ...
+
 
 class Capsule:
 

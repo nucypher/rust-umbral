@@ -244,6 +244,11 @@ impl Signature {
         Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
+    fn to_be_bytes(&self) -> PyObject {
+        let serialized = self.backend.to_be_bytes();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
+    }
+
     fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
         self.backend.verify(&verifying_pk.backend, message)
     }

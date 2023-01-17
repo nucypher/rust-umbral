@@ -5,7 +5,7 @@ use core::cmp::Ordering;
 use core::fmt;
 
 use ecdsa::{
-    signature::{DigestVerifier, RandomizedDigestSigner},
+    signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait},
     Signature as BackendSignature, SigningKey, VerifyingKey,
 };
 use generic_array::{
@@ -39,6 +39,12 @@ use crate::serde_bytes::{
 pub struct Signature(BackendSignature<CurveType>);
 
 impl Signature {
+    /// Returns the signature serialized as concatenated `r` and `s`
+    /// in big endian order (32+32 bytes).
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.0.as_bytes().into()
+    }
+
     /// Returns the signature serialized in ASN.1 DER format.
     pub fn to_der_bytes(&self) -> Box<[u8]> {
         self.0.to_der().as_bytes().into()
