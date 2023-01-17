@@ -283,6 +283,11 @@ impl Capsule {
         to_bytes(self)
     }
 
+    fn to_bytes_simple(&self) -> PyObject {
+        let serialized = self.backend.to_bytes_simple();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
+    }
+
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
         richcmp(self, other, op)
     }
@@ -473,6 +478,11 @@ impl CapsuleFrag {
 
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
+    }
+
+    fn to_bytes_simple(&self) -> PyObject {
+        let serialized = self.backend.to_bytes_simple();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {

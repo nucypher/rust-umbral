@@ -93,6 +93,9 @@ class Capsule:
     def __bytes__(self) -> bytes:
         ...
 
+    def to_bytes_simple(self) -> bytes:
+        ...
+
 
 def encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
     ...
@@ -163,6 +166,9 @@ class CapsuleFrag:
         ...
 
     def __bytes__(self) -> bytes:
+        ...
+
+    def to_bytes_simple(self) -> bytes:
         ...
 
 

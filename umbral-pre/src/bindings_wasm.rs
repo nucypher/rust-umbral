@@ -275,6 +275,11 @@ impl Capsule {
         self.0.to_bytes().map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = toBytesSimple)]
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        self.0.to_bytes_simple()
+    }
+
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<Capsule, Error> {
         umbral_pre::Capsule::from_bytes(data)
@@ -322,6 +327,11 @@ impl CapsuleFrag {
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
         self.0.to_bytes().map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = toBytesSimple)]
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        self.0.to_bytes_simple()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]

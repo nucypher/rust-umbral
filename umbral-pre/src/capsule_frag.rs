@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use core::fmt;
 
 use rand_core::{CryptoRng, RngCore};
@@ -128,6 +129,45 @@ impl CapsuleFrag {
             precursor,
             proof,
         }
+    }
+
+    /// Serializes the capsule frag by concatenating the byte represenation of its constituents:
+    /// - `e1` (compressed curve point, 33 bytes),
+    /// - `v1` (compressed curve point, 33 bytes),
+    /// - `kfrag_id` (32 bytes),
+    /// - `precursor` (compressed curve point, 33 bytes),
+    /// - `e2` (compressed curve point, 33 bytes),
+    /// - `v2` (compressed curve point, 33 bytes),
+    /// - `commitment` (compressed curve point, 33 bytes),
+    /// - `kfrag_pok` (compressed curve point, 33 bytes),
+    /// - `signature` (big-endian scalar, 32 bytes),
+    /// - `kfrag_signature` (ECDSA signature serialized as `r` and `s`,
+    ///    each a 32 byte big-endian scalar).
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        let e1 = self.point_e1.to_compressed_array();
+        let v1 = self.point_v1.to_compressed_array();
+        let precursor = self.precursor.to_compressed_array();
+
+        let e2 = self.proof.point_e2.to_compressed_array();
+        let v2 = self.proof.point_v2.to_compressed_array();
+        let commitment = self.proof.kfrag_commitment.to_compressed_array();
+        let pok = self.proof.kfrag_pok.to_compressed_array();
+        let sig = self.proof.signature.to_array();
+        let kfrag_sig = self.proof.kfrag_signature.to_be_bytes();
+
+        let v: &[&[u8]] = &[
+            &e1,
+            &v1,
+            self.kfrag_id.as_ref(),
+            &precursor,
+            &e2,
+            &v2,
+            &commitment,
+            &pok,
+            &sig,
+            &kfrag_sig,
+        ];
+        v.concat().into()
     }
 
     /// Verifies the integrity of the capsule fragment, given the original capsule,
