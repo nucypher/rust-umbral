@@ -52,6 +52,12 @@ impl Signature {
             .map(Self)
             .map_err(|err| format!("Internal backend error: {}", err))
     }
+
+    /// Verifies that the given message was signed with the secret counterpart of the given key.
+    /// The message is hashed internally.
+    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
+        verifying_pk.verify_digest(digest_for_signing(message), self)
+    }
 }
 
 #[cfg(feature = "serde-support")]
@@ -82,14 +88,6 @@ impl TryFromBytes for Signature {
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
         Self::try_from_der_bytes(bytes)
-    }
-}
-
-impl Signature {
-    /// Verifies that the given message was signed with the secret counterpart of the given key.
-    /// The message is hashed internally.
-    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
-        verifying_pk.verify_digest(digest_for_signing(message), self)
     }
 }
 
