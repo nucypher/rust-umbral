@@ -131,17 +131,16 @@ impl Capsule {
         }
     }
 
-    pub(crate) fn to_associated_data_bytes(&self) -> Box<[u8]> {
+    /// Serializes the capsule by concatenating the byte represenation of its constituents:
+    /// - `e` (compressed curve point, 33 bytes),
+    /// - `v` (compressed curve point, 33 bytes),
+    /// - `signature` (big-endian scalar, 32 bytes).
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
         let e = self.point_e.to_compressed_array();
         let v = self.point_v.to_compressed_array();
         let s = self.signature.to_array();
-
-        let e_ref: &[u8] = e.as_ref();
-        let v_ref: &[u8] = v.as_ref();
-        let s_ref: &[u8] = s.as_ref();
-
-        let v: Vec<u8> = [e_ref, v_ref, s_ref].concat();
-        v.into()
+        let v: &[&[u8]] = &[&e, &v, &s];
+        v.concat().into()
     }
 
     /// Verifies the integrity of the capsule.

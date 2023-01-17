@@ -244,6 +244,11 @@ impl Signature {
         Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
+    fn to_be_bytes(&self) -> PyObject {
+        let serialized = self.backend.to_be_bytes();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
+    }
+
     fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
         self.backend.verify(&verifying_pk.backend, message)
     }
@@ -276,6 +281,11 @@ impl Capsule {
 
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
+    }
+
+    fn to_bytes_simple(&self) -> PyObject {
+        let serialized = self.backend.to_bytes_simple();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
@@ -468,6 +478,11 @@ impl CapsuleFrag {
 
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
+    }
+
+    fn to_bytes_simple(&self) -> PyObject {
+        let serialized = self.backend.to_bytes_simple();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
     fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {

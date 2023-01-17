@@ -44,7 +44,7 @@ pub fn encrypt_with_rng(
 ) -> Result<(Capsule, Box<[u8]>), EncryptionError> {
     let (capsule, key_seed) = Capsule::from_public_key(rng, delegating_pk);
     let dem = DEM::new(key_seed.as_secret());
-    dem.encrypt(rng, plaintext, &capsule.to_associated_data_bytes())
+    dem.encrypt(rng, plaintext, &capsule.to_bytes_simple())
         .map(|ciphertext| (capsule, ciphertext))
 }
 
@@ -66,7 +66,7 @@ pub fn decrypt_original(
 ) -> Result<Box<[u8]>, DecryptionError> {
     let key_seed = capsule.open_original(delegating_sk);
     let dem = DEM::new(key_seed.as_secret());
-    dem.decrypt(ciphertext, &capsule.to_associated_data_bytes())
+    dem.decrypt(ciphertext, &capsule.to_bytes_simple())
 }
 
 /// Creates `shares` fragments of `delegating_sk`,
@@ -184,7 +184,7 @@ pub fn decrypt_reencrypted(
         .open_reencrypted(receiving_sk, delegating_pk, &cfrags)
         .map_err(ReencryptionError::OnOpen)?;
     let dem = DEM::new(key_seed.as_secret());
-    dem.decrypt(&ciphertext, &capsule.to_associated_data_bytes())
+    dem.decrypt(&ciphertext, &capsule.to_bytes_simple())
         .map_err(ReencryptionError::OnDecryption)
 }
 

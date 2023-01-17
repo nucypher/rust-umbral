@@ -6,7 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Under construction.
+### Added
+
+- Added `Signature::to_be_bytes()`, `Capsule::to_bytes_simple()`, and `CapsuleFrag::to_bytes_simple()` to use in Ethereum contracts. ([#115])
+
+
+### Fixed
+
+- Added the missing `VerifiedCapsuleFrag::unverify()` method in WASM bindings. ([#115])
+- Added the missing `Signature::to_der_bytes()` and `from_der_bytes()` that were missing in the Rust library but present in the bindings. ([#115])
+
+
+[#115]: https://github.com/nucypher/rust-umbral/pull/115
 
 
 ## [0.8.0] - 2023-01-15
@@ -220,7 +231,7 @@ the corresponding methods in Python and WASM bindings. ([#84])
 
 - Initial release.
 
-[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.8.0...HEAD
 [0.2.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.2.0
 [0.3.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.3.0
 [0.4.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.4.0

@@ -240,6 +240,11 @@ impl Signature {
         self.0.to_der_bytes()
     }
 
+    #[wasm_bindgen(js_name = toBEBytes)]
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.0.to_be_bytes()
+    }
+
     #[wasm_bindgen(js_name = fromDerBytes)]
     pub fn from_der_bytes(data: &[u8]) -> Result<Signature, Error> {
         umbral_pre::Signature::try_from_der_bytes(data)
@@ -268,6 +273,11 @@ impl Capsule {
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
         self.0.to_bytes().map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = toBytesSimple)]
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        self.0.to_bytes_simple()
     }
 
     #[wasm_bindgen(js_name = fromBytes)]
@@ -319,6 +329,11 @@ impl CapsuleFrag {
         self.0.to_bytes().map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = toBytesSimple)]
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        self.0.to_bytes_simple()
+    }
+
     #[wasm_bindgen(js_name = fromBytes)]
     pub fn from_bytes(data: &[u8]) -> Result<CapsuleFrag, Error> {
         umbral_pre::CapsuleFrag::from_bytes(data)
@@ -349,6 +364,10 @@ pub struct VerifiedCapsuleFrag(umbral_pre::VerifiedCapsuleFrag);
 
 #[wasm_bindgen]
 impl VerifiedCapsuleFrag {
+    pub fn unverify(&self) -> CapsuleFrag {
+        CapsuleFrag(self.0.clone().unverify())
+    }
+
     #[wasm_bindgen(js_name = toBytes)]
     pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
         self.0.to_bytes().map_err(map_js_err)

@@ -5,7 +5,7 @@ use core::cmp::Ordering;
 use core::fmt;
 
 use ecdsa::{
-    signature::{DigestVerifier, RandomizedDigestSigner},
+    signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait},
     Signature as BackendSignature, SigningKey, VerifyingKey,
 };
 use generic_array::{
@@ -39,17 +39,30 @@ use crate::serde_bytes::{
 pub struct Signature(BackendSignature<CurveType>);
 
 impl Signature {
-    pub(crate) fn to_der_bytes(&self) -> Box<[u8]> {
+    /// Returns the signature serialized as concatenated `r` and `s`
+    /// in big endian order (32+32 bytes).
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.0.as_bytes().into()
+    }
+
+    /// Returns the signature serialized in ASN.1 DER format.
+    pub fn to_der_bytes(&self) -> Box<[u8]> {
         self.0.to_der().as_bytes().into()
     }
 
-    #[cfg(feature = "serde-support")]
-    pub(crate) fn try_from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
+    /// Restores the signature from a bytestring in ASN.1 DER format.
+    pub fn try_from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_der(bytes)
             .map(Self)
             .map_err(|err| format!("Internal backend error: {}", err))
+    }
+
+    /// Verifies that the given message was signed with the secret counterpart of the given key.
+    /// The message is hashed internally.
+    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
+        verifying_pk.verify_digest(digest_for_signing(message), self)
     }
 }
 
@@ -81,14 +94,6 @@ impl TryFromBytes for Signature {
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
         Self::try_from_der_bytes(bytes)
-    }
-}
-
-impl Signature {
-    /// Verifies that the given message was signed with the secret counterpart of the given key.
-    /// The message is hashed internally.
-    pub fn verify(&self, verifying_pk: &PublicKey, message: &[u8]) -> bool {
-        verifying_pk.verify_digest(digest_for_signing(message), self)
     }
 }
 
