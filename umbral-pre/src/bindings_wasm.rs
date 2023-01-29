@@ -36,6 +36,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "[Capsule, Uint8Array]")]
     pub type EncryptionResult;
+
+    #[wasm_bindgen(typescript_type = "[Uint8Array, Uint8Array]")]
+    pub type Coordinates;
 }
 
 fn map_js_err<T: fmt::Display>(err: T) -> Error {
@@ -548,4 +551,141 @@ pub fn generate_kfrags(
 pub fn reencrypt(capsule: &Capsule, kfrag: &VerifiedKeyFrag) -> VerifiedCapsuleFrag {
     let vcfrag = umbral_pre::reencrypt(&capsule.0, kfrag.0.clone());
     VerifiedCapsuleFrag(vcfrag)
+}
+
+#[wasm_bindgen]
+pub struct CurvePoint(umbral_pre::CurvePoint);
+
+#[wasm_bindgen]
+impl CurvePoint {
+    #[wasm_bindgen]
+    pub fn coordinates(&self) -> Option<Coordinates> {
+        let (x, y) = self.0.coordinates()?;
+        let x_js: JsValue = Uint8Array::from(x.as_ref()).into();
+        let y_js: JsValue = Uint8Array::from(y.as_ref()).into();
+        Some([x_js, y_js]
+            .into_iter()
+            .collect::<js_sys::Array>()
+            .unchecked_into::<Coordinates>())
+    }
+}
+
+#[wasm_bindgen]
+pub struct ReencryptionEvidence(umbral_pre::ReencryptionEvidence);
+
+#[wasm_bindgen]
+impl ReencryptionEvidence {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        capsule: &Capsule,
+        vcfrag: &VerifiedCapsuleFrag,
+        verifying_pk: &PublicKey,
+        delegating_pk: &PublicKey,
+        receiving_pk: &PublicKey,
+    ) -> Self {
+        let evidence = umbral_pre::ReencryptionEvidence::new(
+            &capsule.0,
+            &vcfrag.0,
+            &verifying_pk.0,
+            &delegating_pk.0,
+            &receiving_pk.0);
+        Self(evidence)
+    }
+
+    #[wasm_bindgen(js_name = toBytes)]
+    pub fn to_bytes(&self) -> Result<Box<[u8]>, Error> {
+        self.0.to_bytes().map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(js_name = fromBytes)]
+    pub fn from_bytes(data: &[u8]) -> Result<ReencryptionEvidence, Error> {
+        umbral_pre::ReencryptionEvidence::from_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn e(&self) -> CurvePoint {
+        CurvePoint(self.0.e)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn ez(&self) -> CurvePoint {
+        CurvePoint(self.0.ez)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn e1(&self) -> CurvePoint {
+        CurvePoint(self.0.e1)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn e1h(&self) -> CurvePoint {
+        CurvePoint(self.0.e1h)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn e2(&self) -> CurvePoint {
+        CurvePoint(self.0.e2)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn v(&self) -> CurvePoint {
+        CurvePoint(self.0.v)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn vz(&self) -> CurvePoint {
+        CurvePoint(self.0.vz)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn v1(&self) -> CurvePoint {
+        CurvePoint(self.0.v1)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn v1h(&self) -> CurvePoint {
+        CurvePoint(self.0.v1h)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn v2(&self) -> CurvePoint {
+        CurvePoint(self.0.v2)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn uz(&self) -> CurvePoint {
+        CurvePoint(self.0.uz)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn u1(&self) -> CurvePoint {
+        CurvePoint(self.0.u1)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn u1h(&self) -> CurvePoint {
+        CurvePoint(self.0.u1h)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn u2(&self) -> CurvePoint {
+        CurvePoint(self.0.u2)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn precursor(&self) -> CurvePoint {
+        CurvePoint(self.0.precursor)
+    }
+
+    #[wasm_bindgen(getter, js_name = kfragValidityMessageHash)]
+    pub fn kfrag_validity_message_hash(&self) -> Uint8Array {
+        Uint8Array::from(self.0.kfrag_validity_message_hash.as_ref())
+    }
+
+    #[wasm_bindgen(getter, js_name = kfragSignatureV)]
+    pub fn kfrag_signature_v(&self) -> bool {
+        self.0.kfrag_signature_v
+    }
 }
