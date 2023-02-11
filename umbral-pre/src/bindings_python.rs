@@ -27,7 +27,7 @@ use crate as umbral_pre;
 use crate::{curve::ScalarSize, DefaultDeserialize, DefaultSerialize, SecretBox};
 
 fn map_py_value_err<T: fmt::Display>(err: T) -> PyErr {
-    PyValueError::new_err(format!("{}", err))
+    PyValueError::new_err(format!("{err}"))
 }
 
 fn to_bytes<T, U>(obj: &T) -> PyResult<PyObject>
@@ -347,7 +347,7 @@ impl KeyFrag {
                 delegating_pk.map(|pk| &pk.backend),
                 receiving_pk.map(|pk| &pk.backend),
             )
-            .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{err}")))
             .map(VerifiedKeyFrag::from)
     }
 
@@ -461,7 +461,7 @@ impl CapsuleFrag {
                 &delegating_pk.backend,
                 &receiving_pk.backend,
             )
-            .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{err}")))
             .map(VerifiedCapsuleFrag::from)
     }
 
@@ -527,6 +527,11 @@ impl VerifiedCapsuleFrag {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
+
+    fn to_bytes_simple(&self) -> PyObject {
+        let serialized = self.backend.to_bytes_simple();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
+    }
 }
 
 #[pyfunction]
@@ -587,8 +592,33 @@ pub fn register_decrypt_reencrypted(m: &PyModule) -> PyResult<()> {
 
 #[pyclass(module = "umbral")]
 #[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
+pub struct Parameters {
+    backend: umbral_pre::Parameters,
+}
+
+impl Default for Parameters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[pymethods]
+impl Parameters {
+    #[new]
+    pub fn new() -> Self {
+        umbral_pre::Parameters::new().into()
+    }
+
+    #[getter]
+    fn u(&self) -> CurvePoint {
+        self.backend.u.into()
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
 pub struct CurvePoint {
-    backend: umbral_pre::curve::CurvePoint,
+    backend: umbral_pre::CurvePoint,
 }
 
 #[pymethods]
@@ -699,11 +729,6 @@ impl ReencryptionEvidence {
     #[getter]
     fn u2(&self) -> CurvePoint {
         self.backend.u2.into()
-    }
-
-    #[getter]
-    fn precursor(&self) -> CurvePoint {
-        self.backend.precursor.into()
     }
 
     #[getter]

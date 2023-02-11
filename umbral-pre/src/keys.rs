@@ -59,7 +59,7 @@ impl Signature {
         // and if it is not normalized, verification will fail.
         BackendSignature::<CurveType>::from_der(bytes)
             .map(Self)
-            .map_err(|err| format!("Internal backend error: {}", err))
+            .map_err(|err| format!("Internal backend error: {err}"))
     }
 
     /// Verifies that the given message was signed with the secret counterpart of the given key.
@@ -164,7 +164,7 @@ impl SecretKey {
     ) -> Result<Self, String> {
         BackendSecretKey::<CurveType>::from_be_bytes(bytes.as_secret().as_slice())
             .map(Self::new)
-            .map_err(|err| format!("{}", err))
+            .map_err(|err| format!("{err}"))
     }
 }
 

@@ -7,7 +7,8 @@ use crate::curve::CurvePoint;
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub struct Parameters {
-    pub(crate) u: CurvePoint,
+    /// The re-encryption parameter `u`.
+    pub u: CurvePoint,
 }
 
 impl Parameters {
@@ -22,6 +23,12 @@ impl Parameters {
         let u = CurvePoint::from_data(b"PARAMETERS", b"POINT_U").unwrap();
 
         Self { u }
+    }
+}
+
+impl Default for Parameters {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

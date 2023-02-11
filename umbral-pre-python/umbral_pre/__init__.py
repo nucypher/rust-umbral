@@ -12,6 +12,7 @@ from ._umbral import (
     VerificationError,
     ReencryptionEvidence,
     CurvePoint,
+    Parameters,
     encrypt,
     decrypt_original,
     decrypt_reencrypted,

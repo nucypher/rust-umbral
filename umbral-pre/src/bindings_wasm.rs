@@ -42,7 +42,7 @@ extern "C" {
 }
 
 fn map_js_err<T: fmt::Display>(err: T) -> Error {
-    Error::new(&format!("{}", err))
+    Error::new(&format!("{err}"))
 }
 
 /// Tries to convert an optional value (either `null` or a `#[wasm_bindgen]` marked structure)
@@ -376,6 +376,11 @@ impl VerifiedCapsuleFrag {
         self.0.to_bytes().map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = toBytesSimple)]
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        self.0.to_bytes_simple()
+    }
+
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
@@ -563,10 +568,34 @@ impl CurvePoint {
         let (x, y) = self.0.coordinates()?;
         let x_js: JsValue = Uint8Array::from(x.as_ref()).into();
         let y_js: JsValue = Uint8Array::from(y.as_ref()).into();
-        Some([x_js, y_js]
-            .into_iter()
-            .collect::<js_sys::Array>()
-            .unchecked_into::<Coordinates>())
+        Some(
+            [x_js, y_js]
+                .into_iter()
+                .collect::<js_sys::Array>()
+                .unchecked_into::<Coordinates>(),
+        )
+    }
+}
+
+#[wasm_bindgen]
+pub struct Parameters(umbral_pre::Parameters);
+
+#[wasm_bindgen]
+impl Parameters {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self(umbral_pre::Parameters::new())
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn u(&self) -> CurvePoint {
+        CurvePoint(self.0.u)
+    }
+}
+
+impl Default for Parameters {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -588,7 +617,8 @@ impl ReencryptionEvidence {
             &vcfrag.0,
             &verifying_pk.0,
             &delegating_pk.0,
-            &receiving_pk.0);
+            &receiving_pk.0,
+        );
         Self(evidence)
     }
 
@@ -672,11 +702,6 @@ impl ReencryptionEvidence {
     #[wasm_bindgen(getter)]
     pub fn u2(&self) -> CurvePoint {
         CurvePoint(self.0.u2)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn precursor(&self) -> CurvePoint {
-        CurvePoint(self.0.precursor)
     }
 
     #[wasm_bindgen(getter, js_name = kfragValidityMessageHash)]
