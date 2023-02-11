@@ -11,9 +11,18 @@ Under construction.
 
 ## [0.8.1] - 2023-01-17
 
+### Changed
+
+- Bumped MSRV to 1.58. (#[107])
+
+
 ### Added
 
 - Added `Signature::to_be_bytes()`, `Capsule::to_bytes_simple()`, and `CapsuleFrag::to_bytes_simple()` to use in Ethereum contracts. ([#115])
+- Added `ReencryptionEvidence` structure that can be used in e.g. Ethereum contracts to verify the reencryption validity (see its docstring for the list of checks). (#[107])
+- Made `Parameters` and `CurvePoint` public (necessary for the evidence to work). Made `Parameters::u` public, and added a public `CurvePoint::coordinates()` method. (#[107])
+- Made `hash_to_cfrag_verification()` public. (#[107])
+- Added `VerifiedCapsuleFrag::to_bytes_simple()`. (#[107])
 
 
 ### Fixed
@@ -23,6 +32,7 @@ Under construction.
 
 
 [#115]: https://github.com/nucypher/rust-umbral/pull/115
+[#107]: https://github.com/nucypher/rust-umbral/pull/107
 
 
 ## [0.8.0] - 2023-01-15
