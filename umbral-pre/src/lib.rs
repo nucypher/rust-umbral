@@ -133,6 +133,7 @@ mod capsule;
 mod capsule_frag;
 mod curve;
 mod dem;
+mod evidence;
 mod hashing;
 mod hashing_ds;
 mod key_frag;
@@ -148,9 +149,13 @@ pub mod serde_bytes;
 
 pub use capsule::{Capsule, OpenReencryptedError};
 pub use capsule_frag::{CapsuleFrag, CapsuleFragVerificationError, VerifiedCapsuleFrag};
+pub use curve::CurvePoint;
 pub use dem::{DecryptionError, EncryptionError};
+pub use evidence::ReencryptionEvidence;
+pub use hashing_ds::hash_to_cfrag_verification;
 pub use key_frag::{KeyFrag, KeyFragVerificationError, VerifiedKeyFrag};
 pub use keys::{PublicKey, SecretKey, SecretKeyFactory, Signature, Signer};
+pub use params::Parameters;
 pub use pre::{
     decrypt_original, decrypt_reencrypted, encrypt_with_rng, generate_kfrags_with_rng,
     reencrypt_with_rng, ReencryptionError,

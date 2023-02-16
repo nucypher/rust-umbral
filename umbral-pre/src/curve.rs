@@ -27,7 +27,7 @@ use sha2::{digest::Digest, Sha256};
 use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
-#[cfg(feature = "serde-support")]
+#[cfg(any(feature = "serde-support", test))]
 use k256::elliptic_curve::group::ff::PrimeField;
 
 #[cfg(feature = "serde-support")]
@@ -68,6 +68,18 @@ impl CurveScalar {
     pub(crate) fn to_array(self) -> k256::FieldBytes {
         self.0.to_bytes()
     }
+
+    #[cfg(any(feature = "serde-support", test))]
+    pub(crate) fn try_from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        let arr = GenericArray::<u8, ScalarSize>::from_exact_iter(bytes.iter().cloned())
+            .ok_or("Invalid length of a curve scalar")?;
+
+        // unwrap CtOption into Option
+        let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(arr).into();
+        maybe_scalar
+            .map(Self)
+            .ok_or_else(|| "Invalid curve scalar representation".into())
+    }
 }
 
 #[cfg(feature = "serde-support")]
@@ -95,21 +107,14 @@ impl TryFromBytes for CurveScalar {
     type Error = String;
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let arr = GenericArray::<u8, ScalarSize>::from_exact_iter(bytes.iter().cloned())
-            .ok_or("Invalid length of a curve scalar")?;
-
-        // unwrap CtOption into Option
-        let maybe_scalar: Option<BackendScalar> = BackendScalar::from_repr(arr).into();
-        maybe_scalar
-            .map(Self)
-            .ok_or_else(|| "Invalid curve scalar representation".into())
+        Self::try_from_bytes(bytes)
     }
 }
 
 impl DefaultIsZeroes for CurveScalar {}
 
 #[derive(Clone, Zeroize)]
-pub(crate) struct NonZeroCurveScalar(BackendNonZeroScalar);
+pub struct NonZeroCurveScalar(BackendNonZeroScalar);
 
 impl NonZeroCurveScalar {
     /// Generates a random non-zero scalar (in nearly constant-time).
@@ -157,8 +162,9 @@ impl From<&NonZeroCurveScalar> for CurveScalar {
 
 type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
 
+/// A point on the elliptic curve.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct CurvePoint(BackendPoint);
+pub struct CurvePoint(BackendPoint);
 
 impl CurvePoint {
     pub(crate) fn from_backend_point(point: &BackendPoint) -> Self {
@@ -177,8 +183,18 @@ impl CurvePoint {
         Self(BackendPoint::IDENTITY)
     }
 
+    /// Returns `x` and `y` coordinates serialized as big-endian bytes,
+    /// or `None` if it is the infinity point.
+    pub fn coordinates(&self) -> Option<(k256::FieldBytes, k256::FieldBytes)> {
+        let point = self.0.to_encoded_point(false);
+        // x() may be None if it is the infinity point.
+        // If x() is not None, y() is not None either because we requested
+        // an uncompressed point in the line above; can safely unwrap.
+        point.x().map(|x| (*x, *point.y().unwrap()))
+    }
+
     pub(crate) fn try_from_compressed_bytes(bytes: &[u8]) -> Result<Self, String> {
-        let ep = EncodedPoint::<CurveType>::from_bytes(bytes).map_err(|err| format!("{}", err))?;
+        let ep = EncodedPoint::<CurveType>::from_bytes(bytes).map_err(|err| format!("{err}"))?;
 
         // Unwrap CtOption into Option
         let cp_opt: Option<BackendPoint> = BackendPoint::from_encoded_point(&ep).into();

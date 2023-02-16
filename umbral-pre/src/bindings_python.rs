@@ -27,7 +27,7 @@ use crate as umbral_pre;
 use crate::{curve::ScalarSize, DefaultDeserialize, DefaultSerialize, SecretBox};
 
 fn map_py_value_err<T: fmt::Display>(err: T) -> PyErr {
-    PyValueError::new_err(format!("{}", err))
+    PyValueError::new_err(format!("{err}"))
 }
 
 fn to_bytes<T, U>(obj: &T) -> PyResult<PyObject>
@@ -347,7 +347,7 @@ impl KeyFrag {
                 delegating_pk.map(|pk| &pk.backend),
                 receiving_pk.map(|pk| &pk.backend),
             )
-            .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _kfrag)| VerificationError::new_err(format!("{err}")))
             .map(VerifiedKeyFrag::from)
     }
 
@@ -461,7 +461,7 @@ impl CapsuleFrag {
                 &delegating_pk.backend,
                 &receiving_pk.backend,
             )
-            .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{}", err)))
+            .map_err(|(err, _cfrag)| VerificationError::new_err(format!("{err}")))
             .map(VerifiedCapsuleFrag::from)
     }
 
@@ -527,6 +527,11 @@ impl VerifiedCapsuleFrag {
     fn __bytes__(&self) -> PyResult<PyObject> {
         to_bytes(self)
     }
+
+    fn to_bytes_simple(&self) -> PyObject {
+        let serialized = self.backend.to_bytes_simple();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
+    }
 }
 
 #[pyfunction]
@@ -583,4 +588,158 @@ pub fn register_reencrypt(m: &PyModule) -> PyResult<()> {
 
 pub fn register_decrypt_reencrypted(m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(decrypt_reencrypted, m)?)
+}
+
+#[pyclass(module = "umbral")]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
+pub struct Parameters {
+    backend: umbral_pre::Parameters,
+}
+
+impl Default for Parameters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[pymethods]
+impl Parameters {
+    #[new]
+    pub fn new() -> Self {
+        umbral_pre::Parameters::new().into()
+    }
+
+    #[getter]
+    fn u(&self) -> CurvePoint {
+        self.backend.u.into()
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
+pub struct CurvePoint {
+    backend: umbral_pre::CurvePoint,
+}
+
+#[pymethods]
+impl CurvePoint {
+    #[getter]
+    fn coordinates(&self) -> Option<(PyObject, PyObject)> {
+        let coords = self.backend.coordinates();
+        Python::with_gil(|py| -> Option<(PyObject, PyObject)> {
+            coords.map(|(x, y)| {
+                (
+                    PyBytes::new(py, x.as_ref()).into(),
+                    PyBytes::new(py, y.as_ref()).into(),
+                )
+            })
+        })
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(Clone, derive_more::AsRef, derive_more::From, derive_more::Into)]
+pub struct ReencryptionEvidence {
+    backend: umbral_pre::ReencryptionEvidence,
+}
+
+#[pymethods]
+impl ReencryptionEvidence {
+    #[new]
+    pub fn new(
+        capsule: &Capsule,
+        vcfrag: &VerifiedCapsuleFrag,
+        verifying_pk: &PublicKey,
+        delegating_pk: &PublicKey,
+        receiving_pk: &PublicKey,
+    ) -> Self {
+        umbral_pre::ReencryptionEvidence::new(
+            &capsule.backend.clone(),
+            &vcfrag.backend.clone(),
+            &verifying_pk.backend.clone(),
+            &delegating_pk.backend.clone(),
+            &receiving_pk.backend.clone(),
+        )
+        .into()
+    }
+
+    #[staticmethod]
+    pub fn from_bytes(data: &[u8]) -> PyResult<Self> {
+        from_bytes::<_, umbral_pre::ReencryptionEvidence>(data)
+    }
+
+    fn __bytes__(&self) -> PyResult<PyObject> {
+        to_bytes(self)
+    }
+
+    #[getter]
+    fn e(&self) -> CurvePoint {
+        self.backend.e.into()
+    }
+    #[getter]
+    fn ez(&self) -> CurvePoint {
+        self.backend.ez.into()
+    }
+    #[getter]
+    fn e1(&self) -> CurvePoint {
+        self.backend.e1.into()
+    }
+    #[getter]
+    fn e1h(&self) -> CurvePoint {
+        self.backend.e1h.into()
+    }
+    #[getter]
+    fn e2(&self) -> CurvePoint {
+        self.backend.e2.into()
+    }
+
+    #[getter]
+    fn v(&self) -> CurvePoint {
+        self.backend.v.into()
+    }
+    #[getter]
+    fn vz(&self) -> CurvePoint {
+        self.backend.vz.into()
+    }
+    #[getter]
+    fn v1(&self) -> CurvePoint {
+        self.backend.v1.into()
+    }
+    #[getter]
+    fn v1h(&self) -> CurvePoint {
+        self.backend.v1h.into()
+    }
+    #[getter]
+    fn v2(&self) -> CurvePoint {
+        self.backend.v2.into()
+    }
+
+    #[getter]
+    fn uz(&self) -> CurvePoint {
+        self.backend.uz.into()
+    }
+    #[getter]
+    fn u1(&self) -> CurvePoint {
+        self.backend.u1.into()
+    }
+    #[getter]
+    fn u1h(&self) -> CurvePoint {
+        self.backend.u1h.into()
+    }
+    #[getter]
+    fn u2(&self) -> CurvePoint {
+        self.backend.u2.into()
+    }
+
+    #[getter]
+    fn kfrag_validity_message_hash(&self) -> PyObject {
+        Python::with_gil(|py| -> PyObject {
+            PyBytes::new(py, self.backend.kfrag_validity_message_hash.as_ref()).into()
+        })
+    }
+
+    #[getter]
+    fn kfrag_signature_v(&self) -> bool {
+        self.backend.kfrag_signature_v
+    }
 }

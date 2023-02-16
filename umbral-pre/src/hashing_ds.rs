@@ -9,6 +9,10 @@ use crate::hashing::ScalarDigest;
 use crate::key_frag::KeyFragID;
 use crate::keys::PublicKey;
 
+// These imports are only used in docstrings.
+#[cfg(docsrs)]
+use crate::{Capsule, CapsuleFrag, Parameters, ReencryptionEvidence};
+
 pub(crate) fn hash_to_polynomial_arg(
     precursor: &CurvePoint,
     pubkey: &CurvePoint,
@@ -45,9 +49,53 @@ pub(crate) fn hash_capsule_points(
         .finalize()
 }
 
-pub(crate) fn hash_to_cfrag_verification(points: &[CurvePoint]) -> NonZeroCurveScalar {
+/// Calculates the challenge scalar for the proof of reencryption.
+///
+/// Note: this function is only public for documenting purposes
+/// (see [`ReencryptionEvidence`]).
+///
+/// Calculated as the SHA256 hash of the concatenation of
+/// (the points are represented in the compressed form, 33 bytes each):
+/// - `0x00000012` (4 bytes, the length of the DST)
+/// - `b"CFRAG_VERIFICATION"` (18 bytes)
+/// - `Capsule::e`
+/// - `CapsuleFrag::e1`
+/// - `CapsuleFrag::e2`
+/// - `Capsule::v`
+/// - `CapsuleFrag::v1`
+/// - `CapsuleFrag::v2`
+/// - [`Parameters::u`]
+/// - `CapsuleFrag::u1`
+/// - `CapsuleFrag::u2`
+///
+/// The hash (32 bytes) is then treated as the big-endian representation of an integer,
+/// and converted to a non-zero curve scalar by taking the modulo of `p - 1` and adding 1,
+/// where `p` is the secp256k1 order.
+///
+/// The points mentioned above are the same as in the return values of
+/// [`Capsule::to_bytes_simple`] and [`CapsuleFrag::to_bytes_simple`].
+#[allow(clippy::too_many_arguments)]
+pub fn hash_to_cfrag_verification(
+    e: &CurvePoint,
+    e1: &CurvePoint,
+    e2: &CurvePoint,
+    v: &CurvePoint,
+    v1: &CurvePoint,
+    v2: &CurvePoint,
+    u: &CurvePoint,
+    u1: &CurvePoint,
+    u2: &CurvePoint,
+) -> NonZeroCurveScalar {
     ScalarDigest::new_with_dst(b"CFRAG_VERIFICATION")
-        .chain_points(points)
+        .chain_point(e)
+        .chain_point(e1)
+        .chain_point(e2)
+        .chain_point(v)
+        .chain_point(v1)
+        .chain_point(v2)
+        .chain_point(u)
+        .chain_point(u1)
+        .chain_point(u2)
         .finalize()
 }
 

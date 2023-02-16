@@ -15,6 +15,9 @@ fn _umbral(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<VerifiedKeyFrag>()?;
     m.add_class::<CapsuleFrag>()?;
     m.add_class::<VerifiedCapsuleFrag>()?;
+    m.add_class::<Parameters>()?;
+    m.add_class::<ReencryptionEvidence>()?;
+    m.add_class::<CurvePoint>()?;
     m.add("VerificationError", py.get_type::<VerificationError>())?;
     register_encrypt(m)?;
     register_decrypt_original(m)?;

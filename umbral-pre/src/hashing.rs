@@ -1,5 +1,6 @@
+use generic_array::GenericArray;
 use sha2::{
-    digest::{Digest, Update},
+    digest::{Digest, OutputSizeUser, Update},
     Sha256,
 };
 use zeroize::Zeroize;
@@ -9,6 +10,8 @@ use crate::secret_box::SecretBox;
 
 // Our hash of choice.
 pub(crate) type BackendDigest = Sha256;
+
+pub(crate) type BackendDigestOutput = GenericArray<u8, <Sha256 as OutputSizeUser>::OutputSize>;
 
 // Wraps BackendDigest for easier replacement, and standardizes the use of DST.
 pub(crate) struct Hash(BackendDigest);
@@ -62,14 +65,6 @@ impl ScalarDigest {
         self.chain_bytes(point.to_compressed_array())
     }
 
-    pub fn chain_points(self, points: &[CurvePoint]) -> Self {
-        let mut digest = self;
-        for point in points {
-            digest = digest.chain_point(point);
-        }
-        digest
-    }
-
     pub fn finalize(self) -> NonZeroCurveScalar {
         NonZeroCurveScalar::from_digest(self.0.digest())
     }
@@ -88,26 +83,30 @@ mod tests {
         let bytes: &[u8] = b"foobar";
 
         let s: CurveScalar = ScalarDigest::new_with_dst(b"abc")
-            .chain_points(&[p1, p2])
+            .chain_point(&p1)
+            .chain_point(&p2)
             .chain_bytes(bytes)
             .finalize()
             .into();
         let s_same: CurveScalar = ScalarDigest::new_with_dst(b"abc")
-            .chain_points(&[p1, p2])
+            .chain_point(&p1)
+            .chain_point(&p2)
             .chain_bytes(bytes)
             .finalize()
             .into();
         assert_eq!(s, s_same);
 
         let s_diff: CurveScalar = ScalarDigest::new_with_dst(b"abc")
-            .chain_points(&[p2, p1])
+            .chain_point(&p2)
+            .chain_point(&p1)
             .chain_bytes(bytes)
             .finalize()
             .into();
         assert_ne!(s, s_diff);
 
         let s_diff_tag: CurveScalar = ScalarDigest::new_with_dst(b"def")
-            .chain_points(&[p1, p2])
+            .chain_point(&p1)
+            .chain_point(&p2)
             .chain_bytes(bytes)
             .finalize()
             .into();

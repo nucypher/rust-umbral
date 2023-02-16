@@ -20,12 +20,12 @@ use crate::{DefaultDeserialize, DefaultSerialize};
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
 pub(crate) struct CapsuleFragProof {
-    point_e2: CurvePoint,
-    point_v2: CurvePoint,
-    kfrag_commitment: CurvePoint,
-    kfrag_pok: CurvePoint,
-    signature: CurveScalar,
-    kfrag_signature: Signature,
+    pub(crate) point_e2: CurvePoint,
+    pub(crate) point_v2: CurvePoint,
+    pub(crate) kfrag_commitment: CurvePoint,
+    pub(crate) kfrag_pok: CurvePoint,
+    pub(crate) signature: CurveScalar,
+    pub(crate) kfrag_signature: Signature,
 }
 
 impl CapsuleFragProof {
@@ -57,7 +57,7 @@ impl CapsuleFragProof {
         let v2 = &v * t.as_secret();
         let u2 = &u * t.as_secret();
 
-        let h = hash_to_cfrag_verification(&[e, *e1, e2, v, *v1, v2, u, u1, u2]);
+        let h = hash_to_cfrag_verification(&e, e1, &e2, &v, v1, &v2, &u, &u1, &u2);
 
         ////////
 
@@ -138,8 +138,8 @@ impl CapsuleFrag {
     /// - `precursor` (compressed curve point, 33 bytes),
     /// - `e2` (compressed curve point, 33 bytes),
     /// - `v2` (compressed curve point, 33 bytes),
-    /// - `commitment` (compressed curve point, 33 bytes),
-    /// - `kfrag_pok` (compressed curve point, 33 bytes),
+    /// - `u1`, the kfrag PoK commitment (compressed curve point, 33 bytes),
+    /// - `u2`, the kfrag PoK (compressed curve point, 33 bytes),
     /// - `signature` (big-endian scalar, 32 bytes),
     /// - `kfrag_signature` (ECDSA signature serialized as `r` and `s`,
     ///    each a 32 byte big-endian scalar).
@@ -199,7 +199,7 @@ impl CapsuleFrag {
         let v2 = self.proof.point_v2;
         let u2 = self.proof.kfrag_pok;
 
-        let h = hash_to_cfrag_verification(&[e, e1, e2, v, v1, v2, u, u1, u2]);
+        let h = hash_to_cfrag_verification(&e, &e1, &e2, &v, &v1, &v2, &u, &u1, &u2);
 
         ///////
 
@@ -287,6 +287,11 @@ impl VerifiedCapsuleFrag {
     /// that can be serialized/deserialized freely).
     pub fn unverify(self) -> CapsuleFrag {
         self.cfrag
+    }
+
+    /// Returns the same thing as [`CapsuleFrag::to_bytes_simple`].
+    pub fn to_bytes_simple(&self) -> Box<[u8]> {
+        self.cfrag.to_bytes_simple()
     }
 }
 

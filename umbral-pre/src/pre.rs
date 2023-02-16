@@ -28,8 +28,8 @@ pub enum ReencryptionError {
 impl fmt::Display for ReencryptionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::OnOpen(err) => write!(f, "Re-encryption error on open: {}", err),
-            Self::OnDecryption(err) => write!(f, "Re-encryption error on decryption: {}", err),
+            Self::OnOpen(err) => write!(f, "Re-encryption error on open: {err}"),
+            Self::OnDecryption(err) => write!(f, "Re-encryption error on decryption: {err}"),
         }
     }
 }

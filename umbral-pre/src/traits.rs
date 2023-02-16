@@ -35,7 +35,7 @@ impl fmt::Display for SizeMismatchError {
 
 /// A `fmt` implementation for types with secret data.
 pub(crate) fn fmt_secret(type_name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}:...", type_name)
+    write!(f, "{type_name}:...")
 }
 
 /// A `fmt` implementation for types with public data.
