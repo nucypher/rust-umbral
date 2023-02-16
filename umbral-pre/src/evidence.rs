@@ -173,7 +173,7 @@ impl<'de> DefaultDeserialize<'de> for ReencryptionEvidence {}
 #[cfg(test)]
 mod tests {
     use k256::{
-        ecdsa::{recoverable, Signature},
+        ecdsa::{RecoveryId, Signature, VerifyingKey},
         elliptic_curve::FieldBytes,
         Secp256k1,
     };
@@ -245,17 +245,17 @@ mod tests {
         let r = FieldBytes::<Secp256k1>::from_slice(&kfrag_signature_bytes[0..32]);
         let s = FieldBytes::<Secp256k1>::from_slice(&kfrag_signature_bytes[32..64]);
         let sig = Signature::from_scalars(*r, *s).unwrap();
-        let rid = recoverable::Id::new(if evidence.kfrag_signature_v { 1 } else { 0 }).unwrap();
+        let rid = RecoveryId::new(evidence.kfrag_signature_v, true);
 
         // Check that the Alice's verifying key can be recovered from the signature
 
-        let rsig = recoverable::Signature::new(&sig, rid).unwrap();
         let digest_bytes =
             FieldBytes::<Secp256k1>::from_slice(&evidence.kfrag_validity_message_hash);
-        let vkey = rsig
-            .recover_verifying_key_from_digest_bytes(digest_bytes)
-            .unwrap();
-        assert_eq_byte_refs(&vkey.to_bytes(), &verifying_pk.to_compressed_bytes());
+        let vkey = VerifyingKey::recover_from_prehash(digest_bytes, &sig, rid).unwrap();
+        assert_eq_byte_refs(
+            vkey.to_encoded_point(true).as_bytes(),
+            &verifying_pk.to_compressed_bytes(),
+        );
 
         // Check the ZKP identities
 

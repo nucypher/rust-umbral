@@ -4,16 +4,15 @@ use alloc::string::String;
 use core::cmp::Ordering;
 use core::fmt;
 
-use ecdsa::{
-    signature::{DigestVerifier, RandomizedDigestSigner, Signature as SignatureTrait},
-    Signature as BackendSignature, SigningKey, VerifyingKey,
-};
 use generic_array::{
     typenum::{Unsigned, U32, U64},
     GenericArray,
 };
 use k256::{
-    ecdsa::recoverable,
+    ecdsa::{
+        signature::{DigestVerifier, RandomizedDigestSigner},
+        RecoveryId, Signature as BackendSignature, SigningKey, VerifyingKey,
+    },
     elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey},
 };
 use rand_core::{CryptoRng, RngCore};
@@ -39,13 +38,13 @@ use crate::serde_bytes::{
 
 /// ECDSA signature object.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signature(BackendSignature<CurveType>);
+pub struct Signature(BackendSignature);
 
 impl Signature {
     /// Returns the signature serialized as concatenated `r` and `s`
     /// in big endian order (32+32 bytes).
     pub fn to_be_bytes(&self) -> Box<[u8]> {
-        self.0.as_bytes().into()
+        AsRef::<[u8]>::as_ref(&self.0.to_bytes()).into()
     }
 
     /// Returns the signature serialized in ASN.1 DER format.
@@ -57,7 +56,7 @@ impl Signature {
     pub fn try_from_der_bytes(bytes: &[u8]) -> Result<Self, String> {
         // Note that it will not normalize `s` automatically,
         // and if it is not normalized, verification will fail.
-        BackendSignature::<CurveType>::from_der(bytes)
+        BackendSignature::from_der(bytes)
             .map(Self)
             .map_err(|err| format!("Internal backend error: {err}"))
     }
@@ -70,9 +69,8 @@ impl Signature {
 
     pub(crate) fn get_recovery_byte(&self, verifying_pk: &PublicKey, message: &[u8]) -> u8 {
         let digest = digest_for_signing(message);
-        recoverable::Signature::from_digest_trial_recovery(&verifying_pk.0.into(), digest, &self.0)
+        RecoveryId::trial_recovery_from_digest(&verifying_pk.0.into(), digest, &self.0)
             .unwrap()
-            .recovery_id()
             .into()
     }
 }
@@ -181,12 +179,12 @@ pub(crate) fn digest_for_signing(message: &[u8]) -> BackendDigest {
 /// An object used to sign messages.
 /// For security reasons cannot be serialized.
 #[derive(Clone, ZeroizeOnDrop)]
-pub struct Signer(SigningKey<CurveType>);
+pub struct Signer(SigningKey);
 
 impl Signer {
     /// Creates a new signer out of a secret key.
     pub fn new(sk: SecretKey) -> Self {
-        Self(SigningKey::<CurveType>::from(sk.0.clone()))
+        Self(SigningKey::from(sk.0.clone()))
     }
 
     /// Signs the given message using the given RNG.
