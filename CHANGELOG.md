@@ -4,25 +4,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
-
-Under construction.
-
-
-## [0.8.1] - 2023-01-17
+## 0.9.0 - under development
 
 ### Changed
 
-- Bumped MSRV to 1.58. (#[107])
+- Bumped MSRV to 1.60. ([#117])
+- Bumped `k256` to 0.12 and PyO3 to `0.18`. ([#117])
 
 
 ### Added
 
+- Added `ReencryptionEvidence` structure that can be used in e.g. Ethereum contracts to verify the reencryption validity (see its docstring for the list of checks). ([#107])
+- Made `Parameters` and `CurvePoint` public (necessary for the evidence to work). Made `Parameters::u` public, and added a public `CurvePoint::coordinates()` method. ([#107])
+- Made `hash_to_cfrag_verification()` public. ([#107])
+- Added `VerifiedCapsuleFrag::to_bytes_simple()`. ([#107])
+- Added `RecoverableSignature` type with limited functionality. ([#117])
+- Added `Signature::try_from_be_bytes()`. ([#117])
+- Added `PublicKey::recover_from_prehash()`. ([#117])
+
+
+[#107]: https://github.com/nucypher/rust-umbral/pull/107
+[#117]: https://github.com/nucypher/rust-umbral/pull/117
+
+
+## [0.8.1] - 2023-01-17
+
+### Added
+
 - Added `Signature::to_be_bytes()`, `Capsule::to_bytes_simple()`, and `CapsuleFrag::to_bytes_simple()` to use in Ethereum contracts. ([#115])
-- Added `ReencryptionEvidence` structure that can be used in e.g. Ethereum contracts to verify the reencryption validity (see its docstring for the list of checks). (#[107])
-- Made `Parameters` and `CurvePoint` public (necessary for the evidence to work). Made `Parameters::u` public, and added a public `CurvePoint::coordinates()` method. (#[107])
-- Made `hash_to_cfrag_verification()` public. (#[107])
-- Added `VerifiedCapsuleFrag::to_bytes_simple()`. (#[107])
 
 
 ### Fixed
@@ -32,7 +41,6 @@ Under construction.
 
 
 [#115]: https://github.com/nucypher/rust-umbral/pull/115
-[#107]: https://github.com/nucypher/rust-umbral/pull/107
 
 
 ## [0.8.0] - 2023-01-15
@@ -44,7 +52,7 @@ Under construction.
 - Removed `VerifiedCapsuleFrag::from_verified_bytes()` and `VerifiedKeyFrag::from_verified_bytes()`. For this behavior, deserialize into `CapsuleFrag` or `KeyFrag` and call `skip_verification()`. ([#110])
 - `Capsule` no longer implements `Copy`. ([#110])
 - Removed default serialization methods for `PublicKey` and `Signature` in the bindings; use `to_compressed_bytes()`/`to_der_bytes()` instead. ([#110])
-- Bumped `rmp-serde` to 1, `base64` to 0.21, and `pyo3` to 0.17. (#[114])
+- Bumped `rmp-serde` to 1, `base64` to 0.21, and `pyo3` to 0.17. ([#114])
 
 
 ### Added
@@ -58,7 +66,7 @@ Under construction.
 
 ### Fixed
 
-- A typo in the error message that could be returned from `CapsuleFrag.verify()` - it erroneously mentioned `KeyFrag`. (#[105])
+- A typo in the error message that could be returned from `CapsuleFrag.verify()` - it erroneously mentioned `KeyFrag`. ([#105])
 
 
 [#105]: https://github.com/nucypher/rust-umbral/pull/105
@@ -71,10 +79,10 @@ Under construction.
 
 ### Changed
 
-- Replaced `AsBackend`/`FromBackend`, `.inner()`, `.new()`, and `pub backend` with derived `AsRef`/`From`/`Into` where appropriate. (#[103])
-- Using a workaround with `wasm-bindgen-derive` to support `Option<&T>` and `&Vec<T>` arguments, and `Vec<T>` return values in WASM bindings. Generating correct TypeScript signatures in all the relevant cases. Affected API: `Capsule.decryptReencrypted()`, `KeyFrag.verify()`, `generate_kfrags()`. (#[103])
+- Replaced `AsBackend`/`FromBackend`, `.inner()`, `.new()`, and `pub backend` with derived `AsRef`/`From`/`Into` where appropriate. ([#103])
+- Using a workaround with `wasm-bindgen-derive` to support `Option<&T>` and `&Vec<T>` arguments, and `Vec<T>` return values in WASM bindings. Generating correct TypeScript signatures in all the relevant cases. Affected API: `Capsule.decryptReencrypted()`, `KeyFrag.verify()`, `generate_kfrags()`. ([#103])
 - Removed `serde` usage in WASM bindings. ([#103])
-- `encrypt()` now returns an actual tuple in WASM bindings instead of a special object. (#[103])
+- `encrypt()` now returns an actual tuple in WASM bindings instead of a special object. ([#103])
 
 
 ### Added
@@ -246,7 +254,6 @@ the corresponding methods in Python and WASM bindings. ([#84])
 
 - Initial release.
 
-[Unreleased]: https://github.com/nucypher/rust-umbral/compare/v0.8.1...HEAD
 [0.2.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.2.0
 [0.3.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.3.0
 [0.4.0]: https://github.com/nucypher/rust-umbral/releases/tag/v0.4.0
