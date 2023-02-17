@@ -191,6 +191,16 @@ impl PublicKey {
             .map_err(map_js_err)
     }
 
+    #[wasm_bindgen(js_name = recoverFromPrehash)]
+    pub fn recover_from_prehash(
+        prehash: &[u8],
+        signature: &RecoverableSignature,
+    ) -> Result<PublicKey, Error> {
+        umbral_pre::PublicKey::recover_from_prehash(prehash, &signature.0)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
     #[allow(clippy::inherent_to_string)]
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string(&self) -> String {
@@ -243,14 +253,21 @@ impl Signature {
         self.0.to_der_bytes()
     }
 
+    #[wasm_bindgen(js_name = fromDerBytes)]
+    pub fn from_der_bytes(data: &[u8]) -> Result<Signature, Error> {
+        umbral_pre::Signature::try_from_der_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
     #[wasm_bindgen(js_name = toBEBytes)]
     pub fn to_be_bytes(&self) -> Box<[u8]> {
         self.0.to_be_bytes()
     }
 
-    #[wasm_bindgen(js_name = fromDerBytes)]
-    pub fn from_der_bytes(data: &[u8]) -> Result<Signature, Error> {
-        umbral_pre::Signature::try_from_der_bytes(data)
+    #[wasm_bindgen(js_name = fromBEBytes)]
+    pub fn from_be_bytes(data: &[u8]) -> Result<Signature, Error> {
+        umbral_pre::Signature::try_from_be_bytes(data)
             .map(Self)
             .map_err(map_js_err)
     }
@@ -262,6 +279,34 @@ impl Signature {
     }
 
     pub fn equals(&self, other: &Signature) -> bool {
+        self.0 == other.0
+    }
+}
+
+#[wasm_bindgen]
+pub struct RecoverableSignature(umbral_pre::RecoverableSignature);
+
+#[wasm_bindgen]
+impl RecoverableSignature {
+    #[wasm_bindgen(js_name = toBEBytes)]
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        self.0.to_be_bytes()
+    }
+
+    #[wasm_bindgen(js_name = fromBEBytes)]
+    pub fn from_be_bytes(data: &[u8]) -> Result<RecoverableSignature, Error> {
+        umbral_pre::RecoverableSignature::try_from_be_bytes(data)
+            .map(Self)
+            .map_err(map_js_err)
+    }
+
+    #[allow(clippy::inherent_to_string)]
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string(&self) -> String {
+        format!("{}", self.0)
+    }
+
+    pub fn equals(&self, other: &RecoverableSignature) -> bool {
         self.0 == other.0
     }
 }

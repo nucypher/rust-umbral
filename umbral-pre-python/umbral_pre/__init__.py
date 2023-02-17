@@ -4,6 +4,7 @@ from ._umbral import (
     PublicKey,
     Signer,
     Signature,
+    RecoverableSignature,
     Capsule,
     KeyFrag,
     VerifiedKeyFrag,

@@ -180,6 +180,13 @@ impl PublicKey {
             .map(Self::from)
     }
 
+    #[staticmethod]
+    fn recover_from_prehash(prehash: &[u8], signature: &RecoverableSignature) -> PyResult<Self> {
+        umbral_pre::PublicKey::recover_from_prehash(prehash, signature.as_ref())
+            .map_err(map_py_value_err)
+            .map(Self::from)
+    }
+
     fn to_compressed_bytes(&self) -> PyObject {
         let serialized = self.backend.to_compressed_bytes();
         Python::with_gil(|py| PyBytes::new(py, &serialized).into())
@@ -244,6 +251,13 @@ impl Signature {
         Python::with_gil(|py| PyBytes::new(py, &serialized).into())
     }
 
+    #[staticmethod]
+    fn from_be_bytes(data: &[u8]) -> PyResult<Self> {
+        umbral_pre::Signature::try_from_be_bytes(data)
+            .map_err(map_py_value_err)
+            .map(Self::from)
+    }
+
     fn to_be_bytes(&self) -> PyObject {
         let serialized = self.backend.to_be_bytes();
         Python::with_gil(|py| PyBytes::new(py, &serialized).into())
@@ -259,6 +273,39 @@ impl Signature {
 
     fn __hash__(&self) -> i64 {
         hash(&self.backend.to_der_bytes())
+    }
+
+    fn __str__(&self) -> PyResult<String> {
+        Ok(format!("{}", self.backend))
+    }
+}
+
+#[pyclass(module = "umbral")]
+#[derive(PartialEq, Eq, derive_more::AsRef, derive_more::From)]
+pub struct RecoverableSignature {
+    backend: umbral_pre::RecoverableSignature,
+}
+
+#[pymethods]
+impl RecoverableSignature {
+    #[staticmethod]
+    fn from_be_bytes(data: &[u8]) -> PyResult<Self> {
+        umbral_pre::RecoverableSignature::try_from_be_bytes(data)
+            .map_err(map_py_value_err)
+            .map(Self::from)
+    }
+
+    fn to_be_bytes(&self) -> PyObject {
+        let serialized = self.backend.to_be_bytes();
+        Python::with_gil(|py| PyBytes::new(py, &serialized).into())
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> PyResult<bool> {
+        richcmp(self, other, op)
+    }
+
+    fn __hash__(&self) -> i64 {
+        hash(&self.backend.to_be_bytes())
     }
 
     fn __str__(&self) -> PyResult<String> {

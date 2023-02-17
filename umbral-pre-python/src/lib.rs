@@ -10,6 +10,7 @@ fn _umbral(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PublicKey>()?;
     m.add_class::<Signer>()?;
     m.add_class::<Signature>()?;
+    m.add_class::<RecoverableSignature>()?;
     m.add_class::<Capsule>()?;
     m.add_class::<KeyFrag>()?;
     m.add_class::<VerifiedKeyFrag>()?;

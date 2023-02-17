@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use core::cmp::Ordering;
 use core::fmt;
 
@@ -13,7 +13,7 @@ use k256::{
         signature::{DigestVerifier, RandomizedDigestSigner},
         RecoveryId, Signature as BackendSignature, SigningKey, VerifyingKey,
     },
-    elliptic_curve::{PublicKey as BackendPublicKey, SecretKey as BackendSecretKey},
+    elliptic_curve::{FieldBytes, PublicKey as BackendPublicKey, SecretKey as BackendSecretKey},
 };
 use rand_core::{CryptoRng, RngCore};
 use sha2::digest::{Digest, FixedOutput};
@@ -45,6 +45,23 @@ impl Signature {
     /// in big endian order (32+32 bytes).
     pub fn to_be_bytes(&self) -> Box<[u8]> {
         AsRef::<[u8]>::as_ref(&self.0.to_bytes()).into()
+    }
+
+    /// Restores the signature from concatenated `r` and `s`
+    /// in big endian order (32+32 bytes).
+    pub fn try_from_be_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() != 64 {
+            return Err(format!(
+                "Invalid length for a serialized signature: {}, expected 64",
+                bytes.len()
+            ));
+        }
+
+        let r = FieldBytes::<CurveType>::from_slice(&bytes[0..32]);
+        let s = FieldBytes::<CurveType>::from_slice(&bytes[32..64]);
+        BackendSignature::from_scalars(*r, *s)
+            .map(Self)
+            .map_err(|err| format!("Internal backend error: {err}"))
     }
 
     /// Returns the signature serialized in ASN.1 DER format.
@@ -109,6 +126,96 @@ impl TryFromBytes for Signature {
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt_public("Signature", &self.to_der_bytes(), f)
+    }
+}
+
+/// A signature with the recovery byte attached.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecoverableSignature {
+    signature: Signature,
+    recovery_id: RecoveryId,
+}
+
+impl RecoverableSignature {
+    /// Create the recoverable signature from the signature proper and the recovery flag.
+    #[cfg(test)]
+    pub(crate) fn from_normalized(signature: Signature, is_y_odd: bool) -> Self {
+        Self {
+            signature,
+            // TODO: currently `RecoveryId.is_x_reduced` is ignored during recovery
+            // (see `VerifyingKey::recover_from_prehash()`), so we set it to `false`.
+            // Make sure this parameter is handled properly if this method is made public.
+            recovery_id: RecoveryId::new(is_y_odd, false),
+        }
+    }
+
+    /// Returns the signature serialized as concatenated `r`, `s`, and `v`
+    /// in big endian order (32+32+1 bytes).
+    pub fn to_be_bytes(&self) -> Box<[u8]> {
+        [
+            AsRef::<[u8]>::as_ref(&self.signature.to_be_bytes()),
+            AsRef::<[u8]>::as_ref(&[self.recovery_id.to_byte()]),
+        ]
+        .concat()
+        .into()
+    }
+
+    /// Restores the signature from concatenated `r`, `s`, and `v`
+    /// in big endian order (32+32+1 bytes).
+    pub fn try_from_be_bytes(bytes: &[u8]) -> Result<Self, String> {
+        // The signature size is exported from `ecdsa` crate (as `SignatureSize` type),
+        // and I don't really want to add it to dependencies just because of this constant.
+        const SIGNATURE_SIZE: usize = 64;
+
+        if bytes.len() != SIGNATURE_SIZE + 1 {
+            return Err("Invalid size of a recoverable signature".into());
+        }
+
+        let signature = Signature::try_from_be_bytes(&bytes[0..SIGNATURE_SIZE])?;
+        let recovery_id = RecoveryId::from_byte(bytes[SIGNATURE_SIZE])
+            .ok_or_else(|| "Invalid recovery byte".to_string())?;
+
+        Ok(RecoverableSignature {
+            signature,
+            recovery_id,
+        })
+    }
+}
+
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+impl Serialize for RecoverableSignature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_with_encoding(&self.to_be_bytes(), serializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+impl<'de> Deserialize<'de> for RecoverableSignature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_with_encoding(deserializer, Encoding::Hex)
+    }
+}
+
+#[cfg(feature = "serde-support")]
+impl TryFromBytes for RecoverableSignature {
+    type Error = String;
+
+    fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
+        Self::try_from_be_bytes(bytes)
+    }
+}
+
+impl fmt::Display for RecoverableSignature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_public("RecoverableSignature", &self.to_be_bytes(), f)
     }
 }
 
@@ -234,7 +341,22 @@ impl PublicKey {
         verifier.verify_digest(digest, &signature.0).is_ok()
     }
 
-    /// Retunrs the serialized pubic key as the compressed curve point.
+    /// Recovers the public key from a prehashed message
+    /// and the corresponding recoverable signature.
+    pub fn recover_from_prehash(
+        prehash: &[u8],
+        signature: &RecoverableSignature,
+    ) -> Result<Self, String> {
+        let vkey = VerifyingKey::recover_from_prehash(
+            prehash,
+            &signature.signature.0,
+            signature.recovery_id,
+        )
+        .map_err(|err| format!("Internal backend error: {err}"))?;
+        Ok(Self(vkey.into()))
+    }
+
+    /// Restores the public key from a compressed curve point.
     pub fn try_from_compressed_bytes(bytes: &[u8]) -> Result<Self, String> {
         let cp = CurvePoint::try_from_compressed_bytes(bytes)?;
         BackendPublicKey::<CurveType>::try_from(cp.as_backend_point())
@@ -242,11 +364,16 @@ impl PublicKey {
             .map_err(|_| "Cannot instantiate a public key from the given curve point".into())
     }
 
-    /// Restores the public key from a compressed curve point.
+    /// Retunrs the serialized pubic key as the compressed curve point.
     pub fn to_compressed_bytes(self) -> Box<[u8]> {
         let arr: GenericArray<u8, CompressedPointSize> = self.to_point().to_compressed_array();
         let slice: &[u8] = arr.as_ref();
         slice.into()
+    }
+
+    /// Retunrs the serialized pubic key as the uncompressed curve point.
+    pub fn to_uncompressed_bytes(self) -> Box<[u8]> {
+        self.to_point().to_uncompressed_bytes()
     }
 }
 
@@ -376,7 +503,11 @@ impl fmt::Display for SecretKeyFactory {
 #[cfg(test)]
 mod tests {
 
-    use super::{SecretKey, SecretKeyFactory, Signer};
+    use sha2::digest::Digest;
+
+    use super::{
+        digest_for_signing, PublicKey, RecoverableSignature, SecretKey, SecretKeyFactory, Signer,
+    };
 
     #[cfg(feature = "serde-support")]
     use crate::serde_bytes::tests::check_serialization_roundtrip;
@@ -406,6 +537,42 @@ mod tests {
         assert!(signature.verify(&vk, message));
     }
 
+    #[test]
+    fn test_sign_and_recover() {
+        let sk = SecretKey::random();
+        let pk = sk.public_key();
+        let message: &[u8] = b"asdafdahsfdasdfasd";
+        let message_prehashed = digest_for_signing(message).finalize();
+
+        let signer = Signer::new(sk);
+        let signature = signer.sign(message);
+
+        for flag in [false, true] {
+            let rsig = RecoverableSignature::from_normalized(signature.clone(), flag);
+            let pk_rec = PublicKey::recover_from_prehash(&message_prehashed, &rsig).unwrap();
+
+            if pk == pk_rec {
+                // Test serialization
+                let sig_bytes = signature.to_be_bytes();
+                let rsig_bytes = [AsRef::<[u8]>::as_ref(&sig_bytes), &[flag as u8]].concat();
+                assert_eq!(&rsig_bytes.clone().into_boxed_slice(), &rsig.to_be_bytes());
+
+                let rsig_deserialized =
+                    RecoverableSignature::try_from_be_bytes(&rsig_bytes).unwrap();
+
+                let pk_rec =
+                    PublicKey::recover_from_prehash(&message_prehashed, &rsig_deserialized)
+                        .unwrap();
+                assert_eq!(&pk, &pk_rec);
+                assert_eq!(rsig, rsig_deserialized);
+
+                return;
+            }
+        }
+
+        panic!("Could not find a flag that would recover the original public key");
+    }
+
     #[cfg(feature = "serde-support")]
     #[test]
     fn test_serialize_signature() {
@@ -414,6 +581,16 @@ mod tests {
         let signature = signer.sign(message);
 
         check_serialization_roundtrip(&signature);
+    }
+
+    #[cfg(feature = "serde-support")]
+    #[test]
+    fn test_serialize_recoverable_signature() {
+        let message = b"asdafdahsfdasdfasd";
+        let signer = Signer::new(SecretKey::random());
+        let signature = signer.sign(message);
+        let rsig = RecoverableSignature::from_normalized(signature, true);
+        check_serialization_roundtrip(&rsig);
     }
 
     #[cfg(feature = "serde-support")]
