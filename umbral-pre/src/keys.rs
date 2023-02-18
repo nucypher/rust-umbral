@@ -84,11 +84,13 @@ impl Signature {
         verifying_pk.verify_digest(digest_for_signing(message), self)
     }
 
-    pub(crate) fn get_recovery_byte(&self, verifying_pk: &PublicKey, message: &[u8]) -> u8 {
+    pub(crate) fn get_recovery_id(
+        &self,
+        verifying_pk: &PublicKey,
+        message: &[u8],
+    ) -> Option<RecoveryId> {
         let digest = digest_for_signing(message);
-        RecoveryId::trial_recovery_from_digest(&verifying_pk.0.into(), digest, &self.0)
-            .unwrap()
-            .into()
+        RecoveryId::trial_recovery_from_digest(&verifying_pk.0.into(), digest, &self.0).ok()
     }
 }
 
@@ -154,7 +156,7 @@ impl RecoverableSignature {
     pub fn to_be_bytes(&self) -> Box<[u8]> {
         [
             AsRef::<[u8]>::as_ref(&self.signature.to_be_bytes()),
-            AsRef::<[u8]>::as_ref(&[self.recovery_id.to_byte()]),
+            &[self.recovery_id.to_byte()],
         ]
         .concat()
         .into()

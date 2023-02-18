@@ -699,7 +699,7 @@ impl ReencryptionEvidence {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Self {
+    ) -> PyResult<Self> {
         umbral_pre::ReencryptionEvidence::new(
             &capsule.backend.clone(),
             &vcfrag.backend.clone(),
@@ -707,7 +707,8 @@ impl ReencryptionEvidence {
             &delegating_pk.backend.clone(),
             &receiving_pk.backend.clone(),
         )
-        .into()
+        .map(Self::from)
+        .map_err(map_py_value_err)
     }
 
     #[staticmethod]

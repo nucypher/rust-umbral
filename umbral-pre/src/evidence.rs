@@ -1,3 +1,5 @@
+use alloc::string::{String, ToString};
+
 use sha2::digest::Digest;
 
 #[cfg(feature = "serde-support")]
@@ -94,7 +96,7 @@ impl ReencryptionEvidence {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let params = Parameters::new();
 
         let cfrag = vcfrag.clone().unverify();
@@ -134,16 +136,22 @@ impl ReencryptionEvidence {
 
         let kfrag_message_hash = digest_for_signing(&kfrag_message).finalize();
 
-        let kfrag_signature_v = cfrag
+        let recovery_id = cfrag
             .proof
             .kfrag_signature
-            .get_recovery_byte(verifying_pk, &kfrag_message)
-            == 1;
+            .get_recovery_id(verifying_pk, &kfrag_message)
+            .ok_or_else(|| {
+                "Could not find the recovery ID for the kfrag signature: mismatched verifying key?"
+                    .to_string()
+            })?;
+
+        // Note that there is also `is_x_reduced`, but it is currently not handled by `ecdsa` crate.
+        let kfrag_signature_v = recovery_id.is_y_odd();
 
         // TODO: we can also expose `precursor` here to allow the user to calculate
         // `kfrag_message_hash` by themselves. Is it necessary?
 
-        Self {
+        Ok(Self {
             e: capsule.point_e,
             ez,
             e1: cfrag.point_e1,
@@ -160,7 +168,7 @@ impl ReencryptionEvidence {
             u2,
             kfrag_validity_message_hash: kfrag_message_hash,
             kfrag_signature_v,
-        }
+        })
     }
 }
 
@@ -217,7 +225,8 @@ mod tests {
             &verifying_pk,
             &delegating_pk,
             &receiving_pk,
-        );
+        )
+        .unwrap();
 
         let capsule_bytes = capsule.to_bytes_simple();
         let cfrag_bytes = vcfrag.to_bytes_simple();

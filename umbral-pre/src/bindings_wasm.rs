@@ -656,15 +656,16 @@ impl ReencryptionEvidence {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Self {
-        let evidence = umbral_pre::ReencryptionEvidence::new(
+    ) -> Result<ReencryptionEvidence, Error> {
+        umbral_pre::ReencryptionEvidence::new(
             &capsule.0,
             &vcfrag.0,
             &verifying_pk.0,
             &delegating_pk.0,
             &receiving_pk.0,
-        );
-        Self(evidence)
+        )
+        .map(Self)
+        .map_err(map_js_err)
     }
 
     #[wasm_bindgen(js_name = toBytes)]
