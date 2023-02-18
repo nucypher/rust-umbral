@@ -95,7 +95,7 @@ class Signature:
 class RecoverableSignature:
 
     @staticmethod
-    def from_be_bytes(data: bytes) -> Signature:
+    def from_be_bytes(data: bytes) -> RecoverableSignature:
         ...
 
     def to_be_bytes(self) -> bytes:
