@@ -43,8 +43,8 @@ bench-internals = ["default-rng"]
 bindings-python = ["pyo3", "std", "derive_more", "default-serialization"]
 bindings-wasm = ["js-sys", "default-serialization", "wasm-bindgen", "derive_more", "wasm-bindgen-derive", "getrandom/js"]
 default-rng = ["getrandom", "rand_core/getrandom"]
-default-serialization = ["serde-support", "rmp-serde"]
-serde-support = ["serde"]
+default-serialization = ["serde", "rmp-serde"]
+serde = ["dep:serde"]
 std = []
 
 # What features to use when building documentation on docs.rs

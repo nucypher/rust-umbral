@@ -1,4 +1,4 @@
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use alloc::string::String;
 
 use alloc::boxed::Box;
@@ -8,7 +8,7 @@ use core::fmt;
 use generic_array::GenericArray;
 use rand_core::{CryptoRng, RngCore};
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::capsule_frag::CapsuleFrag;
@@ -52,7 +52,7 @@ impl fmt::Display for OpenReencryptedError {
 /// A helper struct:
 /// - allows us not to serialize `params`
 /// - allows us to verify the capsule on deserialization.
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 #[derive(Serialize, Deserialize)]
 struct SerializedCapsule {
     point_e: CurvePoint,
@@ -62,9 +62,9 @@ struct SerializedCapsule {
 
 /// Encapsulated symmetric key used to encrypt the plaintext.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde-support", serde(try_from = "SerializedCapsule"))]
-#[cfg_attr(feature = "serde-support", serde(into = "SerializedCapsule"))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "SerializedCapsule"))]
+#[cfg_attr(feature = "serde", serde(into = "SerializedCapsule"))]
 pub struct Capsule {
     pub(crate) params: Parameters,
     pub(crate) point_e: CurvePoint,
@@ -72,7 +72,7 @@ pub struct Capsule {
     pub(crate) signature: CurveScalar,
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFrom<SerializedCapsule> for Capsule {
     type Error = String;
 
@@ -82,7 +82,7 @@ impl TryFrom<SerializedCapsule> for Capsule {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl From<Capsule> for SerializedCapsule {
     fn from(source: Capsule) -> Self {
         Self {
@@ -118,7 +118,7 @@ impl Capsule {
         }
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     pub(crate) fn new_verified(
         point_e: CurvePoint,
         point_v: CurvePoint,
@@ -144,7 +144,7 @@ impl Capsule {
     }
 
     /// Verifies the integrity of the capsule.
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     fn verify(&self) -> bool {
         let g = CurvePoint::generator();
         let h = hash_capsule_points(&self.point_e, &self.point_v);
@@ -267,7 +267,7 @@ mod tests {
 
     use crate::{generate_kfrags, reencrypt, SecretKey, Signer};
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     #[test]
@@ -331,7 +331,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_serialization() {
         let delegating_sk = SecretKey::random();

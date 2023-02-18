@@ -14,7 +14,7 @@
 //! * `default-serialization` - adds methods for default binary serialization
 //!    that matches the serialization in the bindings.
 //!    MessagePack, `serde`-based.
-//! * `serde-support` - implements `serde`-based serialization and deserialization.
+//! * `serde` - implements `serde`-based serialization and deserialization.
 //! * `bindings-python` - adds a `bindings_python` submodule allowing dependent crates
 //!        to use and re-export some of the Python-wrapped Umbral types.
 //! * `bindings-wasm` - adds a `bindings_wasm` submodule allowing dependent crates
@@ -143,8 +143,8 @@ mod pre;
 mod secret_box;
 mod traits;
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
+#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 pub mod serde_bytes;
 
 pub use capsule::{Capsule, OpenReencryptedError};
