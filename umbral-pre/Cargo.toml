@@ -1,6 +1,6 @@
 [package]
 name = "umbral-pre"
-version = "0.8.1"
+version = "0.9.0-dev"
 authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
 edition = "2021"
 license = "GPL-3.0-only"
@@ -10,7 +10,7 @@ readme = "README.md"
 categories = ["cryptography", "no-std"]
 
 [dependencies]
-k256 = { version = "0.11", default-features = false, features = ["ecdsa", "arithmetic", "hash2curve"] }
+k256 = { version = "0.12", default-features = false, features = ["ecdsa", "arithmetic", "hash2curve"] }
 sha2 = { version = "0.10", default-features = false }
 chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 hkdf = { version = "0.12", default-features = false }
@@ -18,7 +18,7 @@ hex = { version = "0.4", default-features = false, features = ["alloc"] }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 base64 = { version = "0.21", default-features = false, features = ["alloc"] }
 rmp-serde = { version = "1", optional = true }
-pyo3 = { version = "0.17", optional = true }
+pyo3 = { version = "0.18", optional = true }
 js-sys = { version = "0.3", optional = true }
 wasm-bindgen = { version = "0.2.74", optional = true }
 derive_more = { version = "0.99", optional = true, default_features = false, features = ["as_ref", "from", "into"] }
@@ -27,7 +27,6 @@ wasm-bindgen-derive = { version = "0.1", optional = true }
 # These packages are among the dependencies of the packages above.
 # Their versions should be updated when the main packages above are updated.
 generic-array = { version = "0.14.6", features = ["zeroize"] }
-ecdsa = { version = "0.14.4" } # Pin patch version to enable ZeroizeOnDrop for SigningKey
 rand_core = { version = "0.6", default-features = false }
 getrandom = { version = "0.2", optional = true, default-features = false }
 subtle = { version = "2.4", default-features = false }

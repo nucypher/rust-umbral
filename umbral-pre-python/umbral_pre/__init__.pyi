@@ -55,6 +55,10 @@ class PublicKey:
     def to_compressed_bytes(self) -> bytes:
         ...
 
+    @staticmethod
+    def recover_from_prehash(prehash: bytes, signature: RecoverableSignature) -> PublicKey:
+        ...
+
 
 class Signer:
 
@@ -78,6 +82,20 @@ class Signature:
         ...
 
     def to_der_bytes(self) -> bytes:
+        ...
+
+    @staticmethod
+    def from_be_bytes(data: bytes) -> Signature:
+        ...
+
+    def to_be_bytes(self) -> bytes:
+        ...
+
+
+class RecoverableSignature:
+
+    @staticmethod
+    def from_be_bytes(data: bytes) -> Signature:
         ...
 
     def to_be_bytes(self) -> bytes:

@@ -154,7 +154,7 @@ pub use dem::{DecryptionError, EncryptionError};
 pub use evidence::ReencryptionEvidence;
 pub use hashing_ds::hash_to_cfrag_verification;
 pub use key_frag::{KeyFrag, KeyFragVerificationError, VerifiedKeyFrag};
-pub use keys::{PublicKey, SecretKey, SecretKeyFactory, Signature, Signer};
+pub use keys::{PublicKey, RecoverableSignature, SecretKey, SecretKeyFactory, Signature, Signer};
 pub use params::Parameters;
 pub use pre::{
     decrypt_original, decrypt_reencrypted, encrypt_with_rng, generate_kfrags_with_rng,

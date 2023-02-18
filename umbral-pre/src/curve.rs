@@ -2,6 +2,7 @@
 //! `elliptic_curves` has a somewhat unstable API,
 //! and we isolate all the related logic here.
 
+use alloc::boxed::Box;
 use alloc::format;
 use alloc::string::String;
 use core::default::Default;
@@ -207,6 +208,10 @@ impl CurvePoint {
         *GenericArray::<u8, CompressedPointSize>::from_slice(
             self.0.to_affine().to_encoded_point(true).as_bytes(),
         )
+    }
+
+    pub(crate) fn to_uncompressed_bytes(self) -> Box<[u8]> {
+        self.0.to_affine().to_encoded_point(false).as_bytes().into()
     }
 
     /// Hashes arbitrary data with the given domain separation tag

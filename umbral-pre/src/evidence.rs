@@ -1,3 +1,5 @@
+use alloc::string::{String, ToString};
+
 use sha2::digest::Digest;
 
 #[cfg(feature = "serde-support")]
@@ -94,7 +96,7 @@ impl ReencryptionEvidence {
         verifying_pk: &PublicKey,
         delegating_pk: &PublicKey,
         receiving_pk: &PublicKey,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let params = Parameters::new();
 
         let cfrag = vcfrag.clone().unverify();
@@ -134,16 +136,22 @@ impl ReencryptionEvidence {
 
         let kfrag_message_hash = digest_for_signing(&kfrag_message).finalize();
 
-        let kfrag_signature_v = cfrag
+        let recovery_id = cfrag
             .proof
             .kfrag_signature
-            .get_recovery_byte(verifying_pk, &kfrag_message)
-            == 1;
+            .get_recovery_id(verifying_pk, &kfrag_message)
+            .ok_or_else(|| {
+                "Could not find the recovery ID for the kfrag signature: mismatched verifying key?"
+                    .to_string()
+            })?;
+
+        // Note that there is also `is_x_reduced`, but it is currently not handled by `ecdsa` crate.
+        let kfrag_signature_v = recovery_id.is_y_odd();
 
         // TODO: we can also expose `precursor` here to allow the user to calculate
         // `kfrag_message_hash` by themselves. Is it necessary?
 
-        Self {
+        Ok(Self {
             e: capsule.point_e,
             ez,
             e1: cfrag.point_e1,
@@ -160,7 +168,7 @@ impl ReencryptionEvidence {
             u2,
             kfrag_validity_message_hash: kfrag_message_hash,
             kfrag_signature_v,
-        }
+        })
     }
 }
 
@@ -172,16 +180,10 @@ impl<'de> DefaultDeserialize<'de> for ReencryptionEvidence {}
 
 #[cfg(test)]
 mod tests {
-    use k256::{
-        ecdsa::{recoverable, Signature},
-        elliptic_curve::FieldBytes,
-        Secp256k1,
-    };
-
     use super::ReencryptionEvidence;
     use crate::{
         curve::CurveScalar, encrypt, generate_kfrags, hash_to_cfrag_verification, reencrypt,
-        Parameters, SecretKey, Signer,
+        Parameters, PublicKey, RecoverableSignature, SecretKey, Signature, Signer,
     };
 
     fn assert_eq_byte_refs(x: &(impl AsRef<[u8]> + ?Sized), y: &(impl AsRef<[u8]> + ?Sized)) {
@@ -223,7 +225,8 @@ mod tests {
             &verifying_pk,
             &delegating_pk,
             &receiving_pk,
-        );
+        )
+        .unwrap();
 
         let capsule_bytes = capsule.to_bytes_simple();
         let cfrag_bytes = vcfrag.to_bytes_simple();
@@ -241,21 +244,13 @@ mod tests {
 
         let z = CurveScalar::try_from_bytes(&cfrag_bytes[263..(263 + 32)]).unwrap();
 
-        let kfrag_signature_bytes = &cfrag_bytes[295..(295 + 64)];
-        let r = FieldBytes::<Secp256k1>::from_slice(&kfrag_signature_bytes[0..32]);
-        let s = FieldBytes::<Secp256k1>::from_slice(&kfrag_signature_bytes[32..64]);
-        let sig = Signature::from_scalars(*r, *s).unwrap();
-        let rid = recoverable::Id::new(if evidence.kfrag_signature_v { 1 } else { 0 }).unwrap();
+        let sig = Signature::try_from_be_bytes(&cfrag_bytes[295..(295 + 64)]).unwrap();
+        let rsig = RecoverableSignature::from_normalized(sig, evidence.kfrag_signature_v);
 
         // Check that the Alice's verifying key can be recovered from the signature
-
-        let rsig = recoverable::Signature::new(&sig, rid).unwrap();
-        let digest_bytes =
-            FieldBytes::<Secp256k1>::from_slice(&evidence.kfrag_validity_message_hash);
-        let vkey = rsig
-            .recover_verifying_key_from_digest_bytes(digest_bytes)
-            .unwrap();
-        assert_eq_byte_refs(&vkey.to_bytes(), &verifying_pk.to_compressed_bytes());
+        let vkey =
+            PublicKey::recover_from_prehash(&evidence.kfrag_validity_message_hash, &rsig).unwrap();
+        assert_eq!(vkey, verifying_pk);
 
         // Check the ZKP identities
 
