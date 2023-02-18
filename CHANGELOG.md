@@ -4,6 +4,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 0.9.2 - under development
+
+### Fixed
+
+- Fixed the type signature for `RecoverableSignature.from_be_bytes()` in Python bindings. ([#121])
+
+
+[#121]: https://github.com/nucypher/rust-umbral/pull/121
+
+
 ## [0.9.1] - 2023-02-17
 
 ### Added
