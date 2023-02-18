@@ -284,6 +284,7 @@ impl Signature {
 }
 
 #[wasm_bindgen]
+#[derive(derive_more::AsRef, derive_more::From)]
 pub struct RecoverableSignature(umbral_pre::RecoverableSignature);
 
 #[wasm_bindgen]
