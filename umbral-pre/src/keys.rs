@@ -100,7 +100,7 @@ impl Serialize for Signature {
     where
         S: Serializer,
     {
-        serialize_with_encoding(&self.to_der_bytes(), serializer, Encoding::Hex)
+        serialize_with_encoding(&self.to_be_bytes(), serializer, Encoding::Hex)
     }
 }
 
@@ -119,13 +119,13 @@ impl TryFromBytes for Signature {
     type Error = String;
 
     fn try_from_bytes(bytes: &[u8]) -> Result<Self, Self::Error> {
-        Self::try_from_der_bytes(bytes)
+        Self::try_from_be_bytes(bytes)
     }
 }
 
 impl fmt::Display for Signature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt_public("Signature", &self.to_der_bytes(), f)
+        fmt_public("Signature", &self.to_be_bytes(), f)
     }
 }
 

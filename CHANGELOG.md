@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped MSRV to 1.60. ([#117])
 - Bumped `k256` to 0.12 and PyO3 to `0.18`. ([#117])
 - Renamed `serde-support` feature to `serde` to match the conventional style. ([#118])
+- `serde` implementation for `Signature` now uses fixed-size (r,s) serialization instead of DER. ([#119])
 
 
 ### Added
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#107]: https://github.com/nucypher/rust-umbral/pull/107
 [#117]: https://github.com/nucypher/rust-umbral/pull/117
 [#118]: https://github.com/nucypher/rust-umbral/pull/118
+[#119]: https://github.com/nucypher/rust-umbral/pull/119
 
 
 ## [0.8.1] - 2023-01-17
