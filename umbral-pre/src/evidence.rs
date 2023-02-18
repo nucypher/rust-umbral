@@ -2,7 +2,7 @@ use alloc::string::{String, ToString};
 
 use sha2::digest::Digest;
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::curve::CurvePoint;
@@ -46,7 +46,7 @@ use crate::{DefaultDeserialize, DefaultSerialize};
 /// `h` is the challenge scalar, see [`hash_to_cfrag_verification`]
 /// for the details on how to reproduce its calculation.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ReencryptionEvidence {
     /// Same as `e` in [`Capsule::to_bytes_simple`].
     pub e: CurvePoint,
@@ -81,7 +81,7 @@ pub struct ReencryptionEvidence {
     pub u2: CurvePoint,
     /// The hashed message used to create `kfrag_signature` in
     /// [`CapsuleFrag::to_bytes_simple`].
-    #[cfg_attr(feature = "serde-support", serde(with = "crate::serde_bytes::as_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "crate::serde_bytes::as_hex"))]
     pub kfrag_validity_message_hash: BackendDigestOutput,
     /// The recovery byte corresponding to `kfrag_signature` in [`CapsuleFrag::to_bytes_simple`]
     /// (`true` corresponds to `0x01` and `false` to `0x00`).

@@ -3,7 +3,7 @@ use core::fmt;
 
 use rand_core::{CryptoRng, RngCore};
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::capsule::Capsule;
@@ -18,7 +18,7 @@ use crate::traits::fmt_public;
 use crate::{DefaultDeserialize, DefaultSerialize};
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub(crate) struct CapsuleFragProof {
     pub(crate) point_e2: CurvePoint,
     pub(crate) point_v2: CurvePoint,
@@ -76,7 +76,7 @@ impl CapsuleFragProof {
 
 /// A reencrypted fragment of a [`Capsule`] created by a proxy.
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CapsuleFrag {
     pub(crate) point_e1: CurvePoint,
     pub(crate) point_v1: CurvePoint,
@@ -258,8 +258,8 @@ impl<'de> DefaultDeserialize<'de> for CapsuleFrag {}
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`CapsuleFrag::verify`] or [`CapsuleFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize))]
-#[cfg_attr(feature = "serde-support", serde(transparent))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct VerifiedCapsuleFrag {
     cfrag: CapsuleFrag,
 }
@@ -308,7 +308,7 @@ mod tests {
 
     use crate::{encrypt, generate_kfrags, reencrypt, Capsule, PublicKey, SecretKey, Signer};
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     fn prepare_cfrags() -> (
@@ -361,7 +361,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_serialization() {
         let (_delegating_pk, _receiving_pk, _verifying_pk, _capsule, verified_cfrags) =

@@ -28,13 +28,13 @@ use sha2::{digest::Digest, Sha256};
 use subtle::CtOption;
 use zeroize::{DefaultIsZeroes, Zeroize};
 
-#[cfg(any(feature = "serde-support", test))]
+#[cfg(any(feature = "serde", test))]
 use k256::elliptic_curve::group::ff::PrimeField;
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use crate::serde_bytes::{
     deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
 };
@@ -70,7 +70,7 @@ impl CurveScalar {
         self.0.to_bytes()
     }
 
-    #[cfg(any(feature = "serde-support", test))]
+    #[cfg(any(feature = "serde", test))]
     pub(crate) fn try_from_bytes(bytes: &[u8]) -> Result<Self, String> {
         let arr = GenericArray::<u8, ScalarSize>::from_exact_iter(bytes.iter().cloned())
             .ok_or("Invalid length of a curve scalar")?;
@@ -83,7 +83,7 @@ impl CurveScalar {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl Serialize for CurveScalar {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -93,7 +93,7 @@ impl Serialize for CurveScalar {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for CurveScalar {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -103,7 +103,7 @@ impl<'de> Deserialize<'de> for CurveScalar {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFromBytes for CurveScalar {
     type Error = String;
 
@@ -230,7 +230,7 @@ impl Default for CurvePoint {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl Serialize for CurvePoint {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -240,7 +240,7 @@ impl Serialize for CurvePoint {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for CurvePoint {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -250,7 +250,7 @@ impl<'de> Deserialize<'de> for CurvePoint {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFromBytes for CurvePoint {
     type Error = String;
 

@@ -50,7 +50,6 @@ pub fn encrypt_with_rng(
 
 /// A synonym for [`encrypt`] with the default RNG.
 #[cfg(feature = "default-rng")]
-#[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
 pub fn encrypt(
     delegating_pk: &PublicKey,
     plaintext: &[u8],
@@ -113,7 +112,6 @@ pub fn generate_kfrags_with_rng(
 
 /// A synonym for [`generate_kfrags_with_rng`] with the default RNG.
 #[cfg(feature = "default-rng")]
-#[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
 #[allow(clippy::too_many_arguments)]
 pub fn generate_kfrags(
     delegating_sk: &SecretKey,
@@ -154,7 +152,6 @@ pub fn reencrypt_with_rng(
 
 /// A synonym for [`reencrypt_with_rng`] with the default RNG.
 #[cfg(feature = "default-rng")]
-#[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
 pub fn reencrypt(capsule: &Capsule, verified_kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag {
     reencrypt_with_rng(&mut OsRng, capsule, verified_kfrag)
 }

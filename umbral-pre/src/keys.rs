@@ -22,7 +22,7 @@ use zeroize::ZeroizeOnDrop;
 #[cfg(feature = "default-rng")]
 use rand_core::OsRng;
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::curve::{CompressedPointSize, CurvePoint, CurveType, NonZeroCurveScalar, ScalarSize};
@@ -31,7 +31,7 @@ use crate::hashing::{BackendDigest, Hash, ScalarDigest};
 use crate::secret_box::SecretBox;
 use crate::traits::{fmt_public, fmt_secret, SizeMismatchError};
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use crate::serde_bytes::{
     deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
 };
@@ -94,8 +94,7 @@ impl Signature {
     }
 }
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
 impl Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -105,8 +104,7 @@ impl Serialize for Signature {
     }
 }
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for Signature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -116,7 +114,7 @@ impl<'de> Deserialize<'de> for Signature {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFromBytes for Signature {
     type Error = String;
 
@@ -184,8 +182,7 @@ impl RecoverableSignature {
     }
 }
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
 impl Serialize for RecoverableSignature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -195,8 +192,7 @@ impl Serialize for RecoverableSignature {
     }
 }
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for RecoverableSignature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -206,7 +202,7 @@ impl<'de> Deserialize<'de> for RecoverableSignature {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFromBytes for RecoverableSignature {
     type Error = String;
 
@@ -237,7 +233,6 @@ impl SecretKey {
 
     /// Creates a secret key using the default RNG.
     #[cfg(feature = "default-rng")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
     }
@@ -304,7 +299,6 @@ impl Signer {
 
     /// Signs the given message using the default RNG.
     #[cfg(feature = "default-rng")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn sign(&self, message: &[u8]) -> Signature {
         self.sign_with_rng(&mut OsRng, message)
     }
@@ -379,8 +373,7 @@ impl PublicKey {
     }
 }
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -390,8 +383,7 @@ impl Serialize for PublicKey {
     }
 }
 
-#[cfg(feature = "serde-support")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde-support")))]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -401,7 +393,7 @@ impl<'de> Deserialize<'de> for PublicKey {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFromBytes for PublicKey {
     type Error = String;
 
@@ -435,7 +427,6 @@ impl SecretKeyFactory {
 
     /// Creates a secret key factory using the default RNG.
     #[cfg(feature = "default-rng")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
     }
@@ -511,7 +502,7 @@ mod tests {
         digest_for_signing, PublicKey, RecoverableSignature, SecretKey, SecretKeyFactory, Signer,
     };
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     #[test]
@@ -575,7 +566,7 @@ mod tests {
         panic!("Could not find a flag that would recover the original public key");
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serialize_signature() {
         let message = b"asdafdahsfdasdfasd";
@@ -585,7 +576,7 @@ mod tests {
         check_serialization_roundtrip(&signature);
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serialize_recoverable_signature() {
         let message = b"asdafdahsfdasdfasd";
@@ -595,7 +586,7 @@ mod tests {
         check_serialization_roundtrip(&rsig);
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serialize_public_key() {
         let signer = Signer::new(SecretKey::random());

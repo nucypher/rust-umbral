@@ -1,4 +1,4 @@
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use alloc::string::String;
 
 use alloc::boxed::Box;
@@ -8,7 +8,7 @@ use core::fmt;
 use generic_array::{typenum::U32, GenericArray};
 use rand_core::{CryptoRng, RngCore};
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::curve::{CurvePoint, CurveScalar, NonZeroCurveScalar};
@@ -21,7 +21,7 @@ use crate::traits::fmt_public;
 #[cfg(feature = "default-serialization")]
 use crate::{DefaultDeserialize, DefaultSerialize};
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 use crate::serde_bytes::{
     deserialize_with_encoding, serialize_with_encoding, Encoding, TryFromBytes,
 };
@@ -47,7 +47,7 @@ impl AsRef<[u8]> for KeyFragID {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl Serialize for KeyFragID {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -57,7 +57,7 @@ impl Serialize for KeyFragID {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for KeyFragID {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -67,7 +67,7 @@ impl<'de> Deserialize<'de> for KeyFragID {
     }
 }
 
-#[cfg(feature = "serde-support")]
+#[cfg(feature = "serde")]
 impl TryFromBytes for KeyFragID {
     type Error = String;
 
@@ -79,7 +79,7 @@ impl TryFromBytes for KeyFragID {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub(crate) struct KeyFragProof {
     pub(crate) commitment: CurvePoint,
     signature_for_proxy: Signature,
@@ -146,7 +146,7 @@ impl KeyFragProof {
 
 /// A fragment of the encrypting party's key used to create a [`CapsuleFrag`](`crate::CapsuleFrag`).
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct KeyFrag {
     params: Parameters,
     pub(crate) id: KeyFragID,
@@ -303,8 +303,8 @@ impl<'de> DefaultDeserialize<'de> for KeyFrag {}
 /// Can be serialized, but cannot be deserialized directly.
 /// It can only be obtained from [`KeyFrag::verify`] or [`KeyFrag::skip_verification`].
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde-support", derive(Serialize))]
-#[cfg_attr(feature = "serde-support", serde(transparent))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct VerifiedKeyFrag {
     kfrag: KeyFrag,
 }
@@ -420,7 +420,7 @@ mod tests {
 
     use crate::{PublicKey, SecretKey, Signer};
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     use crate::serde_bytes::tests::check_serialization_roundtrip;
 
     fn prepare_kfrags(
@@ -494,7 +494,7 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "serde-support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_serialization() {
         let (_delegating_pk, _receiving_pk, _verifying_pk, verified_kfrags) =
