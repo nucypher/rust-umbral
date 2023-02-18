@@ -95,7 +95,6 @@ impl Signature {
 }
 
 #[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl Serialize for Signature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -106,7 +105,6 @@ impl Serialize for Signature {
 }
 
 #[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<'de> Deserialize<'de> for Signature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -185,7 +183,6 @@ impl RecoverableSignature {
 }
 
 #[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl Serialize for RecoverableSignature {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -196,7 +193,6 @@ impl Serialize for RecoverableSignature {
 }
 
 #[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<'de> Deserialize<'de> for RecoverableSignature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -237,7 +233,6 @@ impl SecretKey {
 
     /// Creates a secret key using the default RNG.
     #[cfg(feature = "default-rng")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
     }
@@ -304,7 +299,6 @@ impl Signer {
 
     /// Signs the given message using the default RNG.
     #[cfg(feature = "default-rng")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn sign(&self, message: &[u8]) -> Signature {
         self.sign_with_rng(&mut OsRng, message)
     }
@@ -380,7 +374,6 @@ impl PublicKey {
 }
 
 #[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -391,7 +384,6 @@ impl Serialize for PublicKey {
 }
 
 #[cfg(feature = "serde")]
-#[cfg_attr(docsrs, doc(cfg(feature = "serde")))]
 impl<'de> Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -435,7 +427,6 @@ impl SecretKeyFactory {
 
     /// Creates a secret key factory using the default RNG.
     #[cfg(feature = "default-rng")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "default-rng")))]
     pub fn random() -> Self {
         Self::random_with_rng(&mut OsRng)
     }
