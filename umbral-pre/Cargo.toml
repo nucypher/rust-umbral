@@ -1,6 +1,6 @@
 [package]
 name = "umbral-pre"
-version = "0.9.0-dev"
+version = "0.9.0"
 authors = ["Bogdan Opanchuk <bogdan@opanchuk.net>"]
 edition = "2021"
 license = "GPL-3.0-only"
