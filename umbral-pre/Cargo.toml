@@ -33,7 +33,7 @@ subtle = { version = "2.4", default-features = false }
 zeroize = { version = "1.5", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-criterion = { version = "0.4", features = ["html_reports"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 serde_json = "1"
 rmp-serde = "1"
 

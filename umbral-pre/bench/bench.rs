@@ -10,7 +10,7 @@ use umbral_pre::{
 };
 
 #[cfg(feature = "bench-internals")]
-fn bench_capsule_from_public_key<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
+fn bench_capsule_from_public_key<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
     let delegating_sk = SecretKey::random();
     let delegating_pk = delegating_sk.public_key();
     group.bench_function("Capsule::from_public_key", |b| {
@@ -19,7 +19,7 @@ fn bench_capsule_from_public_key<'a, M: Measurement>(group: &mut BenchmarkGroup<
 }
 
 #[cfg(feature = "bench-internals")]
-fn bench_capsule_open_original<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
+fn bench_capsule_open_original<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
     let delegating_sk = SecretKey::random();
     let delegating_pk = delegating_sk.public_key();
     let plaintext = b"peace at dawn";
@@ -30,7 +30,7 @@ fn bench_capsule_open_original<'a, M: Measurement>(group: &mut BenchmarkGroup<'a
 }
 
 #[cfg(feature = "bench-internals")]
-fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
+fn bench_capsule_open_reencrypted<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
     let delegating_sk = SecretKey::random();
     let delegating_pk = delegating_sk.public_key();
 
@@ -70,7 +70,7 @@ fn bench_capsule_open_reencrypted<'a, M: Measurement>(group: &mut BenchmarkGroup
     });
 }
 
-fn bench_pre<'a, M: Measurement>(group: &mut BenchmarkGroup<'a, M>) {
+fn bench_pre<M: Measurement>(group: &mut BenchmarkGroup<'_, M>) {
     let delegating_sk = SecretKey::random();
     let delegating_pk = delegating_sk.public_key();
     let plaintext = b"peace at dawn";
