@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bumped MSRV to 1.65. ([#122])
+- Bumped `k256` to 0.13 ([#123])
 
 
 [#122]: https://github.com/nucypher/rust-umbral/pull/122
+[#123]: https://github.com/nucypher/rust-umbral/pull/123
 
 
 ## [0.9.2] - 2023-02-18
