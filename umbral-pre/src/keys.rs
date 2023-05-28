@@ -227,7 +227,7 @@ impl SecretKey {
     }
 
     /// Creates a secret key using the given RNG.
-    pub fn random_with_rng(rng: impl CryptoRng + RngCore) -> Self {
+    pub fn random_with_rng(rng: &mut (impl CryptoRng + RngCore)) -> Self {
         Self::new(BackendSecretKey::<CurveType>::random(rng))
     }
 
@@ -257,14 +257,14 @@ impl SecretKey {
 
     /// Serializes the secret key as a scalar in the big-endian representation.
     pub fn to_be_bytes(&self) -> SecretBox<GenericArray<u8, ScalarSize>> {
-        SecretBox::new(self.0.to_be_bytes())
+        SecretBox::new(self.0.to_bytes())
     }
 
     /// Deserializes the secret key from a scalar in the big-endian representation.
     pub fn try_from_be_bytes(
         bytes: &SecretBox<GenericArray<u8, ScalarSize>>,
     ) -> Result<Self, String> {
-        BackendSecretKey::<CurveType>::from_be_bytes(bytes.as_secret().as_slice())
+        BackendSecretKey::<CurveType>::from_bytes(bytes.as_secret())
             .map(Self::new)
             .map_err(|err| format!("{err}"))
     }

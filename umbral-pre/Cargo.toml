@@ -10,7 +10,7 @@ readme = "README.md"
 categories = ["cryptography", "no-std"]
 
 [dependencies]
-k256 = { version = "0.12", default-features = false, features = ["ecdsa", "arithmetic", "hash2curve"] }
+k256 = { version = "0.13", default-features = false, features = ["ecdsa", "arithmetic", "hash2curve"] }
 sha2 = { version = "0.10", default-features = false }
 chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 hkdf = { version = "0.12", default-features = false }
@@ -33,7 +33,7 @@ subtle = { version = "2.4", default-features = false }
 zeroize = { version = "1.5", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
-criterion = { version = "0.4", features = ["html_reports"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 serde_json = "1"
 rmp-serde = "1"
 

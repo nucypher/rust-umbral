@@ -15,10 +15,9 @@ use k256::{
         hash2curve::{ExpandMsgXmd, GroupDigest},
         ops::Reduce,
         sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
-        Field,
-        FieldSize,
+        CurveArithmetic,
+        FieldBytesSize,
         NonZeroScalar,
-        ProjectiveArithmetic,
         Scalar,
     },
     Secp256k1,
@@ -40,10 +39,11 @@ use crate::serde_bytes::{
 };
 
 pub(crate) type CurveType = Secp256k1;
-pub(crate) type CompressedPointSize = <FieldSize<CurveType> as ModulusSize>::CompressedPointSize;
+pub(crate) type CompressedPointSize =
+    <FieldBytesSize<CurveType> as ModulusSize>::CompressedPointSize;
 
 type BackendScalar = Scalar<CurveType>;
-pub(crate) type ScalarSize = FieldSize<CurveType>;
+pub(crate) type ScalarSize = FieldBytesSize<CurveType>;
 pub(crate) type BackendNonZeroScalar = NonZeroScalar<CurveType>;
 
 // We have to define newtypes for scalar and point here because the compiler
@@ -63,7 +63,7 @@ impl CurveScalar {
     }
 
     pub(crate) fn one() -> Self {
-        Self(BackendScalar::one())
+        Self(BackendScalar::ONE)
     }
 
     pub(crate) fn to_array(self) -> k256::FieldBytes {
@@ -145,7 +145,9 @@ impl NonZeroCurveScalar {
         // There's currently no way to make the required digest output size
         // depend on the target scalar size, so we are hardcoding it to 256 bit
         // (that is, equal to the scalar size).
-        Self(<BackendNonZeroScalar as Reduce<U256>>::from_be_bytes_reduced(d.finalize()))
+        Self(<BackendNonZeroScalar as Reduce<U256>>::reduce_bytes(
+            &d.finalize(),
+        ))
     }
 }
 
@@ -161,7 +163,7 @@ impl From<&NonZeroCurveScalar> for CurveScalar {
     }
 }
 
-type BackendPoint = <CurveType as ProjectiveArithmetic>::ProjectivePoint;
+type BackendPoint = <CurveType as CurveArithmetic>::ProjectivePoint;
 
 /// A point on the elliptic curve.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -219,7 +221,7 @@ impl CurvePoint {
     /// [IETF hash-to-curve standard](https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/)
     pub(crate) fn from_data(dst: &[u8], data: &[u8]) -> Option<Self> {
         Some(Self(
-            CurveType::hash_from_bytes::<ExpandMsgXmd<Sha256>>(&[data], dst).ok()?,
+            CurveType::hash_from_bytes::<ExpandMsgXmd<Sha256>>(&[data], &[dst]).ok()?,
         ))
     }
 }
