@@ -10,7 +10,7 @@ setup(
     description="Implementation of Umbral proxy reencryption algorithm",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    version="0.9.2",
+    version="0.10.0",
     author="Bogdan Opanchuk",
     author_email="bogdan@opanchuk.net",
     url="https://github.com/nucypher/rust-umbral/tree/master/umbral-pre-python",
