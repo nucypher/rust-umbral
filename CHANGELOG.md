@@ -4,6 +4,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## Unreleased
+
+### Added
+
+- Added `bindings_wasm::SecretKey::equals`. ([#125])
+
+[#125]: https://github.com/nucypher/rust-umbral/pull/125
+
+
 ## [0.10.0] - 2023-05-29
 
 ### Changed
@@ -187,7 +196,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `k256` dependency bumped to 0.10 (and to match it, `chacha20poly1305` to 0.9, `elliptic-curve` to 0.11, `ecdsa` to 0.13, `signature` to 1.4, MSRV to 1.56, and Rust edition to 2021). ([#87])
 - ABI changed because of the internal change in hashing to scalars (we can hash to non-zero scalars now). Correspondingly, `OpenReencryptedError::ZeroHash` and `SecretKeyFactoryError` have been removed, and `SecretKeyFactory::make_key()` was made infallible. ([#87])
 - Internal cloning in the library methods was eliminated, and, as a result, several methods now consume the given objects. Namely: `Signer::new()` consumes the given `SecretKey`,
-`KeyFrag::verify()` and `CapsuleFrag::verify()` consume the given kfrag/cfrag, `reencrypt()` consumes the cfrag (but not the capsule). ([#91])
+  `KeyFrag::verify()` and `CapsuleFrag::verify()` consume the given kfrag/cfrag, `reencrypt()` consumes the cfrag (but not the capsule). ([#91])
 - As a consequence, `KeyFrag::verify()` and `CapsuleFrag::verify()` return the original frag on error (as a tuple with the error itself), for logging purposes (since the original object is not available anymore). ([#91])
 - `VerifiedKeyFrag::to_unverified()` and `VerifiedCapsuleFrag::to_unverified()` were renamed to `unverify()` and consume the corresponding frag. ([#91])
 - Using the [IETF standard](https://datatracker.ietf.org/doc/draft-irtf-cfrg-hash-to-curve/) to hash to point instead of a custom implementation (and bumps `k256` to 0.10.2). Changes the format of all the library's objects! ([#92])
@@ -214,7 +223,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Python bindings are exposed as a feature `bindings-python` in the main crate, to allow dependent crates to create their own Python bindings and re-export some Python-wrapped Umbral types. ([#74])
 - `KeyFrag::skip_verification()`, `VerifiedKeyFrag::to_unverified()`, `CapsuleFrag::skip_verification()`, `VerifiedCapsuleFrag::to_unverified()`, and
-the corresponding methods in Python and WASM bindings. ([#84])
+  the corresponding methods in Python and WASM bindings. ([#84])
 
 
 ### Fixed
