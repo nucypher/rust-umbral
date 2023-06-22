@@ -124,6 +124,10 @@ impl SecretKey {
     pub fn to_string(&self) -> String {
         format!("{}", self.0)
     }
+
+    pub fn equals(&self, other: &SecretKey) -> bool {
+        self.0 == other.0
+    }
 }
 
 #[wasm_bindgen]
