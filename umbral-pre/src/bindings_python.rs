@@ -381,6 +381,7 @@ pub struct KeyFrag {
 
 #[pymethods]
 impl KeyFrag {
+    #[pyo3(signature = (verifying_pk, delegating_pk=None, receiving_pk=None))]
     pub fn verify(
         &self,
         verifying_pk: &PublicKey,

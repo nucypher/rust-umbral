@@ -1,6 +1,7 @@
-from typing import Optional, Tuple, List, Sequence
+from typing import Optional, Tuple, List, final
 
 
+@final
 class SecretKey:
 
     @staticmethod
@@ -18,6 +19,7 @@ class SecretKey:
         ...
 
 
+@final
 class SecretKeyFactory:
 
     @staticmethod
@@ -26,10 +28,6 @@ class SecretKeyFactory:
 
     @staticmethod
     def seed_size() -> int:
-        ...
-
-    @staticmethod
-    def from_secure_randomness(seed: bytes) -> SecretKeyFactory:
         ...
 
     def make_secret(self, label: bytes) -> bytes:
@@ -42,10 +40,11 @@ class SecretKeyFactory:
         ...
 
     @staticmethod
-    def from_secure_randomness(data: bytes) -> SecretKeyFactory:
+    def from_secure_randomness(seed: bytes) -> SecretKeyFactory:
         ...
 
 
+@final
 class PublicKey:
 
     @staticmethod
@@ -60,6 +59,7 @@ class PublicKey:
         ...
 
 
+@final
 class Signer:
 
     def __init__(self, secret_key: SecretKey):
@@ -72,6 +72,7 @@ class Signer:
         ...
 
 
+@final
 class Signature:
 
     def verify(self, verifying_pk: PublicKey, message: bytes) -> bool:
@@ -92,6 +93,7 @@ class Signature:
         ...
 
 
+@final
 class RecoverableSignature:
 
     @staticmethod
@@ -102,6 +104,7 @@ class RecoverableSignature:
         ...
 
 
+@final
 class Capsule:
 
     @staticmethod
@@ -115,22 +118,15 @@ class Capsule:
         ...
 
 
-def encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
-    ...
-
-
-def decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
-    ...
-
-
+@final
 class KeyFrag:
 
     def verify(
             self,
             verifying_pk: PublicKey,
-            delegating_pk: Optional[PublicKey],
-            receiving_pk: Optional[PublicKey],
-            ) -> VerifiedKeyFrag:
+            delegating_pk: Optional[PublicKey] = ...,
+            receiving_pk: Optional[PublicKey] = ...,
+    ) -> VerifiedKeyFrag:
         ...
 
     def skip_verification(self) -> VerifiedKeyFrag:
@@ -144,6 +140,7 @@ class KeyFrag:
         ...
 
 
+@final
 class VerifiedKeyFrag:
 
     def __bytes__(self) -> bytes:
@@ -161,10 +158,11 @@ def generate_kfrags(
         shares: int,
         sign_delegating_key: bool,
         sign_receiving_key: bool,
-        ) -> List[VerifiedKeyFrag]:
+) -> List[VerifiedKeyFrag]:
     ...
 
 
+@final
 class CapsuleFrag:
 
     def verify(
@@ -173,7 +171,7 @@ class CapsuleFrag:
             verifying_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
-            ) -> VerifiedCapsuleFrag:
+    ) -> VerifiedCapsuleFrag:
         ...
 
     def skip_verification(self) -> VerifiedCapsuleFrag:
@@ -190,6 +188,7 @@ class CapsuleFrag:
         ...
 
 
+@final
 class VerifiedCapsuleFrag:
 
     def __bytes__(self) -> bytes:
@@ -206,30 +205,21 @@ def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag:
     ...
 
 
-def decrypt_reencrypted(
-        receiving_sk: SecretKey,
-        delegating_pk: PublicKey,
-        capsule: Capsule,
-        cfrags: Sequence[VerifiedCapsuleFrag],
-        ciphertext: bytes,
-        ) -> Optional[bytes]:
-    ...
-
-
+@final
 class CurvePoint:
-
-    def coordinates(self) -> Tuple[bytes, bytes]:
-        ...
+    coordinates: Tuple[bytes, bytes]
 
 
+@final
 class Parameters:
 
-    def __init__(self) -> None:
+    def __init__(self, *args) -> None:
         ...
 
     u: CurvePoint
 
 
+@final
 class ReencryptionEvidence:
 
     def __init__(
@@ -239,7 +229,7 @@ class ReencryptionEvidence:
             verifying_pk: PublicKey,
             delegating_pk: PublicKey,
             receiving_pk: PublicKey,
-        ):
+    ):
         ...
 
     def __bytes__(self) -> bytes:

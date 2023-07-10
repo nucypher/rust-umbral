@@ -19,4 +19,4 @@ from ._umbral import (
     decrypt_reencrypted,
     generate_kfrags,
     reencrypt,
-    )
+)
