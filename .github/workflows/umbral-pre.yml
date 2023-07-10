@@ -125,6 +125,10 @@ jobs:
         run: pip install -e .
         working-directory: umbral-pre-python
 
+      - name: Run Python example
+        run: python example/example.py
+        working-directory: umbral-pre-python
+
       - name: Install pip dependencies
         run: pip install mypy
 
