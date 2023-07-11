@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, List, final
+from typing import Optional, Tuple, List, final, Sequence
 
 
 @final
@@ -118,6 +118,14 @@ class Capsule:
         ...
 
 
+def encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]:
+    ...
+
+
+def decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
+    ...
+
+
 @final
 class KeyFrag:
 
@@ -200,6 +208,14 @@ class VerifiedCapsuleFrag:
     def to_bytes_simple(self) -> bytes:
         ...
 
+def decrypt_reencrypted(
+        receiving_sk: SecretKey,
+        delegating_pk: PublicKey,
+        capsule: Capsule,
+        verified_cfrags: Sequence[VerifiedCapsuleFrag],
+        ciphertext: bytes,
+) -> Optional[bytes]:
+    ...
 
 def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag:
     ...
