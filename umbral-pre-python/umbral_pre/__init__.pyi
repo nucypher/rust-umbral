@@ -132,8 +132,8 @@ class KeyFrag:
     def verify(
             self,
             verifying_pk: PublicKey,
-            delegating_pk: Optional[PublicKey] = ...,
-            receiving_pk: Optional[PublicKey] = ...,
+            delegating_pk: Optional[PublicKey] = None,
+            receiving_pk: Optional[PublicKey] = None,
     ) -> VerifiedKeyFrag:
         ...
 
@@ -208,6 +208,7 @@ class VerifiedCapsuleFrag:
     def to_bytes_simple(self) -> bytes:
         ...
 
+
 def decrypt_reencrypted(
         receiving_sk: SecretKey,
         delegating_pk: PublicKey,
@@ -217,19 +218,20 @@ def decrypt_reencrypted(
 ) -> Optional[bytes]:
     ...
 
+
 def reencrypt(capsule: Capsule, kfrag: VerifiedKeyFrag) -> VerifiedCapsuleFrag:
     ...
 
 
 @final
 class CurvePoint:
-    coordinates: Tuple[bytes, bytes]
+    coordinates: Optional[Tuple[bytes, bytes]]
 
 
 @final
 class Parameters:
 
-    def __init__(self, *args) -> None:
+    def __init__(self) -> None:
         ...
 
     u: CurvePoint

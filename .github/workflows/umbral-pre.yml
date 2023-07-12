@@ -133,7 +133,7 @@ jobs:
         run: pip install mypy
 
       - name: Run mypy.stubtest
-        run: python -m mypy.stubtest umbral_pre
+        run: python -m mypy.stubtest umbral_pre --allowlist stubtest-allowlist.txt
         working-directory: umbral-pre-python
 
   trigger-wheels:
