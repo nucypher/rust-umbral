@@ -99,6 +99,43 @@ jobs:
       - run: cargo check --all-features
       - run: cargo test --release --all-features
 
+  python-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+        python:
+          - "3.10"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Install umbral_pre package
+        run: pip install -e .
+        working-directory: umbral-pre-python
+
+      - name: Run Python example
+        run: python example/example.py
+        working-directory: umbral-pre-python
+
+      - name: Install pip dependencies
+        run: pip install mypy
+
+      - name: Run mypy.stubtest
+        run: python -m mypy.stubtest umbral_pre --allowlist stubtest-allowlist.txt
+        working-directory: umbral-pre-python
+
   trigger-wheels:
     runs-on: ubuntu-latest
     needs: test

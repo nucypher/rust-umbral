@@ -381,6 +381,8 @@ pub struct KeyFrag {
 
 #[pymethods]
 impl KeyFrag {
+    // Fixing signature expansion to satisfy mypy.stubtest
+    #[pyo3(text_signature = "(self, verifying_pk, delegating_pk=None, receiving_pk=None)")]
     pub fn verify(
         &self,
         verifying_pk: &PublicKey,
