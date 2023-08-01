@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added `bindings_wasm::SecretKey::equals`. ([#125])
+- Update Python bindings. ([#126])
 
 [#125]: https://github.com/nucypher/rust-umbral/pull/125
+[#126]: https://github.com/nucypher/rust-umbral/pull/126
 
 
 ## [0.10.0] - 2023-05-29
