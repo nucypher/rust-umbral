@@ -1,7 +1,7 @@
 # New version publishing instructions
 
 Ideally it would be done by a CI action.
-For now it has to be done manually.
+For now, it has to be done manually.
 
 
 ## Keeping the changelog and bumping the version
@@ -14,7 +14,7 @@ The version number part (major/minor/patch) that is bumped should correspond to 
 ## Release commit
 
 - Update `CHANGELOG.md` (replace `Unreleased` with the version and the release date).
-- Use Python [Bumpversion](https://github.com/c4urself/bump2version/) to autmoatically update relevant version strings throughout the repo.
+- Use Python [Bumpversion](https://github.com/c4urself/bump2version/) to automatically update relevant version strings throughout the repo.
   - `bump2version <major/minor/patch> --new-version <major>.<minor>.<patch>`
 - git push the commit and tag
   - `git push upstream master --tags`
