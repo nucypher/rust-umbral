@@ -106,7 +106,7 @@ jobs:
         rust:
           - stable
         python:
-          - "3.10"
+          - "3.12"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4

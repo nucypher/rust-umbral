@@ -49,7 +49,7 @@ jobs:
       - uses: actions/setup-python@v2
         name: Install Python
         with:
-          python-version: '3.8'
+          python-version: '3.12'
 
       - name: Install cibuildwheel
         run: |
@@ -82,7 +82,7 @@ jobs:
       - uses: actions/setup-python@v2
         name: Install Python
         with:
-          python-version: '3.8'
+          python-version: '3.12'
 
       - name: Install setuptools and setuptools-rust
         working-directory: ./umbral-pre-python
