@@ -105,8 +105,7 @@ jobs:
       matrix:
         rust:
           - stable
-        python:
-          - "3.12"
+        python: ["3.8", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
