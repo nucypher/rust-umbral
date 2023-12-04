@@ -20,7 +20,7 @@ jobs:
        CIBW_SKIP: "cp36-* pp* *-win32 *musllinux*" # only using manylinux to build
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1
         with:
@@ -46,10 +46,10 @@ jobs:
           image: tonistiigi/binfmt:latest
           platforms: arm64
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         name: Install Python
         with:
-          python-version: '3.8'
+          python-version: '3.12'
 
       - name: Install cibuildwheel
         run: |
@@ -77,12 +77,12 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         name: Install Python
         with:
-          python-version: '3.8'
+          python-version: '3.12'
 
       - name: Install setuptools and setuptools-rust
         working-directory: ./umbral-pre-python
@@ -115,11 +115,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: artifact
           path: dist
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: artifact
           path: wheelhouse
