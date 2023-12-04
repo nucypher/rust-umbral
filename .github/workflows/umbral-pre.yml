@@ -137,7 +137,7 @@ jobs:
         working-directory: umbral-pre-python
 
       - name: Run ruff
-        run: ruff check umbral_pre
+        run: ruff check --output-format=github umbral_pre
         working-directory: umbral-pre-python
 
   trigger-wheels:
