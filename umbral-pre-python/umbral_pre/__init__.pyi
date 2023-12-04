@@ -1,5 +1,4 @@
-from typing import Optional, Tuple, List, final, Sequence
-
+from typing import List, Optional, Sequence, Tuple, final
 
 @final
 class SecretKey:
@@ -55,7 +54,10 @@ class PublicKey:
         ...
 
     @staticmethod
-    def recover_from_prehash(prehash: bytes, signature: RecoverableSignature) -> PublicKey:
+    def recover_from_prehash(
+            prehash: bytes,
+            signature: RecoverableSignature
+    ) -> PublicKey:
         ...
 
 
@@ -122,7 +124,11 @@ def encrypt(delegating_pk: PublicKey, plaintext: bytes) -> Tuple[Capsule, bytes]
     ...
 
 
-def decrypt_original(delegating_sk: SecretKey, capsule: Capsule, ciphertext: bytes) -> bytes:
+def decrypt_original(
+        delegating_sk: SecretKey,
+        capsule: Capsule,
+        ciphertext: bytes
+) -> bytes:
     ...
 
 

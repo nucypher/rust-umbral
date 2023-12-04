@@ -130,10 +130,14 @@ jobs:
         working-directory: umbral-pre-python
 
       - name: Install pip dependencies
-        run: pip install mypy
+        run: pip install mypy ruff
 
       - name: Run mypy.stubtest
         run: python -m mypy.stubtest umbral_pre --allowlist stubtest-allowlist.txt
+        working-directory: umbral-pre-python
+
+      - name: Run ruff
+        run: ruff check --output-format=github umbral_pre
         working-directory: umbral-pre-python
 
   trigger-wheels:

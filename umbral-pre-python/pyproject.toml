@@ -1,2 +1,6 @@
 [build-system]
 requires = ["setuptools", "wheel", "setuptools-rust"]
+
+[tool.ruff]
+exclude = ["umbral_pre/__init__.py"] # false-positive unused-import
+select = ["E", "F", "I"]
