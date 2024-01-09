@@ -45,7 +45,8 @@ impl<T> SecretBox<T>
 where
     T: Zeroize + Clone,
 {
-    pub(crate) fn new(val: T) -> Self {
+    /// Creates an new instance of an immutable reference to the secret data.
+    pub fn new(val: T) -> Self {
         Self(Box::new(val))
     }
 
