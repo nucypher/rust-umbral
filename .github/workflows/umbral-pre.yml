@@ -33,12 +33,10 @@ jobs:
           - wasm32-unknown-unknown
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
       #- run: cp ../../Cargo.lock .. # Use same Cargo.lock resolution that's checked in
       - run: cargo build --features bindings-wasm --release --target ${{ matrix.target }}
 
@@ -53,12 +51,10 @@ jobs:
           - thumbv7em-none-eabi
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
       #- run: cp ../../Cargo.lock .. # Use same Cargo.lock resolution that's checked in
       - run: cargo build --release --target ${{ matrix.target }} --no-default-features
 
@@ -71,7 +67,7 @@ jobs:
           - stable
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
           profile: minimal
           toolchain: ${{ matrix.rust }}
@@ -89,12 +85,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
       - run: ${{ matrix.deps }}
       - run: cargo check --all-features
       - run: cargo test --release --all-features
@@ -113,12 +107,10 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          target: ${{ matrix.target }}
-          override: true
+          targets: ${{ matrix.target }}
 
       - name: Install umbral_pre package
         run: pip install -e .
@@ -153,12 +145,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
-          target: x86_64-unknown-linux-gnu
-          override: true
+          targets: x86_64-unknown-linux-gnu
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       # Only checking the coverage of the main library,

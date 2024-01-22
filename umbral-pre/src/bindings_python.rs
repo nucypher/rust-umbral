@@ -59,7 +59,7 @@ fn hash(data: impl AsRef<[u8]>) -> i64 {
     // we just need something fast that minimizes conflicts.
     let digest = Sha256::new().chain(data).finalize();
     let (chunk, _): (GenericArray<u8, U8>, _) = digest.split();
-    let arr: [u8; 8] = chunk.try_into().unwrap();
+    let arr: [u8; 8] = chunk.into();
     i64::from_be_bytes(arr)
 }
 
