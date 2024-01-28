@@ -24,7 +24,7 @@ use pyo3::wrap_pyfunction;
 use sha2::{digest::Update, Digest, Sha256};
 
 use crate as umbral_pre;
-use crate::{curve::ScalarSize, DefaultDeserialize, DefaultSerialize, SecretBox};
+use crate::{DefaultDeserialize, DefaultSerialize};
 
 fn map_py_value_err<T: fmt::Display>(err: T) -> PyErr {
     PyValueError::new_err(format!("{err}"))
@@ -101,11 +101,7 @@ impl SecretKey {
 
     #[staticmethod]
     pub fn from_be_bytes(data: &[u8]) -> PyResult<Self> {
-        let arr = SecretBox::new(
-            GenericArray::<u8, ScalarSize>::from_exact_iter(data.iter().cloned())
-                .ok_or_else(|| map_py_value_err("Invalid length of a curve scalar"))?,
-        );
-        umbral_pre::SecretKey::try_from_be_bytes(&arr)
+        umbral_pre::SecretKey::try_from_be_bytes(data)
             .map_err(map_py_value_err)
             .map(Self::from)
     }

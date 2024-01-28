@@ -4,6 +4,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.12.0] - In development
+
+### Changed
+
+- `SecretKey::try_from_be_bytes()` takes just a slice reference instead of a `SecretBox`. ([#134])
+
+
+[#134]: https://github.com/nucypher/rust-umbral/pull/134
+
+
 ## [0.11.0] - 2023-08-01
 
 ### Added
