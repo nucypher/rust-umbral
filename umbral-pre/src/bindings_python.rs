@@ -3,10 +3,6 @@
 // TODO (#30): ideally, we would write documentation for the bindings as docstrings here,
 // and let Sphinx pick it up... but it's not great at doing so.
 #![allow(missing_docs)]
-// Clippy shows false positives in PyO3 methods.
-// See https://github.com/rust-lang/rust-clippy/issues/8971
-// Will probably be fixed by Rust 1.65
-#![allow(clippy::borrow_deref_ref)]
 
 use alloc::format;
 use alloc::string::String;
