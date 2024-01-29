@@ -261,10 +261,12 @@ impl SecretKey {
     }
 
     /// Deserializes the secret key from a scalar in the big-endian representation.
-    pub fn try_from_be_bytes(
-        bytes: &SecretBox<GenericArray<u8, ScalarSize>>,
-    ) -> Result<Self, String> {
-        BackendSecretKey::<CurveType>::from_bytes(bytes.as_secret())
+    pub fn try_from_be_bytes(bytes: &[u8]) -> Result<Self, String> {
+        let arr = SecretBox::new(
+            GenericArray::<u8, ScalarSize>::from_exact_iter(bytes.iter().cloned())
+                .ok_or("Invalid length of a curve scalar")?,
+        );
+        BackendSecretKey::<CurveType>::from_bytes(arr.as_secret())
             .map(Self::new)
             .map_err(|err| format!("{err}"))
     }

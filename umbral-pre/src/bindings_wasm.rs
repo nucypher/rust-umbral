@@ -14,14 +14,13 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 
-use generic_array::GenericArray;
 use js_sys::{Error, Uint8Array};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 use wasm_bindgen::JsCast;
 use wasm_bindgen_derive::TryFromJsValue;
 
 use crate as umbral_pre;
-use crate::{curve::ScalarSize, DefaultDeserialize, DefaultSerialize, SecretBox};
+use crate::{DefaultDeserialize, DefaultSerialize};
 
 #[wasm_bindgen]
 extern "C" {
@@ -104,11 +103,7 @@ impl SecretKey {
 
     #[wasm_bindgen(js_name = fromBEBytes)]
     pub fn from_be_bytes(data: &[u8]) -> Result<SecretKey, Error> {
-        let arr = SecretBox::new(
-            GenericArray::<u8, ScalarSize>::from_exact_iter(data.iter().cloned())
-                .ok_or_else(|| map_js_err("Invalid length of a curve scalar"))?,
-        );
-        umbral_pre::SecretKey::try_from_be_bytes(&arr)
+        umbral_pre::SecretKey::try_from_be_bytes(data)
             .map(Self)
             .map_err(map_js_err)
     }
